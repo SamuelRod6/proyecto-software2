@@ -43,6 +43,7 @@ make frontend-install # instala deps frontend
 make frontend-dev    # Vite dev server (puerto por defecto 5173)
 make frontend-build  # build frontend
 make frontend-test   # Jest
+make frontend-e2e    # Cypress E2E tests
 make dev             # levanta backend en segundo plano y Vite dev en primer plano
 ```
 
