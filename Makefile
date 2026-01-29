@@ -18,6 +18,9 @@ frontend-build:
 frontend-test:
 	cd frontend && npm run test
 
+frontend-e2e:
+	cd frontend && npm run test:e2e
+
 dev:
 	@echo "Starting backend on :8080..."
 	cd backend && go run . & \

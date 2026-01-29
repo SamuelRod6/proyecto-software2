@@ -1,0 +1,49 @@
+### OS
+.DS_Store
+Thumbs.db
+
+### Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+### Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+### Go (backend)
+backend/bin/
+backend/*.exe
+backend/*.exe~
+backend/*.dll
+backend/*.so
+backend/*.dylib
+backend/*.test
+backend/*.out
+backend/coverage.out
+backend/.env
+
+### Node/Vite (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/.cache/
+frontend/.eslintcache
+
+### Cypress
+frontend/cypress/videos/
+frontend/cypress/screenshots/
+
+### Test/coverage
+frontend/coverage/
+backend/coverage/
+
+### Misc
+*.tmp
+*.temp
