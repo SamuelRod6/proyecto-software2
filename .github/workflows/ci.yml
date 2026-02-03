@@ -10,10 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: backend
+
       - uses: actions/setup-go@v5
         with:
           go-version: "1.21"
           cache: true
+
       - name: Run Go tests
         run: go test ./...
         working-directory: backend
