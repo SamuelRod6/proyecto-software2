@@ -26,6 +26,10 @@ backend/*.test
 backend/*.out
 backend/coverage.out
 backend/.env
+backend/.env.local
+backend/.env.development
+backend/.env.*.local
+backend/node_modules/
 
 ### Node/Vite (frontend)
 frontend/node_modules/

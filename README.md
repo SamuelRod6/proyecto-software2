@@ -34,6 +34,25 @@ go run .            # inicia el servidor en :8080 (compila todos los archivos de
 go test ./...       # ejecuta pruebas
 ```
 
+## Postgres + Prisma Client Go
+
+Este backend usa Prisma Client Go con Postgres local. Variables en `backend/.env`:
+
+Setup (desde `backend/`):
+
+```bash
+npm i -D prisma@5.9.1
+go install github.com/steebchen/prisma-client-go@latest
+PATH="$PATH:$GOPATH/bin" npx prisma generate
+npx prisma migrate dev --name init
+```
+
+Correr visor Prisma (desde `backend/`):
+
+```bash
+npx prisma studio
+```
+
 ## Makefile (atajos)
 
 ```bash
