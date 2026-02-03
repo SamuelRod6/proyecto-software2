@@ -11,6 +11,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache: true
+
+      - name: Install prisma-client-go
+        run: go install github.com/steebchen/prisma-client-go@latest
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -25,11 +33,6 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
         working-directory: backend
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.21"
-          cache: true
 
       - name: Run Go tests
         run: go test ./...
@@ -85,6 +88,9 @@ jobs:
         with:
           go-version: "1.21"
           cache: true
+
+      - name: Install prisma-client-go
+        run: go install github.com/steebchen/prisma-client-go@latest
 
       - name: Install backend deps
         run: npm ci
