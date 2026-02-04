@@ -1,9 +1,14 @@
+// File: backend/main.go
+// Purpose: Entry point for the backend server.
+// Usage: Run `go run backend/main.go` to start the server.
+
 package main
 
 import (
 	"log"
 	"net/http"
 
+	"project/backend/events"
 	"project/backend/prisma/db"
 
 	"github.com/joho/godotenv"
@@ -29,6 +34,7 @@ func main() {
 
 	http.HandleFunc("/api/hello", HelloHandler)
 	http.HandleFunc("/api/users-count", UsersCountHandler)
+	http.Handle("/api/eventos", events.NewHandler(prismaClient))
 	log.Println("Server listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
