@@ -4,6 +4,7 @@ Este proyecto contiene:
 
 - Frontend en React + TypeScript (Vite)
 - Backend en Google Go (API en `backend/main.go`)
+- Docker para manejar facil instalacion de la base de datos postgre
 - Pruebas unitarias con Jest (frontend)
 - Pruebas end-to-end con Cypress
 - Colección de Postman para probar el API
@@ -13,6 +14,7 @@ Este proyecto contiene:
 
 - Node.js 18+ (idealmente 20)
 - Go 1.20+
+- Docker Desktop 
 
 ## Comandos Frontend
 
@@ -33,7 +35,21 @@ cd backend
 go run .            # inicia el servidor en :8080 (compila todos los archivos del paquete)
 go test ./...       # ejecuta pruebas
 ```
+## Instalacion de la base de Datos con docker
 
+En la raíz del proyecto, crea un archivo .env con el siguiente contenido:
+```
+DB_HOST=localhost
+DB_PORT=5435
+DB_USER=user_admin
+DB_PASSWORD=secret_password
+DB_NAME=mi_base_de_datos
+DATABASE_URL="postgresql://user_admin:secret_password@localhost:5435/mi_base_de_datos?schema=public"
+```
+Levanta el contenedor
+```
+docker-compose up -d
+```
 ## Postgres + Prisma Client Go
 
 Este backend usa Prisma Client Go con Postgres local. Variables en `backend/.env`:
