@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"project/backend/prisma/db"
 	"project/backend/handlers"
@@ -43,6 +44,11 @@ func main() {
 	http.HandleFunc("/api/users/hello", userHandler.HelloHandler)
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
-	log.Println("Server listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Println("Server listening on :" + port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
