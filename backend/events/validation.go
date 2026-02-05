@@ -30,26 +30,42 @@ func validateEventoNombre(nombre string) error {
 }
 
 // validateEventoFechas checks if the event dates are valid.
-func validateEventoFechas(fechaInicio, fechaFin string, now time.Time) (time.Time, time.Time, error) {
+func validateEventoFechas(fechaInicio, fechaFin, fechaCierre string, now time.Time) (time.Time, time.Time, time.Time, error) {
 	loc := now.Location()
 	start, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaInicio), loc)
 	if err != nil {
-		return time.Time{}, time.Time{}, errors.New("Fecha de inicio inválida (formato DD/MM/AAAA).")
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de inicio inválida (formato DD/MM/AAAA).")
 	}
 	end, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaFin), loc)
 	if err != nil {
-		return time.Time{}, time.Time{}, errors.New("Fecha de fin inválida (formato DD/MM/AAAA).")
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de fin inválida (formato DD/MM/AAAA).")
+	}
+	cierre, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaCierre), loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de cierre de inscripción inválida (formato DD/MM/AAAA).")
 	}
 
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	// Validation Rule 1: All dates must be future (relative to today/now for creation)
 	if !start.After(today) {
-		return time.Time{}, time.Time{}, errors.New("La fecha de inicio debe ser posterior a la fecha actual.")
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de inicio debe ser posterior a la fecha actual.")
 	}
-	if !end.After(start) {
-		return time.Time{}, time.Time{}, errors.New("La fecha de fin debe ser posterior a la fecha de inicio.")
+	// Agregamos verificacion de cierre de inscripcion: debe ser despues de la fecha actual
+	if !cierre.After(today) {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de cierre de inscripción debe ser posterior a la fecha actual.")
 	}
 
-	return start, end, nil
+	// Validation Rule 2: Logical order of dates
+	if !end.After(start) {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de fin debe ser posterior a la fecha de inicio.")
+	}
+	// Agregamos verificacion de cierre de inscripcion: debe ser antes del inicio del evento
+	if !cierre.Before(start) {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de cierre de inscripción debe ser anterior a la fecha de inicio del evento.")
+	}
+
+	return start, end, cierre, nil
 }
 
 // validateEventoUbicacion checks if the event location is valid.
