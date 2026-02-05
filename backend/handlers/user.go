@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -19,7 +20,9 @@ func NewUserHandler(repo *repository.UserRepository) *UserHandler {
 
 // HelloHandler - returns a simple greeting
 func (h *UserHandler) HelloHandler(w http.ResponseWriter, r *http.Request) {
-	utils.WriteSuccess(w, http.StatusOK, utils.SuccessGeneral, map[string]string{"message": "Hello, world!"})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Hola, mundo"})
 }
 
 // UsersCountHandler - returns specific user count using DB
