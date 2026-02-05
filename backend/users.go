@@ -37,6 +37,12 @@ func UpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	roleHeader := strings.TrimSpace(r.Header.Get("X-Role"))
+	if strings.ToUpper(roleHeader) != "ADMIN" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	var req dto.UpdateRoleRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -49,7 +55,7 @@ func UpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	role, err := prismaClient.Roles.FindUnique(db.Roles.NombreRol.Equals(req.Rol)).Exec(ctx)
+	roleID, err := userRoleService.GetRoleIDByName(ctx, req.Rol)
 	if err != nil {
 		if db.IsErrNotFound(err) {
 			http.Error(w, "Role not found", http.StatusNotFound)
@@ -58,10 +64,7 @@ func UpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error querying roles", http.StatusInternalServerError)
 		return
 	}
-	if _, err := prismaClient.Usuario.
-		FindUnique(db.Usuario.IDUsuario.Equals(req.UserID)).
-		Update(db.Usuario.Rol.Link(db.Roles.IDRol.Equals(role.IDRol))).
-		Exec(ctx); err != nil {
+	if err := userRoleService.UpdateUserRole(ctx, req.UserID, roleID); err != nil {
 		if db.IsErrNotFound(err) {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
