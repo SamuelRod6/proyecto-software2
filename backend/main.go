@@ -41,7 +41,7 @@ func main() {
 	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
 
 	// User routes
-	http.HandleFunc("/api/users/hello", userHandler.HelloHandler)
+	http.HandleFunc("/api/hello", userHandler.HelloHandler)
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
 	port := os.Getenv("PORT")
