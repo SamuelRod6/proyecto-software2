@@ -25,12 +25,3 @@ model Roles {
   createdAt   DateTime  @default(now())
   Usuario     Usuario[]
 }
-
-model Evento {
-  id_evento    Int      @id @default(autoincrement())
-  nombre       String   @unique
-  fecha_inicio DateTime
-  fecha_fin    DateTime
-  ubicacion    String
-  createdAt    DateTime @default(now())
-}
