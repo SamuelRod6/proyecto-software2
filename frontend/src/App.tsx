@@ -1,7 +1,5 @@
+import AppRouter from "./navigation/AppRouter";
+
 export default function App(): JSX.Element {
-  return (
-    <div>
-      <h1>Hola desde React</h1>
-    </div>
-  );
+	return <AppRouter />;
 }

@@ -49,7 +49,7 @@ frontend/cypress/screenshots/
 frontend/coverage/
 backend/coverage/
 
-### Root (Raíz)
+### Root (Raï¿½z)
 .env
 .env.local
 
@@ -63,3 +63,6 @@ backend/schema-engine-*
 ### Misc
 *.tmp
 *.temp
+
+### Node Modules
+node_modules/

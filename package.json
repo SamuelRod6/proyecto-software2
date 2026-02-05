@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "@types/react": "^19.2.11",
+    "prisma": "^7.3.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.58.1",
+    "playwright": "^1.58.1",
+    "react-icons": "^5.5.0"
+  }
+}
