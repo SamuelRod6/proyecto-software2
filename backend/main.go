@@ -1,3 +1,7 @@
+// File: backend/main.go
+// Purpose: Entry point for the backend server.
+// Usage: Run `go run backend/main.go` to start the server.
+
 package main
 
 import (
@@ -5,6 +9,7 @@ import (
 	"net/http"
 	"os"
 
+	"project/backend/events"
 	"project/backend/prisma/db"
 	"project/backend/handlers"
 	"project/backend/repository"
