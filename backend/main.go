@@ -29,6 +29,8 @@ func main() {
 
 	http.HandleFunc("/api/hello", HelloHandler)
 	http.HandleFunc("/api/users-count", UsersCountHandler)
+	http.HandleFunc("/api/register", RegisterHandler)
+	http.HandleFunc("/api/login", LoginHandler)
 	log.Println("Server listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
