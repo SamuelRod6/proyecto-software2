@@ -7,7 +7,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
-.vs/
 
 ### Logs
 *.log
@@ -48,17 +47,6 @@ frontend/cypress/screenshots/
 ### Test/coverage
 frontend/coverage/
 backend/coverage/
-
-### Root (Raíz)
-.env
-.env.local
-
-### Prisma Specific
-*.db
-*.db-journal
-backend/prisma-cli-*
-backend/query-engine-*
-backend/schema-engine-*
 
 ### Misc
 *.tmp

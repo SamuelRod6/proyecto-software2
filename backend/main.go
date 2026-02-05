@@ -1,15 +1,13 @@
-// File: backend/main.go
-// Purpose: Entry point for the backend server.
-// Usage: Run `go run backend/main.go` to start the server.
-
 package main
 
 import (
 	"log"
 	"net/http"
+	"os"
 
-	"project/backend/events"
+	"project/backend/handlers"
 	"project/backend/prisma/db"
+	"project/backend/repository"
 
 	"github.com/joho/godotenv"
 )
@@ -32,10 +30,26 @@ func main() {
 		}
 	}()
 
-	http.HandleFunc("/api/hello", HelloHandler)
-	http.HandleFunc("/api/users-count", UsersCountHandler)
+	// Initialize repository and handlers
+	userRepo := repository.NewUserRepository(prismaClient)
+	authHandler := handlers.NewAuthHandler(userRepo)
+	userHandler := handlers.NewUserHandler(userRepo)
+
+	// Auth routes
+	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
+	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)
+	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
+
+	// User routes
+	http.HandleFunc("/api/hello", userHandler.HelloHandler)
 	http.HandleFunc("/api/admin/assign-role", UpdateUserRoleHandler)
-	http.Handle("/api/eventos", events.NewHandler(prismaClient))
-	log.Println("Server listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Println("Server listening on :" + port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
