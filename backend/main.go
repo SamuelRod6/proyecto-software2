@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"project/backend/prisma/db"
+	"project/backend/handlers"
+	"project/backend/repository"
 
 	"github.com/joho/godotenv"
 )
@@ -27,10 +29,20 @@ func main() {
 		}
 	}()
 
-	http.HandleFunc("/api/hello", HelloHandler)
-	http.HandleFunc("/api/users-count", UsersCountHandler)
-	http.HandleFunc("/api/register", RegisterHandler)
-	http.HandleFunc("/api/login", LoginHandler)
+	// Initialize repository and handlers
+	userRepo := repository.NewUserRepository(prismaClient)
+	authHandler := handlers.NewAuthHandler(userRepo)
+	userHandler := handlers.NewUserHandler(userRepo)
+
+	// Auth routes
+	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
+	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)
+	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
+
+	// User routes
+	http.HandleFunc("/api/users/hello", userHandler.HelloHandler)
+	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
+
 	log.Println("Server listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
