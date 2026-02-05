@@ -34,6 +34,7 @@ func main() {
 
 	http.HandleFunc("/api/hello", HelloHandler)
 	http.HandleFunc("/api/users-count", UsersCountHandler)
+	http.HandleFunc("/api/admin/assign-role", UpdateUserRoleHandler)
 	http.Handle("/api/eventos", events.NewHandler(prismaClient))
 	log.Println("Server listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))

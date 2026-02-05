@@ -11,3 +11,9 @@ type CreateEventoRequest struct {
 	FechaFin    string `json:"fecha_fin"`
 	Ubicacion   string `json:"ubicacion"`
 }
+
+// UpdateRoleRequest represents the payload to assign a role to a user.
+type UpdateRoleRequest struct {
+	UserID int    `json:"user_id"`
+	Rol    string `json:"rol"`
+}
