@@ -39,6 +39,7 @@ func main() {
 	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
 	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)
 	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
+	http.HandleFunc("/api/auth/logout", authHandler.LogoutHandler)
 
 	// User routes
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)

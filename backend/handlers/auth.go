@@ -137,6 +137,33 @@ func (h *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	utils.WriteSuccess(w, http.StatusOK, utils.SuccessLogin, resp)
 }
 
+func (h *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		utils.WriteError(w, http.StatusMethodNotAllowed, utils.ErrMethodNotAllowed)
+		return
+	}
+
+	// If you store the JWT in a cookie on the client, clear the cookie here so
+	// browsers will drop it. If the client stores the token in localStorage,
+	// the client must remove it — server can't force that for SPAs.
+	cookie := &http.Cookie{
+		Name:     "token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	}
+	http.SetCookie(w, cookie)
+
+	// Stateless JWTs: logout is effectively a client-side operation. If you
+	// need server-side revocation, implement a blacklist (DB or Redis) and
+	// store the token identifier or raw token until its expiration.
+	utils.WriteSuccess(w, http.StatusOK, utils.SuccessGeneral, map[string]string{
+		"message": "logout successful",
+	})
+}
+
 func (h *AuthHandler) ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		utils.WriteError(w, http.StatusMethodNotAllowed, utils.ErrMethodNotAllowed)
