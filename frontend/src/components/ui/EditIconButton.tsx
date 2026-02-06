@@ -4,12 +4,14 @@ interface EditIconButtonProps {
     onClick: () => void;
     className?: string;
     title?: string;
+    color?: string;
 }
 
 const EditIconButton: React.FC<EditIconButtonProps> = ({ 
     onClick, 
     className = "", 
-    title = "Editar" 
+    title = "Editar",
+    color = "#F5E427"
 }) => (
     <button
         type="button"
@@ -23,7 +25,7 @@ const EditIconButton: React.FC<EditIconButtonProps> = ({
             height="22" 
             viewBox="0 0 24 24" 
             fill="none" 
-            stroke="#F5E427" 
+            stroke={color}
             strokeWidth="2" 
             strokeLinecap="round" 
             strokeLinejoin="round"

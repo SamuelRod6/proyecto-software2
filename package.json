@@ -5,6 +5,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@playwright/test": "^1.58.1",
     "lottie-react": "^2.4.1",
     "playwright": "^1.58.1",

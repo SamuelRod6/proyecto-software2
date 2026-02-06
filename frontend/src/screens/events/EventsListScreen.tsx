@@ -108,7 +108,15 @@ export default function EventsListScreen(): JSX.Element {
 							onClick={() => setSelectedEvent(ev)}
 						/>
 					))}
-					<EventDetailModal open={!!selectedEvent} onClose={() => setSelectedEvent(null)} event={selectedEvent} />
+					<EventDetailModal 
+						open={!!selectedEvent} 
+						onClose={() => setSelectedEvent(null)} 
+						event={selectedEvent} 
+						onUpdate={() => {
+							setSelectedEvent(null);
+							fetchEvents();
+						}}
+					/>
 				</div>
 			)}
 		</section>
