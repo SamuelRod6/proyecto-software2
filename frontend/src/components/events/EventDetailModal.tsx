@@ -111,7 +111,10 @@ export default function EventDetailModal({
                                 fromLabel="Inicio"
                                 toLabel="Fin"
                                 className="bg-[#e3e8f0] rounded p-2"
-                                dayPickerProps={{ disabled: () => true }}
+                                dayPickerProps={{
+                                    disabled: () => true,
+                                    month: dateRange?.from || undefined
+                                }}
                             />
                         </div>
                     </div>
