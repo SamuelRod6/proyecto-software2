@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"project/backend/apierrors"
@@ -33,6 +34,10 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.createEvento(w, r)
 	case http.MethodGet:
 		h.listEventos(w, r)
+	case http.MethodPut:
+		h.updateEvento(w, r)
+	case http.MethodPatch:
+		h.patchEvento(w, r)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -55,7 +60,7 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate dates
-	startDate, endDate, err := validateEventoFechas(req.FechaInicio, req.FechaFin, time.Now())
+	startDate, endDate, cierreDate, err := validateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
 	if err != nil {
 		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
@@ -91,7 +96,7 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the event
-	created, err := h.svc.CreateEvento(ctx, req, startDate, endDate)
+	created, err := h.svc.CreateEvento(ctx, req, startDate, endDate, cierreDate)
 	if err != nil {
 		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
@@ -99,11 +104,13 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare and send the response
 	res := dto.EventoResponse{
-		ID:          created.IDEvento,
-		Nombre:      created.Nombre,
-		FechaInicio: created.FechaInicio.Format("02/01/2006"),
-		FechaFin:    created.FechaFin.Format("02/01/2006"),
-		Ubicacion:   created.Ubicacion,
+		ID:                     created.IDEvento,
+		Nombre:                 created.Nombre,
+		FechaInicio:            created.FechaInicio.Format("02/01/2006"),
+		FechaFin:               created.FechaFin.Format("02/01/2006"),
+		FechaCierreInscripcion: created.FechaCierreInscripcion.Format("02/01/2006"),
+		InscripcionesAbiertas:  created.InscripcionesAbiertasManual && time.Now().Before(created.FechaInicio),
+		Ubicacion:              created.Ubicacion,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -126,12 +133,168 @@ func (h *handler) listEventos(w http.ResponseWriter, r *http.Request) {
 	res := make([]dto.EventoResponse, 0, len(eventos))
 	for _, ev := range eventos {
 		res = append(res, dto.EventoResponse{
-			ID:          ev.IDEvento,
-			Nombre:      ev.Nombre,
-			FechaInicio: ev.FechaInicio.Format("02/01/2006"),
-			FechaFin:    ev.FechaFin.Format("02/01/2006"),
-			Ubicacion:   ev.Ubicacion,
+			ID:                     ev.IDEvento,
+			Nombre:                 ev.Nombre,
+			FechaInicio:            ev.FechaInicio.Format("02/01/2006"),
+			FechaFin:               ev.FechaFin.Format("02/01/2006"),
+			FechaCierreInscripcion: ev.FechaCierreInscripcion.Format("02/01/2006"),
+			InscripcionesAbiertas:  ev.InscripcionesAbiertasManual && time.Now().Before(ev.FechaInicio),
+			Ubicacion:              ev.Ubicacion,
 		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(res)
+}
+
+// updateEvento handles the update of an existing event.
+func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
+	var req dto.UpdateEventoRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		apierrors.WriteJSON(w, http.StatusBadRequest, "json inválido")
+		return
+	}
+
+	if req.ID == 0 {
+		apierrors.WriteJSON(w, http.StatusBadRequest, "id_evento es requerido para actualizar")
+		return
+	}
+
+	if err := validateEventoNombre(req.Nombre); err != nil {
+		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	startDate, endDate, cierreDate, err := validateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
+	if err != nil {
+		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := validateEventoUbicacion(req.Ubicacion); err != nil {
+		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	updated, err := h.svc.UpdateEvento(ctx, req, startDate, endDate, cierreDate)
+	if err != nil {
+		if errors.Is(err, errNameExists) || errors.Is(err, errOverlap) {
+			apierrors.WriteJSON(w, http.StatusConflict, err.Error())
+			return
+		}
+		if err.Error() == "Evento no encontrado" {
+			apierrors.WriteJSON(w, http.StatusNotFound, err.Error())
+			return
+		}
+		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	res := dto.EventoResponse{
+		ID:                     updated.IDEvento,
+		Nombre:                 updated.Nombre,
+		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
+		FechaFin:               updated.FechaFin.Format("02/01/2006"),
+		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
+		InscripcionesAbiertas:  updated.InscripcionesAbiertasManual && time.Now().Before(updated.FechaInicio),
+		Ubicacion:              updated.Ubicacion,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(res)
+}
+
+// patchEvento routes PATCH requests based on query parameters (para cerrar y reabrir
+// inscripciones manualmente)
+func (h *handler) patchEvento(w http.ResponseWriter, r *http.Request) {
+	action := r.URL.Query().Get("action")
+	idStr := r.URL.Query().Get("id")
+
+	if idStr == "" {
+		apierrors.WriteJSON(w, http.StatusBadRequest, "id es requerido")
+		return
+	}
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		apierrors.WriteJSON(w, http.StatusBadRequest, "id inválido")
+		return
+	}
+
+	switch action {
+	case "cerrar":
+		h.cerrarInscripciones(w, r, id)
+	case "abrir":
+		h.abrirInscripciones(w, r, id)
+	default:
+		apierrors.WriteJSON(w, http.StatusBadRequest, "action debe ser 'cerrar' o 'abrir'")
+	}
+}
+
+// cerrarInscripciones handles closing registrations for an event.
+func (h *handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	updated, err := h.svc.CerrarInscripciones(ctx, eventoID)
+	if err != nil {
+		if err.Error() == "Evento no encontrado" {
+			apierrors.WriteJSON(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if err.Error() == "No se pueden cerrar inscripciones después de que el evento haya iniciado" {
+			apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	res := dto.EventoResponse{
+		ID:                     updated.IDEvento,
+		Nombre:                 updated.Nombre,
+		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
+		FechaFin:               updated.FechaFin.Format("02/01/2006"),
+		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
+		InscripcionesAbiertas:  updated.InscripcionesAbiertasManual && time.Now().Before(updated.FechaInicio),
+		Ubicacion:              updated.Ubicacion,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(res)
+}
+
+// abrirInscripciones handles reopening registrations for an event.
+func (h *handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	updated, err := h.svc.AbrirInscripciones(ctx, eventoID)
+	if err != nil {
+		if err.Error() == "Evento no encontrado" {
+			apierrors.WriteJSON(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if err.Error() == "No se pueden reabrir inscripciones después de que el evento haya iniciado" {
+			apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	res := dto.EventoResponse{
+		ID:                     updated.IDEvento,
+		Nombre:                 updated.Nombre,
+		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
+		FechaFin:               updated.FechaFin.Format("02/01/2006"),
+		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
+		InscripcionesAbiertas:  updated.InscripcionesAbiertasManual && time.Now().Before(updated.FechaInicio),
+		Ubicacion:              updated.Ubicacion,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
