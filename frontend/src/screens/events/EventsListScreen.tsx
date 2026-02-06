@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Button from "../../components/ui/Button";
 import EventCreateModal from "../../components/events/EventCreateModal";
 import EventItem from "../../components/events/EventItem";
+import EventDetailModal from "../../components/events/EventDetailModal";
 import Loader from "../../components/ui/Loader";
 import ErrorState from "../../components/ui/ErrorState";
 import EmptyState from "../../components/ui/EmptyState";
@@ -19,6 +20,7 @@ export default function EventsListScreen(): JSX.Element {
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
+	const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null);
 	// contexts
 	const { showToast } = useToast();
 
@@ -96,11 +98,17 @@ export default function EventsListScreen(): JSX.Element {
 					{events.map(ev => (
 						<EventItem
 							key={ev.id_evento}
+							id_evento={ev.id_evento}
 							nombre={ev.nombre}
 							fecha_inicio={ev.fecha_inicio}
 							fecha_fin={ev.fecha_fin}
+							fecha_cierre_inscripcion={ev.fecha_cierre_inscripcion}
+							inscripciones_abiertas={ev.inscripciones_abiertas}
+							ubicacion={ev.ubicacion}
+							onClick={() => setSelectedEvent(ev)}
 						/>
 					))}
+					<EventDetailModal open={!!selectedEvent} onClose={() => setSelectedEvent(null)} event={selectedEvent} />
 				</div>
 			)}
 		</section>

@@ -24,6 +24,8 @@ export interface Evento {
     nombre: string;
     fecha_inicio: string;
     fecha_fin: string;
+    fecha_cierre_inscripcion: string;
+    inscripciones_abiertas: boolean;
     ubicacion: string;
 }
 
