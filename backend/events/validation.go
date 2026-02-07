@@ -1,0 +1,87 @@
+// File: backend/events/validation.go
+// Purpose: Validation functions for event-related data.
+// Usage: Import and use in event handlers and services.
+
+package events
+
+import (
+	"errors"
+	"regexp"
+	"strings"
+	"time"
+)
+
+// Regular expressions for validation
+var (
+	nameRegex     = regexp.MustCompile(`^[\p{L} ]+$`)
+	locationRegex = regexp.MustCompile(`^[\p{L}0-9\s,\.\-]+$`)
+)
+
+// validateEventoNombre checks if the event name is valid.
+func validateEventoNombre(nombre string) error {
+	trimmed := strings.TrimSpace(nombre)
+	if len(trimmed) < 5 || len(trimmed) > 100 {
+		return errors.New("El nombre del evento debe tener entre 5 y 100 caracteres.")
+	}
+	if !nameRegex.MatchString(trimmed) {
+		return errors.New("El nombre del evento solo puede contener letras y espacios")
+	}
+	return nil
+}
+
+// validateEventoFechas checks if the event dates are valid.
+func validateEventoFechas(fechaInicio, fechaFin, fechaCierre string, now time.Time) (time.Time, time.Time, time.Time, error) {
+	loc := now.Location()
+	start, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaInicio), loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de inicio inválida (formato DD/MM/AAAA).")
+	}
+	end, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaFin), loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de fin inválida (formato DD/MM/AAAA).")
+	}
+	cierre, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaCierre), loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de cierre de inscripción inválida (formato DD/MM/AAAA).")
+	}
+
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+
+	// Validation Rule 1: All dates must be future (relative to today/now for creation)
+	if !start.After(today) {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de inicio debe ser posterior a la fecha actual.")
+	}
+	// Agregamos verificacion de cierre de inscripcion: debe ser despues de la fecha actual
+	if !cierre.After(today) {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de cierre de inscripción debe ser posterior a la fecha actual.")
+	}
+
+	// Validation Rule 2: Logical order of dates
+	if !end.After(start) {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de fin debe ser posterior a la fecha de inicio.")
+	}
+	// Agregamos verificacion de cierre de inscripcion: debe ser antes del inicio del evento
+	if !cierre.Before(start) {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de cierre de inscripción debe ser anterior a la fecha de inicio del evento.")
+	}
+
+	return start, end, cierre, nil
+}
+
+// validateEventoUbicacion checks if the event location is valid.
+func validateEventoUbicacion(ubicacion string) error {
+	trimmed := strings.TrimSpace(ubicacion)
+	if len(trimmed) < 5 || len(trimmed) > 200 {
+		return errors.New("La ubicación debe tener entre 5 y 200 caracteres.")
+	}
+	if !locationRegex.MatchString(trimmed) {
+		return errors.New("La ubicación contiene caracteres no permitidos.")
+	}
+	parts := strings.FieldsFunc(trimmed, func(r rune) bool {
+		return r == ',' || r == '.'
+	})
+	if len(parts) < 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return errors.New("La ubicación debe incluir ciudad y país separados por coma (,) o punto (.).")
+	}
+	return nil
+}

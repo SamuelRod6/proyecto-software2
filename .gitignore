@@ -51,3 +51,6 @@ backend/coverage/
 ### Misc
 *.tmp
 *.temp
+
+### Node Modules
+node_modules/
