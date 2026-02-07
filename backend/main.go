@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"os"
 
-	"project/backend/prisma/db"
 	"project/backend/handlers"
+	"project/backend/prisma/db"
 	"project/backend/repository"
+	"project/backend/services"
 
 	"github.com/joho/godotenv"
 )
@@ -32,8 +33,9 @@ func main() {
 
 	// Initialize repository and handlers
 	userRepo := repository.NewUserRepository(prismaClient)
+	roleService := services.NewUserRoleService(prismaClient)
 	authHandler := handlers.NewAuthHandler(userRepo)
-	userHandler := handlers.NewUserHandler(userRepo)
+	userHandler := handlers.NewUserHandler(userRepo, roleService)
 
 	// Auth routes
 	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
@@ -43,6 +45,7 @@ func main() {
 
 	// User routes
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
+	http.HandleFunc("/api/admin/assign-role", userHandler.UpdateUserRoleHandler)
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
 	port := os.Getenv("PORT")
