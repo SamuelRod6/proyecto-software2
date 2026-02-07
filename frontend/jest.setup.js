@@ -12,7 +12,7 @@ jest.mock('lottie-react', () => {
   return function DummyLottie() {
     return null; // Renderiza nada, solo para evitar errores en tests
   };
-});
+}, { virtual: true });
 
 jest.mock('lottie-web', () => ({
   loadAnimation: jest.fn(),
