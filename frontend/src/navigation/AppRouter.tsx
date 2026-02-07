@@ -7,6 +7,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import { eventRoutes } from "./EventRoutes";
 // screens
 import HomeScreen from "../screens/HomeScreen";
+import RoleManagementListScreen from "../screens/roleManagement/RoleManagementListScreen";
 // contexts
 import { AuthProvider } from "../contexts/Auth/Authcontext";
 
@@ -28,6 +29,12 @@ export default function AppRouter(): JSX.Element {
 							element={
 								<HomeScreen />
 							} 
+						/>
+						<Route 
+							path="roleManagement"
+							element={
+								<RoleManagementListScreen />
+							}
 						/>
 						{eventRoutes}
 					</Route>

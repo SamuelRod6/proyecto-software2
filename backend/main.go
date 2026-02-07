@@ -46,6 +46,9 @@ func main() {
 	// User routes
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
 	http.HandleFunc("/api/admin/assign-role", userHandler.UpdateUserRoleHandler)
+	http.HandleFunc("/api/roles", userHandler.RolesListHandler)
+	http.HandleFunc("/api/users", userHandler.UsersListHandler)
+
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
 	port := os.Getenv("PORT")

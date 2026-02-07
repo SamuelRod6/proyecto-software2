@@ -50,3 +50,26 @@ func (r *UserRepository) CountUsers(ctx context.Context) (int, error) {
 	}
 	return len(users), nil
 }
+
+func (r *UserRepository) ListUsersWithRoles(ctx context.Context, limit, offset int) ([]db.UsuarioModel, error) {
+	return r.Client.Usuario.
+		FindMany().
+		Skip(offset).
+		Take(limit).
+		Select(
+			db.Usuario.IDUsuario.Field(),
+			db.Usuario.Nombre.Field(),
+		).
+		With(db.Usuario.Rol.Fetch()).
+		Exec(ctx)
+}
+
+func (r *UserRepository) ListRoles(ctx context.Context) ([]db.RolesModel, error) {
+	return r.Client.Roles.
+		FindMany().
+		Select(
+			db.Roles.IDRol.Field(),
+			db.Roles.NombreRol.Field(),
+		).
+		Exec(ctx)
+}

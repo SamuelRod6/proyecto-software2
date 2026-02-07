@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +44,103 @@ func (h *UserHandler) UsersCountHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	utils.WriteSuccess(w, http.StatusOK, utils.SuccessGeneral, map[string]int{"count": count})
+}
+
+func (h *UserHandler) UsersListHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		utils.WriteError(w, http.StatusMethodNotAllowed, utils.ErrMethodNotAllowed)
+		return
+	}
+
+	limit := 10
+	offset := 0
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		if parsedLimit, err := strconv.Atoi(rawLimit); err == nil && parsedLimit > 0 {
+			if parsedLimit > 100 {
+				parsedLimit = 100
+			}
+			limit = parsedLimit
+		}
+	}
+	if rawOffset := strings.TrimSpace(r.URL.Query().Get("offset")); rawOffset != "" {
+		if parsedOffset, err := strconv.Atoi(rawOffset); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	users, err := h.Repo.ListUsersWithRoles(ctx, limit, offset)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, utils.ErrDatabase)
+		return
+	}
+
+	total, err := h.Repo.CountUsers(ctx)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, utils.ErrDatabase)
+		return
+	}
+
+	type userRoleItem struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+		Role string `json:"role"`
+	}
+
+	items := make([]userRoleItem, 0, len(users))
+	for _, user := range users {
+		roleName := ""
+		if user.RelationsUsuario.Rol != nil {
+			roleName = user.RelationsUsuario.Rol.NombreRol
+		}
+		items = append(items, userRoleItem{
+			ID:   user.IDUsuario,
+			Name: user.Nombre,
+			Role: roleName,
+		})
+	}
+
+	utils.WriteSuccess(w, http.StatusOK, utils.SuccessGeneral, map[string]any{
+		"users":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+func (h *UserHandler) RolesListHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		utils.WriteError(w, http.StatusMethodNotAllowed, utils.ErrMethodNotAllowed)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	roles, err := h.Repo.ListRoles(ctx)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, utils.ErrDatabase)
+		return
+	}
+
+	type roleItem struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+
+	items := make([]roleItem, 0, len(roles))
+	for _, role := range roles {
+		items = append(items, roleItem{
+			ID:   role.IDRol,
+			Name: role.NombreRol,
+		})
+	}
+
+	utils.WriteSuccess(w, http.StatusOK, utils.SuccessGeneral, map[string]any{
+		"roles": items,
+	})
 }
 
 func (h *UserHandler) UpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) {
