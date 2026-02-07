@@ -5,9 +5,11 @@ import (
 	"net/http"
 	"os"
 
+	authhandler "project/backend/internal/auth/handler"
+	eventhandler "project/backend/internal/events/handler"
+	userhandler "project/backend/internal/users/handler"
+	userrepo "project/backend/internal/users/repo"
 	"project/backend/prisma/db"
-	"project/backend/handlers"
-	"project/backend/repository"
 
 	"github.com/joho/godotenv"
 )
@@ -15,9 +17,12 @@ import (
 var prismaClient *db.PrismaClient
 
 func main() {
-	// Cargar variables de entorno desde .env
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: .env file not found")
+	envFile := os.Getenv("ENV_FILE")
+	if envFile == "" {
+		envFile = ".env"
+	}
+	if err := godotenv.Load(envFile); err != nil {
+		log.Println("Warning: " + envFile + " file not found")
 	}
 
 	prismaClient = db.NewClient()
@@ -30,20 +35,20 @@ func main() {
 		}
 	}()
 
-	// Initialize repository and handlers
-	userRepo := repository.NewUserRepository(prismaClient)
-	authHandler := handlers.NewAuthHandler(userRepo)
-	userHandler := handlers.NewUserHandler(userRepo)
+	userRepo := userrepo.NewUserRepository(prismaClient)
+	authHandler := authhandler.New(userRepo)
+	userHandler := userhandler.New(userRepo)
+	eventsHandler := eventhandler.New(prismaClient)
 
-	// Auth routes
 	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
 	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)
 	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
 	http.HandleFunc("/api/auth/logout", authHandler.LogoutHandler)
 
-	// User routes
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
+
+	http.Handle("/api/eventos", eventsHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

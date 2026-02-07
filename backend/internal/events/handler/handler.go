@@ -1,8 +1,4 @@
-// File: backend/events/handler.go
-// Purpose: HTTP handler for event-related endpoints.
-// Usage: Import and use in main.go to handle /api/eventos routes.
-
-package events
+package handler
 
 import (
 	"context"
@@ -12,23 +8,24 @@ import (
 	"strconv"
 	"time"
 
-	"project/backend/apierrors"
-	"project/backend/events/dto"
+	"project/backend/internal/events/dto"
+	"project/backend/internal/events/repo"
+	"project/backend/internal/events/service"
+	"project/backend/internal/events/validation"
+	"project/backend/internal/shared/httperror"
 	"project/backend/prisma/db"
 )
 
-// handler implements http.Handler for event-related operations.
-type handler struct {
-	svc *service
+type Handler struct {
+	svc *service.Service
 }
 
-// NewHandler creates a new event handler with the given Prisma client.
-func NewHandler(client *db.PrismaClient) http.Handler {
-	return &handler{svc: newService(client)}
+func New(client *db.PrismaClient) http.Handler {
+	repository := repo.New(client)
+	return &Handler{svc: service.New(repository)}
 }
 
-// ServeHTTP routes requests to the appropriate method based on HTTP verb.
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		h.createEvento(w, r)
@@ -43,66 +40,57 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// createEvento handles the creation of a new event.
-func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateEventoRequest
 
-	// Decode the JSON request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, "json inválido")
+		httperror.WriteJSON(w, http.StatusBadRequest, "json inválido")
 		return
 	}
 
-	// Validate request fields
-	if err := validateEventoNombre(req.Nombre); err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+	if err := validation.ValidateEventoNombre(req.Nombre); err != nil {
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Validate dates
-	startDate, endDate, cierreDate, err := validateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
+	startDate, endDate, cierreDate, err := validation.ValidateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
 	if err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Validate location
-	if err := validateEventoUbicacion(req.Ubicacion); err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+	if err := validation.ValidateEventoUbicacion(req.Ubicacion); err != nil {
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	// Ensure unique event name
 	if err := h.svc.EnsureNombreUnico(ctx, req.Nombre); err != nil {
-		if errors.Is(err, errNameExists) {
-			apierrors.WriteJSON(w, http.StatusConflict, err.Error())
+		if errors.Is(err, service.ErrNameExists) {
+			httperror.WriteJSON(w, http.StatusConflict, err.Error())
 			return
 		}
-		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	// Ensure no date overlap with existing events
 	if err := h.svc.EnsureNoSolapamiento(ctx, startDate, endDate); err != nil {
-		if errors.Is(err, errOverlap) {
-			apierrors.WriteJSON(w, http.StatusConflict, err.Error())
+		if errors.Is(err, service.ErrOverlap) {
+			httperror.WriteJSON(w, http.StatusConflict, err.Error())
 			return
 		}
-		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	// Create the event
 	created, err := h.svc.CreateEvento(ctx, req, startDate, endDate, cierreDate)
 	if err != nil {
-		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	// Prepare and send the response
 	res := dto.EventoResponse{
 		ID:                     created.IDEvento,
 		Nombre:                 created.Nombre,
@@ -117,19 +105,16 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(res)
 }
 
-// listEventos handles listing all events.
-func (h *handler) listEventos(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	// Retrieve events from the service
 	eventos, err := h.svc.ListEventos(ctx)
 	if err != nil {
-		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	// Prepare and send the response
 	res := make([]dto.EventoResponse, 0, len(eventos))
 	for _, ev := range eventos {
 		res = append(res, dto.EventoResponse{
@@ -147,33 +132,32 @@ func (h *handler) listEventos(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(res)
 }
 
-// updateEvento handles the update of an existing event.
-func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 	var req dto.UpdateEventoRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, "json inválido")
+		httperror.WriteJSON(w, http.StatusBadRequest, "json inválido")
 		return
 	}
 
 	if req.ID == 0 {
-		apierrors.WriteJSON(w, http.StatusBadRequest, "id_evento es requerido para actualizar")
+		httperror.WriteJSON(w, http.StatusBadRequest, "id_evento es requerido para actualizar")
 		return
 	}
 
-	if err := validateEventoNombre(req.Nombre); err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+	if err := validation.ValidateEventoNombre(req.Nombre); err != nil {
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	startDate, endDate, cierreDate, err := validateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
+	startDate, endDate, cierreDate, err := validation.ValidateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
 	if err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err := validateEventoUbicacion(req.Ubicacion); err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+	if err := validation.ValidateEventoUbicacion(req.Ubicacion); err != nil {
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -182,15 +166,15 @@ func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.svc.UpdateEvento(ctx, req, startDate, endDate, cierreDate)
 	if err != nil {
-		if errors.Is(err, errNameExists) || errors.Is(err, errOverlap) {
-			apierrors.WriteJSON(w, http.StatusConflict, err.Error())
+		if errors.Is(err, service.ErrNameExists) || errors.Is(err, service.ErrOverlap) {
+			httperror.WriteJSON(w, http.StatusConflict, err.Error())
 			return
 		}
-		if err.Error() == "Evento no encontrado" {
-			apierrors.WriteJSON(w, http.StatusNotFound, err.Error())
+		if errors.Is(err, service.ErrNotFound) {
+			httperror.WriteJSON(w, http.StatusNotFound, err.Error())
 			return
 		}
-		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
@@ -208,20 +192,18 @@ func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(res)
 }
 
-// patchEvento routes PATCH requests based on query parameters (para cerrar y reabrir
-// inscripciones manualmente)
-func (h *handler) patchEvento(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) patchEvento(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get("action")
 	idStr := r.URL.Query().Get("id")
 
 	if idStr == "" {
-		apierrors.WriteJSON(w, http.StatusBadRequest, "id es requerido")
+		httperror.WriteJSON(w, http.StatusBadRequest, "id es requerido")
 		return
 	}
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		apierrors.WriteJSON(w, http.StatusBadRequest, "id inválido")
+		httperror.WriteJSON(w, http.StatusBadRequest, "id inválido")
 		return
 	}
 
@@ -231,26 +213,25 @@ func (h *handler) patchEvento(w http.ResponseWriter, r *http.Request) {
 	case "abrir":
 		h.abrirInscripciones(w, r, id)
 	default:
-		apierrors.WriteJSON(w, http.StatusBadRequest, "action debe ser 'cerrar' o 'abrir'")
+		httperror.WriteJSON(w, http.StatusBadRequest, "action debe ser 'cerrar' o 'abrir'")
 	}
 }
 
-// cerrarInscripciones handles closing registrations for an event.
-func (h *handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
+func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
 	updated, err := h.svc.CerrarInscripciones(ctx, eventoID)
 	if err != nil {
-		if err.Error() == "Evento no encontrado" {
-			apierrors.WriteJSON(w, http.StatusNotFound, err.Error())
+		if errors.Is(err, service.ErrNotFound) {
+			httperror.WriteJSON(w, http.StatusNotFound, err.Error())
 			return
 		}
-		if err.Error() == "No se pueden cerrar inscripciones después de que el evento haya iniciado" {
-			apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+		if errors.Is(err, service.ErrCannotCloseAfterStart) {
+			httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
@@ -268,22 +249,21 @@ func (h *handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 	_ = json.NewEncoder(w).Encode(res)
 }
 
-// abrirInscripciones handles reopening registrations for an event.
-func (h *handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
+func (h *Handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
 	updated, err := h.svc.AbrirInscripciones(ctx, eventoID)
 	if err != nil {
-		if err.Error() == "Evento no encontrado" {
-			apierrors.WriteJSON(w, http.StatusNotFound, err.Error())
+		if errors.Is(err, service.ErrNotFound) {
+			httperror.WriteJSON(w, http.StatusNotFound, err.Error())
 			return
 		}
-		if err.Error() == "No se pueden reabrir inscripciones después de que el evento haya iniciado" {
-			apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
+		if errors.Is(err, service.ErrCannotOpenAfterStart) {
+			httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		apierrors.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
 	}
 

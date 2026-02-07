@@ -3,7 +3,7 @@
 Este proyecto contiene:
 
 - Frontend en React + TypeScript (Vite)
-- Backend en Google Go (API en `backend/main.go`)
+- Backend en Google Go (API en `backend/cmd/api/main.go`)
 - Pruebas unitarias con Jest (frontend)
 - Pruebas end-to-end con Cypress
 - Colección de Postman para probar el API
@@ -30,13 +30,13 @@ npm run test:e2e    # Cypress (requiere backend en :8080)
 
 ```bash
 cd backend
-go run .            # inicia el servidor en :8080 (compila todos los archivos del paquete)
+go run ./cmd/api     # inicia el servidor en :8080
 go test ./...       # ejecuta pruebas
 ```
 
 ## Postgres + Prisma Client Go
 
-Este backend usa Prisma Client Go con Postgres local. Variables en `backend/.env`:
+Este backend usa Prisma Client Go con Postgres. Variables en `backend/.env` (Neon) y `backend/.env.local` (Docker local).
 
 Setup (desde `backend/`):
 
@@ -64,6 +64,8 @@ make frontend-build  # build frontend
 make frontend-test   # Jest
 make frontend-e2e    # Cypress E2E tests
 make dev             # levanta backend en segundo plano y Vite dev en primer plano
+make dev local       # backend contra Postgres en Docker (backend/.env.local)
+make dev server      # backend contra Neon (backend/.env)
 ```
 
 ## Postman

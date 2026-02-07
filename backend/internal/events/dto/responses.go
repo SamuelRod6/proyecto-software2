@@ -1,7 +1,3 @@
-// File: backend/events/dto/responses.go
-// Purpose: Defines all response DTOs for event-related operations.
-// Usage: Import and use the DTOs in event handlers and services.
-
 package dto
 
 // EventoResponse represents the event data returned in responses.

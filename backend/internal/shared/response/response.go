@@ -1,4 +1,4 @@
-package utils
+package response
 
 import (
 	"encoding/json"
@@ -28,7 +28,7 @@ func WriteJSON(w http.ResponseWriter, httpStatus int, appCode AppCode, payload a
 		Payload: payload,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func WriteError(w http.ResponseWriter, httpStatus int, appCode AppCode) {

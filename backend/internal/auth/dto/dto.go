@@ -1,13 +1,6 @@
-package models
+package dto
 
-// User DTO and related structs
-
-type AuthUser struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
-}
+import "project/backend/internal/auth/domain"
 
 type RegisterRequest struct {
 	Name     string `json:"name"`
@@ -22,9 +15,9 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Message string   `json:"message"`
-	User    AuthUser `json:"user"`
-	Token   string   `json:"token"`
+	Message string          `json:"message"`
+	User    domain.AuthUser `json:"user"`
+	Token   string          `json:"token"`
 }
 
 type ResetPasswordRequest struct {
