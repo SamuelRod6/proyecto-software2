@@ -8,6 +8,7 @@ module.exports = {
   setupFiles: ["<rootDir>/jest.setup.js"],
   moduleNameMapper: {
     // Mock image imports
+    "\\.(css|less|scss|sass)$": "identity-obj-proxy",
     "\\.(jpg|jpeg|png|gif|svg)$": "<rootDir>/__mocks__/fileMock.js",
   },
   roots: ["<rootDir>/src"],
