@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 // components
 import Button from "../../components/ui/Button";
@@ -9,16 +9,88 @@ import { ROUTES } from "../../navigation/routes";
 import usbImage from "../../assets/images/USB.jpg";
 // utils
 import { isValidEmail } from "../../utils/validators";
+// services
+import { loginUser, registerUser } from "../../services/authServices";
+// contexts
+import { useAuth } from "../../contexts/Auth/Authcontext";
+import { toast } from "react-toastify";
 
 export default function RegisterScreen(): JSX.Element {
+    const DEFAULT_ROLE_ID = 4;
+
+    // hooks
+    const navigate = useNavigate();
+    const { login } = useAuth();
+
     // states
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // button validation
     const isFormValid =
-        fullName.trim() !== "" && password.trim() !== "" && isValidEmail(email);
+        fullName.trim() !== "" &&
+        password.trim() !== "" &&
+        isValidEmail(email) &&
+        password === confirmPassword;
+
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!isFormValid || isSubmitting) return;
+
+        setIsSubmitting(true);
+        setErrorMessage(null);
+
+        const registerResult = await registerUser({
+            name: fullName.trim(),
+            email: email.trim(),
+            password,
+            roleId: DEFAULT_ROLE_ID,
+        });
+
+        console.log("Register result:", registerResult);
+
+        if (registerResult.status >= 400) {
+            setErrorMessage(
+                registerResult.data?.message || "No se pudo registrar.",
+            );
+            setIsSubmitting(false);
+            return;
+        }
+
+        const loginResult = await loginUser({
+            email: email.trim(),
+            password,
+        });
+
+        if (loginResult.status >= 400) {
+            setErrorMessage(
+                loginResult.data?.message || "No se pudo iniciar sesion.",
+            );
+            setIsSubmitting(false);
+            return;
+        }
+
+        const token = loginResult.data?.payload?.token as string | undefined;
+        const user = loginResult.data?.payload?.user as
+            | { id: number; name: string; email: string; role: string }
+            | undefined;
+
+        if (token) {
+            localStorage.setItem("auth-token", token);
+        }
+        if (user) {
+            localStorage.setItem("auth-user", JSON.stringify(user));
+        }
+
+        login();
+        navigate(ROUTES.home);
+        toast.success("Registro exitoso. ¡Bienvenido!");
+        setIsSubmitting(false);
+    };
 
     return (
         <section className="grid min-h-screen h-screen overflow-hidden bg-slate-900 text-white md:grid-cols-[420px_2fr]">
@@ -30,7 +102,7 @@ export default function RegisterScreen(): JSX.Element {
                     </p>
                 </div>
 
-                <form className="space-y-4">
+                <form className="space-y-4" onSubmit={handleSubmit}>
                     <Input
                         label="Nombre completo"
                         placeholder="Nombre Apellido"
@@ -51,14 +123,31 @@ export default function RegisterScreen(): JSX.Element {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                     />
-                    <Button type="button" className="w-full" disabled={!isFormValid}>
+                    <Input
+                        label="Confirmar contraseña"
+                        type="password"
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                    {errorMessage && (
+                        <p className="text-xs text-red-300">{errorMessage}</p>
+                    )}
+                    <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={!isFormValid || isSubmitting}
+                    >
                         Registrarme
                     </Button>
                 </form>
 
                 <p className="text-left text-xs text-slate-400">
                     ¿Ya tienes cuenta?{" "}
-                    <Link to={ROUTES.login} className="text-[#F5E427] hover:text-[#E6D51E]">
+                    <Link
+                        to={ROUTES.login}
+                        className="text-[#F5E427] hover:text-[#E6D51E]"
+                    >
                         Inicia sesión
                     </Link>
                 </p>
@@ -76,7 +165,8 @@ export default function RegisterScreen(): JSX.Element {
                         Bienvenido al portal académico
                     </h2>
                     <p className="mt-3 text-sm text-slate-200">
-                        Centraliza el acceso a tus eventos, sesiones y convocatorias.
+                        Centraliza el acceso a tus eventos, sesiones y
+                        convocatorias.
                     </p>
                 </div>
             </div>
