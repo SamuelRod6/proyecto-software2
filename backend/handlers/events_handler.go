@@ -1,8 +1,7 @@
-// File: backend/events/handler.go
+// File: backend/handlers/events_handler.go
 // Purpose: HTTP handler for event-related endpoints.
-// Usage: Import and use in main.go to handle /api/eventos routes.
 
-package events
+package handlers
 
 import (
 	"context"
@@ -13,22 +12,23 @@ import (
 	"time"
 
 	"project/backend/apierrors"
-	"project/backend/events/dto"
+	"project/backend/models"
 	"project/backend/prisma/db"
+	"project/backend/services"
 )
 
-// handler implements http.Handler for event-related operations.
-type handler struct {
-	svc *service
+// EventsHandler implements http.Handler for event-related operations.
+type EventsHandler struct {
+	svc *services.EventService
 }
 
-// NewHandler creates a new event handler with the given Prisma client.
-func NewHandler(client *db.PrismaClient) http.Handler {
-	return &handler{svc: newService(client)}
+// NewEventsHandler creates a new event handler with the given Prisma client.
+func NewEventsHandler(client *db.PrismaClient) http.Handler {
+	return &EventsHandler{svc: services.NewEventService(client)}
 }
 
 // ServeHTTP routes requests to the appropriate method based on HTTP verb.
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		h.createEvento(w, r)
@@ -44,8 +44,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // createEvento handles the creation of a new event.
-func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
-	var req dto.CreateEventoRequest
+func (h *EventsHandler) createEvento(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateEventoRequest
 
 	// Decode the JSON request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -54,20 +54,20 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate request fields
-	if err := validateEventoNombre(req.Nombre); err != nil {
+	if err := services.ValidateEventoNombre(req.Nombre); err != nil {
 		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	// Validate dates
-	startDate, endDate, cierreDate, err := validateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
+	startDate, endDate, cierreDate, err := services.ValidateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
 	if err != nil {
 		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	// Validate location
-	if err := validateEventoUbicacion(req.Ubicacion); err != nil {
+	if err := services.ValidateEventoUbicacion(req.Ubicacion); err != nil {
 		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -77,7 +77,7 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure unique event name
 	if err := h.svc.EnsureNombreUnico(ctx, req.Nombre); err != nil {
-		if errors.Is(err, errNameExists) {
+		if errors.Is(err, services.ErrEventNameExists) {
 			apierrors.WriteJSON(w, http.StatusConflict, err.Error())
 			return
 		}
@@ -87,7 +87,7 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 
 	// Ensure no date overlap with existing events
 	if err := h.svc.EnsureNoSolapamiento(ctx, startDate, endDate); err != nil {
-		if errors.Is(err, errOverlap) {
+		if errors.Is(err, services.ErrEventOverlap) {
 			apierrors.WriteJSON(w, http.StatusConflict, err.Error())
 			return
 		}
@@ -103,7 +103,7 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare and send the response
-	res := dto.EventoResponse{
+	res := models.EventoResponse{
 		ID:                     created.IDEvento,
 		Nombre:                 created.Nombre,
 		FechaInicio:            created.FechaInicio.Format("02/01/2006"),
@@ -118,7 +118,7 @@ func (h *handler) createEvento(w http.ResponseWriter, r *http.Request) {
 }
 
 // listEventos handles listing all events.
-func (h *handler) listEventos(w http.ResponseWriter, r *http.Request) {
+func (h *EventsHandler) listEventos(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
@@ -130,9 +130,9 @@ func (h *handler) listEventos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Prepare and send the response
-	res := make([]dto.EventoResponse, 0, len(eventos))
+	res := make([]models.EventoResponse, 0, len(eventos))
 	for _, ev := range eventos {
-		res = append(res, dto.EventoResponse{
+		res = append(res, models.EventoResponse{
 			ID:                     ev.IDEvento,
 			Nombre:                 ev.Nombre,
 			FechaInicio:            ev.FechaInicio.Format("02/01/2006"),
@@ -148,8 +148,8 @@ func (h *handler) listEventos(w http.ResponseWriter, r *http.Request) {
 }
 
 // updateEvento handles the update of an existing event.
-func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
-	var req dto.UpdateEventoRequest
+func (h *EventsHandler) updateEvento(w http.ResponseWriter, r *http.Request) {
+	var req models.UpdateEventoRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		apierrors.WriteJSON(w, http.StatusBadRequest, "json inválido")
@@ -161,18 +161,18 @@ func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := validateEventoNombre(req.Nombre); err != nil {
+	if err := services.ValidateEventoNombre(req.Nombre); err != nil {
 		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	startDate, endDate, cierreDate, err := validateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
+	startDate, endDate, cierreDate, err := services.ValidateEventoFechas(req.FechaInicio, req.FechaFin, req.FechaCierreInscripcion, time.Now())
 	if err != nil {
 		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	if err := validateEventoUbicacion(req.Ubicacion); err != nil {
+	if err := services.ValidateEventoUbicacion(req.Ubicacion); err != nil {
 		apierrors.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -182,7 +182,7 @@ func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 
 	updated, err := h.svc.UpdateEvento(ctx, req, startDate, endDate, cierreDate)
 	if err != nil {
-		if errors.Is(err, errNameExists) || errors.Is(err, errOverlap) {
+		if errors.Is(err, services.ErrEventNameExists) || errors.Is(err, services.ErrEventOverlap) {
 			apierrors.WriteJSON(w, http.StatusConflict, err.Error())
 			return
 		}
@@ -194,7 +194,7 @@ func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res := dto.EventoResponse{
+	res := models.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
 		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
@@ -210,7 +210,7 @@ func (h *handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 
 // patchEvento routes PATCH requests based on query parameters (para cerrar y reabrir
 // inscripciones manualmente)
-func (h *handler) patchEvento(w http.ResponseWriter, r *http.Request) {
+func (h *EventsHandler) patchEvento(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get("action")
 	idStr := r.URL.Query().Get("id")
 
@@ -236,7 +236,7 @@ func (h *handler) patchEvento(w http.ResponseWriter, r *http.Request) {
 }
 
 // cerrarInscripciones handles closing registrations for an event.
-func (h *handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
+func (h *EventsHandler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
@@ -254,7 +254,7 @@ func (h *handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 		return
 	}
 
-	res := dto.EventoResponse{
+	res := models.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
 		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
@@ -269,7 +269,7 @@ func (h *handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 }
 
 // abrirInscripciones handles reopening registrations for an event.
-func (h *handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
+func (h *EventsHandler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
@@ -287,7 +287,7 @@ func (h *handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eve
 		return
 	}
 
-	res := dto.EventoResponse{
+	res := models.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
 		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),

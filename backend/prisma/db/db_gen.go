@@ -100,6 +100,17 @@ model Roles {
   createdAt   DateTime  @default(now())
   Usuario     Usuario[]
 }
+
+model Evento {
+  id_evento                  Int      @id @default(autoincrement())
+  nombre                     String   @unique
+  fecha_inicio               DateTime
+  fecha_fin                  DateTime
+  fecha_cierre_inscripcion   DateTime
+  inscripciones_abiertas_manual Boolean @default(true)
+  ubicacion                  String
+  createdAt                  DateTime @default(now())
+}
 `
 const schemaDatasourceURL = ""
 const schemaEnvVarName = "DATABASE_URL"
@@ -173,6 +184,7 @@ func newClient() *PrismaClient {
 	c := &PrismaClient{}
 	c.Usuario = usuarioActions{client: c}
 	c.Roles = rolesActions{client: c}
+	c.Evento = eventoActions{client: c}
 
 	c.Prisma = &PrismaActions{
 		Raw: &raw.Raw{Engine: c},
@@ -201,6 +213,8 @@ type PrismaClient struct {
 	Usuario usuarioActions
 	// Roles provides access to CRUD methods.
 	Roles rolesActions
+	// Evento provides access to CRUD methods.
+	Evento eventoActions
 }
 
 // --- template enums.gotpl ---
@@ -232,6 +246,19 @@ const (
 	RolesScalarFieldEnumNombreRol   RolesScalarFieldEnum = "nombre_rol"
 	RolesScalarFieldEnumDescripcion RolesScalarFieldEnum = "descripcion"
 	RolesScalarFieldEnumCreatedAt   RolesScalarFieldEnum = "createdAt"
+)
+
+type EventoScalarFieldEnum string
+
+const (
+	EventoScalarFieldEnumIDEvento                    EventoScalarFieldEnum = "id_evento"
+	EventoScalarFieldEnumNombre                      EventoScalarFieldEnum = "nombre"
+	EventoScalarFieldEnumFechaInicio                 EventoScalarFieldEnum = "fecha_inicio"
+	EventoScalarFieldEnumFechaFin                    EventoScalarFieldEnum = "fecha_fin"
+	EventoScalarFieldEnumFechaCierreInscripcion      EventoScalarFieldEnum = "fecha_cierre_inscripcion"
+	EventoScalarFieldEnumInscripcionesAbiertasManual EventoScalarFieldEnum = "inscripciones_abiertas_manual"
+	EventoScalarFieldEnumUbicacion                   EventoScalarFieldEnum = "ubicacion"
+	EventoScalarFieldEnumCreatedAt                   EventoScalarFieldEnum = "createdAt"
 )
 
 type SortOrder string
@@ -307,6 +334,24 @@ const rolesFieldCreatedAt rolesPrismaFields = "createdAt"
 
 const rolesFieldUsuario rolesPrismaFields = "Usuario"
 
+type eventoPrismaFields = prismaFields
+
+const eventoFieldIDEvento eventoPrismaFields = "id_evento"
+
+const eventoFieldNombre eventoPrismaFields = "nombre"
+
+const eventoFieldFechaInicio eventoPrismaFields = "fecha_inicio"
+
+const eventoFieldFechaFin eventoPrismaFields = "fecha_fin"
+
+const eventoFieldFechaCierreInscripcion eventoPrismaFields = "fecha_cierre_inscripcion"
+
+const eventoFieldInscripcionesAbiertasManual eventoPrismaFields = "inscripciones_abiertas_manual"
+
+const eventoFieldUbicacion eventoPrismaFields = "ubicacion"
+
+const eventoFieldCreatedAt eventoPrismaFields = "createdAt"
+
 // --- template mock.gotpl ---
 func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 	expectations := new([]mock.Expectation)
@@ -325,6 +370,10 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.Evento = eventoMock{
+		mock: m,
+	}
+
 	return pc, m, m.Ensure
 }
 
@@ -334,6 +383,8 @@ type Mock struct {
 	Usuario usuarioMock
 
 	Roles rolesMock
+
+	Evento eventoMock
 }
 
 type usuarioMock struct {
@@ -420,6 +471,48 @@ func (m *rolesMockExec) Errors(err error) {
 	})
 }
 
+type eventoMock struct {
+	mock *Mock
+}
+
+type EventoMockExpectParam interface {
+	ExtractQuery() builder.Query
+	eventoModel()
+}
+
+func (m *eventoMock) Expect(query EventoMockExpectParam) *eventoMockExec {
+	return &eventoMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type eventoMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *eventoMockExec) Returns(v EventoModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *eventoMockExec) ReturnsMany(v []EventoModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *eventoMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
 // --- template models.gotpl ---
 
 // UsuarioModel represents the Usuario model and is a wrapper for accessing fields and methods
@@ -492,6 +585,40 @@ func (r RolesModel) Usuario() (value []UsuarioModel) {
 		panic("attempted to access usuario but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsRoles.Usuario
+}
+
+// EventoModel represents the Evento model and is a wrapper for accessing fields and methods
+type EventoModel struct {
+	InnerEvento
+	RelationsEvento
+}
+
+// InnerEvento holds the actual data
+type InnerEvento struct {
+	IDEvento                    int      `json:"id_evento"`
+	Nombre                      string   `json:"nombre"`
+	FechaInicio                 DateTime `json:"fecha_inicio"`
+	FechaFin                    DateTime `json:"fecha_fin"`
+	FechaCierreInscripcion      DateTime `json:"fecha_cierre_inscripcion"`
+	InscripcionesAbiertasManual bool     `json:"inscripciones_abiertas_manual"`
+	Ubicacion                   string   `json:"ubicacion"`
+	CreatedAt                   DateTime `json:"createdAt"`
+}
+
+// RawEventoModel is a struct for Evento when used in raw queries
+type RawEventoModel struct {
+	IDEvento                    RawInt      `json:"id_evento"`
+	Nombre                      RawString   `json:"nombre"`
+	FechaInicio                 RawDateTime `json:"fecha_inicio"`
+	FechaFin                    RawDateTime `json:"fecha_fin"`
+	FechaCierreInscripcion      RawDateTime `json:"fecha_cierre_inscripcion"`
+	InscripcionesAbiertasManual RawBoolean  `json:"inscripciones_abiertas_manual"`
+	Ubicacion                   RawString   `json:"ubicacion"`
+	CreatedAt                   RawDateTime `json:"createdAt"`
+}
+
+// RelationsEvento holds the relation data separately
+type RelationsEvento struct {
 }
 
 // --- template query.gotpl ---
@@ -4483,6 +4610,2510 @@ func (r rolesQueryUsuarioUsuario) Field() rolesPrismaFields {
 	return rolesFieldUsuario
 }
 
+// Evento acts as a namespaces to access query methods for the Evento model
+var Evento = eventoQuery{}
+
+// eventoQuery exposes query functions for the evento model
+type eventoQuery struct {
+
+	// IDEvento
+	//
+	// @required
+	IDEvento eventoQueryIDEventoInt
+
+	// Nombre
+	//
+	// @required
+	// @unique
+	Nombre eventoQueryNombreString
+
+	// FechaInicio
+	//
+	// @required
+	FechaInicio eventoQueryFechaInicioDateTime
+
+	// FechaFin
+	//
+	// @required
+	FechaFin eventoQueryFechaFinDateTime
+
+	// FechaCierreInscripcion
+	//
+	// @required
+	FechaCierreInscripcion eventoQueryFechaCierreInscripcionDateTime
+
+	// InscripcionesAbiertasManual
+	//
+	// @required
+	InscripcionesAbiertasManual eventoQueryInscripcionesAbiertasManualBoolean
+
+	// Ubicacion
+	//
+	// @required
+	Ubicacion eventoQueryUbicacionString
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt eventoQueryCreatedAtDateTime
+}
+
+func (eventoQuery) Not(params ...EventoWhereParam) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (eventoQuery) Or(params ...EventoWhereParam) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (eventoQuery) And(params ...EventoWhereParam) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type eventoQueryIDEventoInt struct{}
+
+// Set the required value of IDEvento
+func (r eventoQueryIDEventoInt) Set(value int) eventoSetParam {
+
+	return eventoSetParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDEvento dynamically
+func (r eventoQueryIDEventoInt) SetIfPresent(value *Int) eventoSetParam {
+	if value == nil {
+		return eventoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDEvento
+func (r eventoQueryIDEventoInt) Increment(value int) eventoSetParam {
+	return eventoSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) IncrementIfPresent(value *int) eventoSetParam {
+	if value == nil {
+		return eventoSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDEvento
+func (r eventoQueryIDEventoInt) Decrement(value int) eventoSetParam {
+	return eventoSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) DecrementIfPresent(value *int) eventoSetParam {
+	if value == nil {
+		return eventoSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDEvento
+func (r eventoQueryIDEventoInt) Multiply(value int) eventoSetParam {
+	return eventoSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) MultiplyIfPresent(value *int) eventoSetParam {
+	if value == nil {
+		return eventoSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDEvento
+func (r eventoQueryIDEventoInt) Divide(value int) eventoSetParam {
+	return eventoSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) DivideIfPresent(value *int) eventoSetParam {
+	if value == nil {
+		return eventoSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r eventoQueryIDEventoInt) Equals(value int) eventoWithPrismaIDEventoEqualsUniqueParam {
+
+	return eventoWithPrismaIDEventoEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) EqualsIfPresent(value *int) eventoWithPrismaIDEventoEqualsUniqueParam {
+	if value == nil {
+		return eventoWithPrismaIDEventoEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r eventoQueryIDEventoInt) Order(direction SortOrder) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: direction,
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) Cursor(cursor int) eventoCursorParam {
+	return eventoCursorParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: cursor,
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) In(value []int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) InIfPresent(value []int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r eventoQueryIDEventoInt) NotIn(value []int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) NotInIfPresent(value []int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r eventoQueryIDEventoInt) Lt(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) LtIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r eventoQueryIDEventoInt) Lte(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) LteIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r eventoQueryIDEventoInt) Gt(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) GtIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r eventoQueryIDEventoInt) Gte(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) GteIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r eventoQueryIDEventoInt) Not(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryIDEventoInt) NotIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r eventoQueryIDEventoInt) LT(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r eventoQueryIDEventoInt) LTIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r eventoQueryIDEventoInt) LTE(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r eventoQueryIDEventoInt) LTEIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r eventoQueryIDEventoInt) GT(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r eventoQueryIDEventoInt) GTIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r eventoQueryIDEventoInt) GTE(value int) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r eventoQueryIDEventoInt) GTEIfPresent(value *int) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r eventoQueryIDEventoInt) Field() eventoPrismaFields {
+	return eventoFieldIDEvento
+}
+
+// base struct
+type eventoQueryNombreString struct{}
+
+// Set the required value of Nombre
+func (r eventoQueryNombreString) Set(value string) eventoWithPrismaNombreSetParam {
+
+	return eventoWithPrismaNombreSetParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Nombre dynamically
+func (r eventoQueryNombreString) SetIfPresent(value *String) eventoWithPrismaNombreSetParam {
+	if value == nil {
+		return eventoWithPrismaNombreSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r eventoQueryNombreString) Equals(value string) eventoWithPrismaNombreEqualsUniqueParam {
+
+	return eventoWithPrismaNombreEqualsUniqueParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) EqualsIfPresent(value *string) eventoWithPrismaNombreEqualsUniqueParam {
+	if value == nil {
+		return eventoWithPrismaNombreEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r eventoQueryNombreString) Order(direction SortOrder) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: direction,
+		},
+	}
+}
+
+func (r eventoQueryNombreString) Cursor(cursor string) eventoCursorParam {
+	return eventoCursorParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: cursor,
+		},
+	}
+}
+
+func (r eventoQueryNombreString) In(value []string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) InIfPresent(value []string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r eventoQueryNombreString) NotIn(value []string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) NotInIfPresent(value []string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r eventoQueryNombreString) Lt(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) LtIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r eventoQueryNombreString) Lte(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) LteIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r eventoQueryNombreString) Gt(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) GtIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r eventoQueryNombreString) Gte(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) GteIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r eventoQueryNombreString) Contains(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) ContainsIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Contains(*value)
+}
+
+func (r eventoQueryNombreString) StartsWith(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) StartsWithIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r eventoQueryNombreString) EndsWith(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) EndsWithIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r eventoQueryNombreString) Mode(value QueryMode) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) ModeIfPresent(value *QueryMode) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Mode(*value)
+}
+
+func (r eventoQueryNombreString) Not(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryNombreString) NotIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r eventoQueryNombreString) HasPrefix(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r eventoQueryNombreString) HasPrefixIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r eventoQueryNombreString) HasSuffix(value string) eventoParamUnique {
+	return eventoParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r eventoQueryNombreString) HasSuffixIfPresent(value *string) eventoParamUnique {
+	if value == nil {
+		return eventoParamUnique{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r eventoQueryNombreString) Field() eventoPrismaFields {
+	return eventoFieldNombre
+}
+
+// base struct
+type eventoQueryFechaInicioDateTime struct{}
+
+// Set the required value of FechaInicio
+func (r eventoQueryFechaInicioDateTime) Set(value DateTime) eventoWithPrismaFechaInicioSetParam {
+
+	return eventoWithPrismaFechaInicioSetParam{
+		data: builder.Field{
+			Name:  "fecha_inicio",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaInicio dynamically
+func (r eventoQueryFechaInicioDateTime) SetIfPresent(value *DateTime) eventoWithPrismaFechaInicioSetParam {
+	if value == nil {
+		return eventoWithPrismaFechaInicioSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r eventoQueryFechaInicioDateTime) Equals(value DateTime) eventoWithPrismaFechaInicioEqualsParam {
+
+	return eventoWithPrismaFechaInicioEqualsParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) EqualsIfPresent(value *DateTime) eventoWithPrismaFechaInicioEqualsParam {
+	if value == nil {
+		return eventoWithPrismaFechaInicioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r eventoQueryFechaInicioDateTime) Order(direction SortOrder) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_inicio",
+			Value: direction,
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) Cursor(cursor DateTime) eventoCursorParam {
+	return eventoCursorParam{
+		data: builder.Field{
+			Name:  "fecha_inicio",
+			Value: cursor,
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) In(value []DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) InIfPresent(value []DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r eventoQueryFechaInicioDateTime) NotIn(value []DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) NotInIfPresent(value []DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r eventoQueryFechaInicioDateTime) Lt(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) LtIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r eventoQueryFechaInicioDateTime) Lte(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) LteIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r eventoQueryFechaInicioDateTime) Gt(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) GtIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r eventoQueryFechaInicioDateTime) Gte(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) GteIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r eventoQueryFechaInicioDateTime) Not(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaInicioDateTime) NotIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r eventoQueryFechaInicioDateTime) Before(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r eventoQueryFechaInicioDateTime) BeforeIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r eventoQueryFechaInicioDateTime) After(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r eventoQueryFechaInicioDateTime) AfterIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r eventoQueryFechaInicioDateTime) BeforeEquals(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r eventoQueryFechaInicioDateTime) BeforeEqualsIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r eventoQueryFechaInicioDateTime) AfterEquals(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r eventoQueryFechaInicioDateTime) AfterEqualsIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r eventoQueryFechaInicioDateTime) Field() eventoPrismaFields {
+	return eventoFieldFechaInicio
+}
+
+// base struct
+type eventoQueryFechaFinDateTime struct{}
+
+// Set the required value of FechaFin
+func (r eventoQueryFechaFinDateTime) Set(value DateTime) eventoWithPrismaFechaFinSetParam {
+
+	return eventoWithPrismaFechaFinSetParam{
+		data: builder.Field{
+			Name:  "fecha_fin",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaFin dynamically
+func (r eventoQueryFechaFinDateTime) SetIfPresent(value *DateTime) eventoWithPrismaFechaFinSetParam {
+	if value == nil {
+		return eventoWithPrismaFechaFinSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r eventoQueryFechaFinDateTime) Equals(value DateTime) eventoWithPrismaFechaFinEqualsParam {
+
+	return eventoWithPrismaFechaFinEqualsParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) EqualsIfPresent(value *DateTime) eventoWithPrismaFechaFinEqualsParam {
+	if value == nil {
+		return eventoWithPrismaFechaFinEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r eventoQueryFechaFinDateTime) Order(direction SortOrder) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_fin",
+			Value: direction,
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) Cursor(cursor DateTime) eventoCursorParam {
+	return eventoCursorParam{
+		data: builder.Field{
+			Name:  "fecha_fin",
+			Value: cursor,
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) In(value []DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) InIfPresent(value []DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r eventoQueryFechaFinDateTime) NotIn(value []DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) NotInIfPresent(value []DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r eventoQueryFechaFinDateTime) Lt(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) LtIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r eventoQueryFechaFinDateTime) Lte(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) LteIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r eventoQueryFechaFinDateTime) Gt(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) GtIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r eventoQueryFechaFinDateTime) Gte(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) GteIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r eventoQueryFechaFinDateTime) Not(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaFinDateTime) NotIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r eventoQueryFechaFinDateTime) Before(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r eventoQueryFechaFinDateTime) BeforeIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r eventoQueryFechaFinDateTime) After(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r eventoQueryFechaFinDateTime) AfterIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r eventoQueryFechaFinDateTime) BeforeEquals(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r eventoQueryFechaFinDateTime) BeforeEqualsIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r eventoQueryFechaFinDateTime) AfterEquals(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r eventoQueryFechaFinDateTime) AfterEqualsIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r eventoQueryFechaFinDateTime) Field() eventoPrismaFields {
+	return eventoFieldFechaFin
+}
+
+// base struct
+type eventoQueryFechaCierreInscripcionDateTime struct{}
+
+// Set the required value of FechaCierreInscripcion
+func (r eventoQueryFechaCierreInscripcionDateTime) Set(value DateTime) eventoWithPrismaFechaCierreInscripcionSetParam {
+
+	return eventoWithPrismaFechaCierreInscripcionSetParam{
+		data: builder.Field{
+			Name:  "fecha_cierre_inscripcion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaCierreInscripcion dynamically
+func (r eventoQueryFechaCierreInscripcionDateTime) SetIfPresent(value *DateTime) eventoWithPrismaFechaCierreInscripcionSetParam {
+	if value == nil {
+		return eventoWithPrismaFechaCierreInscripcionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Equals(value DateTime) eventoWithPrismaFechaCierreInscripcionEqualsParam {
+
+	return eventoWithPrismaFechaCierreInscripcionEqualsParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) EqualsIfPresent(value *DateTime) eventoWithPrismaFechaCierreInscripcionEqualsParam {
+	if value == nil {
+		return eventoWithPrismaFechaCierreInscripcionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Order(direction SortOrder) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_cierre_inscripcion",
+			Value: direction,
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Cursor(cursor DateTime) eventoCursorParam {
+	return eventoCursorParam{
+		data: builder.Field{
+			Name:  "fecha_cierre_inscripcion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) In(value []DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) InIfPresent(value []DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) NotIn(value []DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) NotInIfPresent(value []DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Lt(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) LtIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Lte(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) LteIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Gt(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) GtIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Gte(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) GteIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Not(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) NotIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Before(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r eventoQueryFechaCierreInscripcionDateTime) BeforeIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r eventoQueryFechaCierreInscripcionDateTime) After(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r eventoQueryFechaCierreInscripcionDateTime) AfterIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r eventoQueryFechaCierreInscripcionDateTime) BeforeEquals(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r eventoQueryFechaCierreInscripcionDateTime) BeforeEqualsIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r eventoQueryFechaCierreInscripcionDateTime) AfterEquals(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cierre_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r eventoQueryFechaCierreInscripcionDateTime) AfterEqualsIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r eventoQueryFechaCierreInscripcionDateTime) Field() eventoPrismaFields {
+	return eventoFieldFechaCierreInscripcion
+}
+
+// base struct
+type eventoQueryInscripcionesAbiertasManualBoolean struct{}
+
+// Set the required value of InscripcionesAbiertasManual
+func (r eventoQueryInscripcionesAbiertasManualBoolean) Set(value bool) eventoSetParam {
+
+	return eventoSetParam{
+		data: builder.Field{
+			Name:  "inscripciones_abiertas_manual",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of InscripcionesAbiertasManual dynamically
+func (r eventoQueryInscripcionesAbiertasManualBoolean) SetIfPresent(value *Boolean) eventoSetParam {
+	if value == nil {
+		return eventoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r eventoQueryInscripcionesAbiertasManualBoolean) Equals(value bool) eventoWithPrismaInscripcionesAbiertasManualEqualsParam {
+
+	return eventoWithPrismaInscripcionesAbiertasManualEqualsParam{
+		data: builder.Field{
+			Name: "inscripciones_abiertas_manual",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryInscripcionesAbiertasManualBoolean) EqualsIfPresent(value *bool) eventoWithPrismaInscripcionesAbiertasManualEqualsParam {
+	if value == nil {
+		return eventoWithPrismaInscripcionesAbiertasManualEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r eventoQueryInscripcionesAbiertasManualBoolean) Order(direction SortOrder) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:  "inscripciones_abiertas_manual",
+			Value: direction,
+		},
+	}
+}
+
+func (r eventoQueryInscripcionesAbiertasManualBoolean) Cursor(cursor bool) eventoCursorParam {
+	return eventoCursorParam{
+		data: builder.Field{
+			Name:  "inscripciones_abiertas_manual",
+			Value: cursor,
+		},
+	}
+}
+
+func (r eventoQueryInscripcionesAbiertasManualBoolean) Field() eventoPrismaFields {
+	return eventoFieldInscripcionesAbiertasManual
+}
+
+// base struct
+type eventoQueryUbicacionString struct{}
+
+// Set the required value of Ubicacion
+func (r eventoQueryUbicacionString) Set(value string) eventoWithPrismaUbicacionSetParam {
+
+	return eventoWithPrismaUbicacionSetParam{
+		data: builder.Field{
+			Name:  "ubicacion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Ubicacion dynamically
+func (r eventoQueryUbicacionString) SetIfPresent(value *String) eventoWithPrismaUbicacionSetParam {
+	if value == nil {
+		return eventoWithPrismaUbicacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r eventoQueryUbicacionString) Equals(value string) eventoWithPrismaUbicacionEqualsParam {
+
+	return eventoWithPrismaUbicacionEqualsParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) EqualsIfPresent(value *string) eventoWithPrismaUbicacionEqualsParam {
+	if value == nil {
+		return eventoWithPrismaUbicacionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r eventoQueryUbicacionString) Order(direction SortOrder) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:  "ubicacion",
+			Value: direction,
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) Cursor(cursor string) eventoCursorParam {
+	return eventoCursorParam{
+		data: builder.Field{
+			Name:  "ubicacion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) In(value []string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) InIfPresent(value []string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r eventoQueryUbicacionString) NotIn(value []string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) NotInIfPresent(value []string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r eventoQueryUbicacionString) Lt(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) LtIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r eventoQueryUbicacionString) Lte(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) LteIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r eventoQueryUbicacionString) Gt(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) GtIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r eventoQueryUbicacionString) Gte(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) GteIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r eventoQueryUbicacionString) Contains(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) ContainsIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r eventoQueryUbicacionString) StartsWith(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) StartsWithIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r eventoQueryUbicacionString) EndsWith(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) EndsWithIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r eventoQueryUbicacionString) Mode(value QueryMode) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) ModeIfPresent(value *QueryMode) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r eventoQueryUbicacionString) Not(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryUbicacionString) NotIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r eventoQueryUbicacionString) HasPrefix(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r eventoQueryUbicacionString) HasPrefixIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r eventoQueryUbicacionString) HasSuffix(value string) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r eventoQueryUbicacionString) HasSuffixIfPresent(value *string) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r eventoQueryUbicacionString) Field() eventoPrismaFields {
+	return eventoFieldUbicacion
+}
+
+// base struct
+type eventoQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r eventoQueryCreatedAtDateTime) Set(value DateTime) eventoSetParam {
+
+	return eventoSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r eventoQueryCreatedAtDateTime) SetIfPresent(value *DateTime) eventoSetParam {
+	if value == nil {
+		return eventoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r eventoQueryCreatedAtDateTime) Equals(value DateTime) eventoWithPrismaCreatedAtEqualsParam {
+
+	return eventoWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) eventoWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return eventoWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r eventoQueryCreatedAtDateTime) Order(direction SortOrder) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) Cursor(cursor DateTime) eventoCursorParam {
+	return eventoCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) In(value []DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) InIfPresent(value []DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r eventoQueryCreatedAtDateTime) NotIn(value []DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r eventoQueryCreatedAtDateTime) Lt(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) LtIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r eventoQueryCreatedAtDateTime) Lte(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) LteIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r eventoQueryCreatedAtDateTime) Gt(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) GtIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r eventoQueryCreatedAtDateTime) Gte(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) GteIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r eventoQueryCreatedAtDateTime) Not(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryCreatedAtDateTime) NotIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r eventoQueryCreatedAtDateTime) Before(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r eventoQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r eventoQueryCreatedAtDateTime) After(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r eventoQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r eventoQueryCreatedAtDateTime) BeforeEquals(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r eventoQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r eventoQueryCreatedAtDateTime) AfterEquals(value DateTime) eventoDefaultParam {
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r eventoQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) eventoDefaultParam {
+	if value == nil {
+		return eventoDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r eventoQueryCreatedAtDateTime) Field() eventoPrismaFields {
+	return eventoFieldCreatedAt
+}
+
 // --- template actions.gotpl ---
 var countOutput = []builder.Output{
 	{Name: "count"},
@@ -5778,6 +8409,811 @@ func (p rolesWithPrismaUsuarioEqualsUniqueParam) usuarioField() {}
 func (rolesWithPrismaUsuarioEqualsUniqueParam) unique() {}
 func (rolesWithPrismaUsuarioEqualsUniqueParam) equals() {}
 
+type eventoActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var eventoOutput = []builder.Output{
+	{Name: "id_evento"},
+	{Name: "nombre"},
+	{Name: "fecha_inicio"},
+	{Name: "fecha_fin"},
+	{Name: "fecha_cierre_inscripcion"},
+	{Name: "inscripciones_abiertas_manual"},
+	{Name: "ubicacion"},
+	{Name: "createdAt"},
+}
+
+type EventoRelationWith interface {
+	getQuery() builder.Query
+	with()
+	eventoRelation()
+}
+
+type EventoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+}
+
+type eventoDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoDefaultParam) eventoModel() {}
+
+type EventoOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+}
+
+type eventoOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoOrderByParam) eventoModel() {}
+
+type EventoCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	isCursor()
+}
+
+type eventoCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoCursorParam) isCursor() {}
+
+func (p eventoCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoCursorParam) eventoModel() {}
+
+type EventoParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	eventoModel()
+}
+
+type eventoParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoParamUnique) eventoModel() {}
+
+func (eventoParamUnique) unique() {}
+
+func (p eventoParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p eventoParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type EventoEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+}
+
+type eventoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoEqualsParam) eventoModel() {}
+
+func (eventoEqualsParam) equals() {}
+
+func (p eventoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type EventoEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	eventoModel()
+}
+
+type eventoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoEqualsUniqueParam) eventoModel() {}
+
+func (eventoEqualsUniqueParam) unique() {}
+func (eventoEqualsUniqueParam) equals() {}
+
+func (p eventoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type EventoSetParam interface {
+	field() builder.Field
+	settable()
+	eventoModel()
+}
+
+type eventoSetParam struct {
+	data builder.Field
+}
+
+func (eventoSetParam) settable() {}
+
+func (p eventoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoSetParam) eventoModel() {}
+
+type EventoWithPrismaIDEventoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	idEventoField()
+}
+
+type EventoWithPrismaIDEventoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	idEventoField()
+}
+
+type eventoWithPrismaIDEventoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaIDEventoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaIDEventoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaIDEventoSetParam) eventoModel() {}
+
+func (p eventoWithPrismaIDEventoSetParam) idEventoField() {}
+
+type EventoWithPrismaIDEventoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	idEventoField()
+}
+
+type eventoWithPrismaIDEventoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaIDEventoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaIDEventoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaIDEventoEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaIDEventoEqualsParam) idEventoField() {}
+
+func (eventoWithPrismaIDEventoSetParam) settable()  {}
+func (eventoWithPrismaIDEventoEqualsParam) equals() {}
+
+type eventoWithPrismaIDEventoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaIDEventoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaIDEventoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaIDEventoEqualsUniqueParam) eventoModel()   {}
+func (p eventoWithPrismaIDEventoEqualsUniqueParam) idEventoField() {}
+
+func (eventoWithPrismaIDEventoEqualsUniqueParam) unique() {}
+func (eventoWithPrismaIDEventoEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaNombreEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	nombreField()
+}
+
+type EventoWithPrismaNombreSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	nombreField()
+}
+
+type eventoWithPrismaNombreSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaNombreSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaNombreSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaNombreSetParam) eventoModel() {}
+
+func (p eventoWithPrismaNombreSetParam) nombreField() {}
+
+type EventoWithPrismaNombreWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	nombreField()
+}
+
+type eventoWithPrismaNombreEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaNombreEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaNombreEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaNombreEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaNombreEqualsParam) nombreField() {}
+
+func (eventoWithPrismaNombreSetParam) settable()  {}
+func (eventoWithPrismaNombreEqualsParam) equals() {}
+
+type eventoWithPrismaNombreEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaNombreEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaNombreEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaNombreEqualsUniqueParam) eventoModel() {}
+func (p eventoWithPrismaNombreEqualsUniqueParam) nombreField() {}
+
+func (eventoWithPrismaNombreEqualsUniqueParam) unique() {}
+func (eventoWithPrismaNombreEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaFechaInicioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	fechaInicioField()
+}
+
+type EventoWithPrismaFechaInicioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	fechaInicioField()
+}
+
+type eventoWithPrismaFechaInicioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaInicioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaInicioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaInicioSetParam) eventoModel() {}
+
+func (p eventoWithPrismaFechaInicioSetParam) fechaInicioField() {}
+
+type EventoWithPrismaFechaInicioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	fechaInicioField()
+}
+
+type eventoWithPrismaFechaInicioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaInicioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaInicioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaInicioEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaFechaInicioEqualsParam) fechaInicioField() {}
+
+func (eventoWithPrismaFechaInicioSetParam) settable()  {}
+func (eventoWithPrismaFechaInicioEqualsParam) equals() {}
+
+type eventoWithPrismaFechaInicioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaInicioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaInicioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaInicioEqualsUniqueParam) eventoModel()      {}
+func (p eventoWithPrismaFechaInicioEqualsUniqueParam) fechaInicioField() {}
+
+func (eventoWithPrismaFechaInicioEqualsUniqueParam) unique() {}
+func (eventoWithPrismaFechaInicioEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaFechaFinEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	fechaFinField()
+}
+
+type EventoWithPrismaFechaFinSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	fechaFinField()
+}
+
+type eventoWithPrismaFechaFinSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaFinSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaFinSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaFinSetParam) eventoModel() {}
+
+func (p eventoWithPrismaFechaFinSetParam) fechaFinField() {}
+
+type EventoWithPrismaFechaFinWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	fechaFinField()
+}
+
+type eventoWithPrismaFechaFinEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaFinEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaFinEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaFinEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaFechaFinEqualsParam) fechaFinField() {}
+
+func (eventoWithPrismaFechaFinSetParam) settable()  {}
+func (eventoWithPrismaFechaFinEqualsParam) equals() {}
+
+type eventoWithPrismaFechaFinEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaFinEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaFinEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaFinEqualsUniqueParam) eventoModel()   {}
+func (p eventoWithPrismaFechaFinEqualsUniqueParam) fechaFinField() {}
+
+func (eventoWithPrismaFechaFinEqualsUniqueParam) unique() {}
+func (eventoWithPrismaFechaFinEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaFechaCierreInscripcionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	fechaCierreInscripcionField()
+}
+
+type EventoWithPrismaFechaCierreInscripcionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	fechaCierreInscripcionField()
+}
+
+type eventoWithPrismaFechaCierreInscripcionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionSetParam) eventoModel() {}
+
+func (p eventoWithPrismaFechaCierreInscripcionSetParam) fechaCierreInscripcionField() {}
+
+type EventoWithPrismaFechaCierreInscripcionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	fechaCierreInscripcionField()
+}
+
+type eventoWithPrismaFechaCierreInscripcionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaFechaCierreInscripcionEqualsParam) fechaCierreInscripcionField() {}
+
+func (eventoWithPrismaFechaCierreInscripcionSetParam) settable()  {}
+func (eventoWithPrismaFechaCierreInscripcionEqualsParam) equals() {}
+
+type eventoWithPrismaFechaCierreInscripcionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaFechaCierreInscripcionEqualsUniqueParam) eventoModel()                 {}
+func (p eventoWithPrismaFechaCierreInscripcionEqualsUniqueParam) fechaCierreInscripcionField() {}
+
+func (eventoWithPrismaFechaCierreInscripcionEqualsUniqueParam) unique() {}
+func (eventoWithPrismaFechaCierreInscripcionEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaInscripcionesAbiertasManualEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	inscripcionesAbiertasManualField()
+}
+
+type EventoWithPrismaInscripcionesAbiertasManualSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	inscripcionesAbiertasManualField()
+}
+
+type eventoWithPrismaInscripcionesAbiertasManualSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualSetParam) eventoModel() {}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualSetParam) inscripcionesAbiertasManualField() {}
+
+type EventoWithPrismaInscripcionesAbiertasManualWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	inscripcionesAbiertasManualField()
+}
+
+type eventoWithPrismaInscripcionesAbiertasManualEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualEqualsParam) inscripcionesAbiertasManualField() {}
+
+func (eventoWithPrismaInscripcionesAbiertasManualSetParam) settable()  {}
+func (eventoWithPrismaInscripcionesAbiertasManualEqualsParam) equals() {}
+
+type eventoWithPrismaInscripcionesAbiertasManualEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaInscripcionesAbiertasManualEqualsUniqueParam) eventoModel() {}
+func (p eventoWithPrismaInscripcionesAbiertasManualEqualsUniqueParam) inscripcionesAbiertasManualField() {
+}
+
+func (eventoWithPrismaInscripcionesAbiertasManualEqualsUniqueParam) unique() {}
+func (eventoWithPrismaInscripcionesAbiertasManualEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaUbicacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	ubicacionField()
+}
+
+type EventoWithPrismaUbicacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	ubicacionField()
+}
+
+type eventoWithPrismaUbicacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaUbicacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaUbicacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaUbicacionSetParam) eventoModel() {}
+
+func (p eventoWithPrismaUbicacionSetParam) ubicacionField() {}
+
+type EventoWithPrismaUbicacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	ubicacionField()
+}
+
+type eventoWithPrismaUbicacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaUbicacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaUbicacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaUbicacionEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaUbicacionEqualsParam) ubicacionField() {}
+
+func (eventoWithPrismaUbicacionSetParam) settable()  {}
+func (eventoWithPrismaUbicacionEqualsParam) equals() {}
+
+type eventoWithPrismaUbicacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaUbicacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaUbicacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaUbicacionEqualsUniqueParam) eventoModel()    {}
+func (p eventoWithPrismaUbicacionEqualsUniqueParam) ubicacionField() {}
+
+func (eventoWithPrismaUbicacionEqualsUniqueParam) unique() {}
+func (eventoWithPrismaUbicacionEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	createdAtField()
+}
+
+type EventoWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	createdAtField()
+}
+
+type eventoWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaCreatedAtSetParam) eventoModel() {}
+
+func (p eventoWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type EventoWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	createdAtField()
+}
+
+type eventoWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaCreatedAtEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (eventoWithPrismaCreatedAtSetParam) settable()  {}
+func (eventoWithPrismaCreatedAtEqualsParam) equals() {}
+
+type eventoWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaCreatedAtEqualsUniqueParam) eventoModel()    {}
+func (p eventoWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
+
+func (eventoWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (eventoWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
 // --- template create.gotpl ---
 
 // Creates a single usuario.
@@ -5919,6 +9355,82 @@ func (r rolesCreateOne) Exec(ctx context.Context) (*RolesModel, error) {
 
 func (r rolesCreateOne) Tx() RolesUniqueTxResult {
 	v := newRolesUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single evento.
+func (r eventoActions) CreateOne(
+	_nombre EventoWithPrismaNombreSetParam,
+	_fechaInicio EventoWithPrismaFechaInicioSetParam,
+	_fechaFin EventoWithPrismaFechaFinSetParam,
+	_fechaCierreInscripcion EventoWithPrismaFechaCierreInscripcionSetParam,
+	_ubicacion EventoWithPrismaUbicacionSetParam,
+
+	optional ...EventoSetParam,
+) eventoCreateOne {
+	var v eventoCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "Evento"
+	v.query.Outputs = eventoOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _nombre.field())
+	fields = append(fields, _fechaInicio.field())
+	fields = append(fields, _fechaFin.field())
+	fields = append(fields, _fechaCierreInscripcion.field())
+	fields = append(fields, _ubicacion.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r eventoCreateOne) With(params ...EventoRelationWith) eventoCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type eventoCreateOne struct {
+	query builder.Query
+}
+
+func (p eventoCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoCreateOne) eventoModel() {}
+
+func (r eventoCreateOne) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoCreateOne) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -8334,6 +11846,656 @@ func (r rolesDeleteMany) Tx() RolesManyTxResult {
 	return v
 }
 
+type eventoFindUnique struct {
+	query builder.Query
+}
+
+func (r eventoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoFindUnique) with()           {}
+func (r eventoFindUnique) eventoModel()    {}
+func (r eventoFindUnique) eventoRelation() {}
+
+func (r eventoActions) FindUnique(
+	params EventoEqualsUniqueWhereParam,
+) eventoFindUnique {
+	var v eventoFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "Evento"
+	v.query.Outputs = eventoOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r eventoFindUnique) With(params ...EventoRelationWith) eventoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoFindUnique) Select(params ...eventoPrismaFields) eventoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoFindUnique) Omit(params ...eventoPrismaFields) eventoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoFindUnique) Exec(ctx context.Context) (
+	*EventoModel,
+	error,
+) {
+	var v *EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoFindUnique) ExecInner(ctx context.Context) (
+	*InnerEvento,
+	error,
+) {
+	var v *InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoFindUnique) Update(params ...EventoSetParam) eventoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Evento"
+
+	var v eventoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type eventoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r eventoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoUpdateUnique) eventoModel() {}
+
+func (r eventoUpdateUnique) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoUpdateUnique) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r eventoFindUnique) Delete() eventoDeleteUnique {
+	var v eventoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Evento"
+
+	return v
+}
+
+type eventoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r eventoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p eventoDeleteUnique) eventoModel() {}
+
+func (r eventoDeleteUnique) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoDeleteUnique) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type eventoFindFirst struct {
+	query builder.Query
+}
+
+func (r eventoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoFindFirst) with()           {}
+func (r eventoFindFirst) eventoModel()    {}
+func (r eventoFindFirst) eventoRelation() {}
+
+func (r eventoActions) FindFirst(
+	params ...EventoWhereParam,
+) eventoFindFirst {
+	var v eventoFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "Evento"
+	v.query.Outputs = eventoOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r eventoFindFirst) With(params ...EventoRelationWith) eventoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoFindFirst) Select(params ...eventoPrismaFields) eventoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoFindFirst) Omit(params ...eventoPrismaFields) eventoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoFindFirst) OrderBy(params ...EventoOrderByParam) eventoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r eventoFindFirst) Skip(count int) eventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoFindFirst) Take(count int) eventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoFindFirst) Cursor(cursor EventoCursorParam) eventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r eventoFindFirst) Exec(ctx context.Context) (
+	*EventoModel,
+	error,
+) {
+	var v *EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoFindFirst) ExecInner(ctx context.Context) (
+	*InnerEvento,
+	error,
+) {
+	var v *InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type eventoFindMany struct {
+	query builder.Query
+}
+
+func (r eventoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoFindMany) with()           {}
+func (r eventoFindMany) eventoModel()    {}
+func (r eventoFindMany) eventoRelation() {}
+
+func (r eventoActions) FindMany(
+	params ...EventoWhereParam,
+) eventoFindMany {
+	var v eventoFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "Evento"
+	v.query.Outputs = eventoOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r eventoFindMany) With(params ...EventoRelationWith) eventoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoFindMany) Select(params ...eventoPrismaFields) eventoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoFindMany) Omit(params ...eventoPrismaFields) eventoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoFindMany) OrderBy(params ...EventoOrderByParam) eventoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r eventoFindMany) Skip(count int) eventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoFindMany) Take(count int) eventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoFindMany) Cursor(cursor EventoCursorParam) eventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r eventoFindMany) Exec(ctx context.Context) (
+	[]EventoModel,
+	error,
+) {
+	var v []EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r eventoFindMany) ExecInner(ctx context.Context) (
+	[]InnerEvento,
+	error,
+) {
+	var v []InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r eventoFindMany) Update(params ...EventoSetParam) eventoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Evento"
+
+	r.query.Outputs = countOutput
+
+	var v eventoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type eventoUpdateMany struct {
+	query builder.Query
+}
+
+func (r eventoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoUpdateMany) eventoModel() {}
+
+func (r eventoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoUpdateMany) Tx() EventoManyTxResult {
+	v := newEventoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r eventoFindMany) Delete() eventoDeleteMany {
+	var v eventoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Evento"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type eventoDeleteMany struct {
+	query builder.Query
+}
+
+func (r eventoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p eventoDeleteMany) eventoModel() {}
+
+func (r eventoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoDeleteMany) Tx() EventoManyTxResult {
+	v := newEventoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template transaction.gotpl ---
 
 func newUsuarioUniqueTxResult() UsuarioUniqueTxResult {
@@ -8426,6 +12588,54 @@ func (p RolesManyTxResult) ExtractQuery() builder.Query {
 func (p RolesManyTxResult) IsTx() {}
 
 func (r RolesManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newEventoUniqueTxResult() EventoUniqueTxResult {
+	return EventoUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type EventoUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p EventoUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p EventoUniqueTxResult) IsTx() {}
+
+func (r EventoUniqueTxResult) Result() (v *EventoModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newEventoManyTxResult() EventoManyTxResult {
+	return EventoManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type EventoManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p EventoManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p EventoManyTxResult) IsTx() {}
+
+func (r EventoManyTxResult) Result() (v *BatchResult) {
 	if err := r.result.Get(r.query.TxResult, &v); err != nil {
 		panic(err)
 	}
@@ -8728,6 +12938,161 @@ func (r rolesUpsertOne) Tx() RolesUniqueTxResult {
 	return v
 }
 
+type eventoUpsertOne struct {
+	query builder.Query
+}
+
+func (r eventoUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoUpsertOne) with()           {}
+func (r eventoUpsertOne) eventoModel()    {}
+func (r eventoUpsertOne) eventoRelation() {}
+
+func (r eventoActions) UpsertOne(
+	params EventoEqualsUniqueWhereParam,
+) eventoUpsertOne {
+	var v eventoUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "Evento"
+	v.query.Outputs = eventoOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r eventoUpsertOne) Create(
+
+	_nombre EventoWithPrismaNombreSetParam,
+	_fechaInicio EventoWithPrismaFechaInicioSetParam,
+	_fechaFin EventoWithPrismaFechaFinSetParam,
+	_fechaCierreInscripcion EventoWithPrismaFechaCierreInscripcionSetParam,
+	_ubicacion EventoWithPrismaUbicacionSetParam,
+
+	optional ...EventoSetParam,
+) eventoUpsertOne {
+	var v eventoUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _nombre.field())
+	fields = append(fields, _fechaInicio.field())
+	fields = append(fields, _fechaFin.field())
+	fields = append(fields, _fechaCierreInscripcion.field())
+	fields = append(fields, _ubicacion.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r eventoUpsertOne) Update(
+	params ...EventoSetParam,
+) eventoUpsertOne {
+	var v eventoUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r eventoUpsertOne) CreateOrUpdate(
+
+	_nombre EventoWithPrismaNombreSetParam,
+	_fechaInicio EventoWithPrismaFechaInicioSetParam,
+	_fechaFin EventoWithPrismaFechaFinSetParam,
+	_fechaCierreInscripcion EventoWithPrismaFechaCierreInscripcionSetParam,
+	_ubicacion EventoWithPrismaUbicacionSetParam,
+
+	optional ...EventoSetParam,
+) eventoUpsertOne {
+	var v eventoUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _nombre.field())
+	fields = append(fields, _fechaInicio.field())
+	fields = append(fields, _fechaFin.field())
+	fields = append(fields, _fechaCierreInscripcion.field())
+	fields = append(fields, _ubicacion.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r eventoUpsertOne) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoUpsertOne) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template raw.gotpl ---
 
 type usuarioAggregateRaw struct {
@@ -8886,6 +13251,87 @@ func (r rolesAggregateRaw) Exec(ctx context.Context) ([]RolesModel, error) {
 
 func (r rolesAggregateRaw) ExecInner(ctx context.Context) ([]InnerRoles, error) {
 	var v []InnerRoles
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type eventoAggregateRaw struct {
+	query builder.Query
+}
+
+func (r eventoAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoAggregateRaw) with()           {}
+func (r eventoAggregateRaw) eventoModel()    {}
+func (r eventoAggregateRaw) eventoRelation() {}
+
+func (r eventoActions) FindRaw(filter interface{}, options ...interface{}) eventoAggregateRaw {
+	var v eventoAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Evento"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r eventoActions) AggregateRaw(pipeline []interface{}, options ...interface{}) eventoAggregateRaw {
+	var v eventoAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Evento"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r eventoAggregateRaw) Exec(ctx context.Context) ([]EventoModel, error) {
+	var v []EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r eventoAggregateRaw) ExecInner(ctx context.Context) ([]InnerEvento, error) {
+	var v []InnerEvento
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}
