@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 // components
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
@@ -16,13 +16,19 @@ import { loginUser } from "../../services/authServices";
 export default function LoginScreen(): JSX.Element {
     // hooks
     const navigate = useNavigate();
-    const { login } = useAuth();
+    const { login, isAuthenticated } = useAuth();
 
     // states
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate(ROUTES.home, { replace: true });
+        }
+    }, [isAuthenticated, navigate]);
 
     // button validation
     const isFormValid =
