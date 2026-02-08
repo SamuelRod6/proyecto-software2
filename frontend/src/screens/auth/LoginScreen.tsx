@@ -10,29 +10,63 @@ import usbImage from "../../assets/images/USB.jpg";
 // contexts
 import { useAuth } from "../../contexts/Auth/Authcontext";
 import { isValidEmail } from "../../utils/validators";
+// services
+import { loginUser } from "../../services/authServices";
 
 export default function LoginScreen(): JSX.Element {
     // hooks
     const navigate = useNavigate();
-    const { login, isAuthenticated } = useAuth();
+    const { login } = useAuth();
 
     // states
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // button validation
     const isFormValid =
         email.trim() !== "" && password.trim() !== "" && isValidEmail(email);
 
     // handlers
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!isFormValid) return;
+        if (!isFormValid || isSubmitting) return;
+
+        setIsSubmitting(true);
+        setErrorMessage(null);
+
+        const loginResult = await loginUser({
+            email: email.trim(),
+            password,
+        });
+
+        if (loginResult.status >= 400) {
+            setErrorMessage(
+                loginResult.data?.message ||
+                    "No se pudo iniciar sesion. Intenta nuevamente.",
+            );
+            setIsSubmitting(false);
+            return;
+        }
+
+        const token = loginResult.data?.payload?.token as string | undefined;
+        const user = loginResult.data?.payload?.user as
+            | { id: number; name: string; email: string; role: string }
+            | undefined;
+
+        if (token) {
+            localStorage.setItem("auth-token", token);
+        }
+        if (user) {
+            localStorage.setItem("auth-user", JSON.stringify(user));
+        }
+
         login();
         navigate(ROUTES.home);
+        setIsSubmitting(false);
     };
 
-    console.log("auth state:", { isAuthenticated });
     return (
         <section className="grid min-h-screen h-screen overflow-hidden bg-slate-900 text-white md:grid-cols-[420px_2fr]">
             <div className="flex flex-col h-full px-10 gap-8">
@@ -58,13 +92,16 @@ export default function LoginScreen(): JSX.Element {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                     />
+                    {errorMessage && (
+                        <p className="text-xs text-red-300">{errorMessage}</p>
+                    )}
                     <div className="text-right text-xs text-slate-400">
                         ¿Olvidaste tu contraseña?
                     </div>
                     <Button
                         type="submit"
                         className="w-full"
-                        disabled={!isFormValid}
+                        disabled={!isFormValid || isSubmitting}
                     >
                         Ingresar
                     </Button>

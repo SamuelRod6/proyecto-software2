@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -119,9 +120,10 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusInternalServerError, response.ErrRoleInvalid)
 		return
 	}
-
+	
 	token, err := service.CreateJWT(user.IDUsuario, user.Email, role.NombreRol)
 	if err != nil {
+		log.Printf("create jwt error: %v", err)
 		response.WriteError(w, http.StatusInternalServerError, response.ErrTokenCreation)
 		return
 	}
