@@ -65,3 +65,10 @@ backend/schema-engine-*
 
 ### Node Modules
 node_modules/
+### env files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local

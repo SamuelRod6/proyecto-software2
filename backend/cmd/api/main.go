@@ -7,6 +7,7 @@ import (
 
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
+	"project/backend/internal/roles"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
 	"project/backend/prisma/db"
@@ -37,8 +38,11 @@ func main() {
 
 	userRepo := userrepo.NewUserRepository(prismaClient)
 	authHandler := authhandler.New(userRepo)
-	userHandler := userhandler.New(userRepo)
+	roleService := roles.NewUserRoleService(prismaClient)
+	userHandler := userhandler.New(userRepo, roleService)
 	eventsHandler := eventhandler.New(prismaClient)
+
+	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 
 	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
 	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)

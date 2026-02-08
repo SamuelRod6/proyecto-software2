@@ -24,3 +24,8 @@ type ResetPasswordRequest struct {
 	Email       string `json:"email"`
 	NewPassword string `json:"newPassword"`
 }
+
+type UpdateRoleRequest struct {
+	UserID int    `json:"user_id"`
+	Rol    string `json:"rol"`
+}
