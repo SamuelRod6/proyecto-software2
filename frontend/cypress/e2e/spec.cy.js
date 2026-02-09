@@ -1,7 +1,7 @@
 describe("App and API", () => {
   it("loads app home", () => {
     cy.visit("/");
-    cy.contains("Hola desde React").should("be.visible");
+    cy.contains("Login").should("be.visible");
   });
 
   it("calls Go API", () => {
