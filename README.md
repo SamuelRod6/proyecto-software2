@@ -36,7 +36,7 @@ go test ./...       # ejecuta pruebas
 
 ## Postgres + Prisma Client Go
 
-Este backend usa Prisma Client Go con Postgres. Variables en `backend/.env.local` (Docker local) y `backend/.env.neon` (Neon).
+Este backend usa Prisma Client Go con Postgres.
 
 Setup (desde `backend/`):
 
@@ -64,9 +64,9 @@ make frontend-build  # build frontend
 make frontend-test   # Jest
 make frontend-e2e    # Cypress E2E tests
 make dev             # levanta backend en segundo plano y Vite dev en primer plano
-make dev local       # backend contra Postgres en Docker (backend/.env.local)
-make dev neon        # backend contra Neon (backend/.env.neon)
-make dev server      # frontend local, API remoto en Koyeb
+make dev local       # backend + frontend, Postgres via Docker (usa .env.local en raiz)
+make dev neon        # backend + frontend contra Neon (usa .env.neon en raiz)
+make dev server      # frontend local, API remoto en Koyeb (usa .env en raiz)
 ```
 
 ## Postman
