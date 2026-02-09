@@ -1,22 +1,154 @@
 {
-  "info": {
-    "name": "React-Go API",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "item": [
-    {
-      "name": "GET /api/hello",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "http://localhost:8080/api/hello",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "8080",
-          "path": ["api", "hello"]
-        }
-      }
-    }
-  ]
+	"info": {
+		"_postman_id": "b3e04041-3e4b-4b15-9430-664426543886",
+		"name": "Proyecto Software 2 API",
+		"description": "API documentation for User Authentication and Management.\n\n### Response Structure\nAll responses follow this format:\n```json\n{\n  \"status\": \"success|error\",\n  \"code\": 1xxx (Success) | 4xxx (Client Error) | 5xxx (Server Error),\n  \"message\": \"Human readable message\",\n  \"payload\": { ... } // Optional data\n}\n```\n\n### Status Codes\n- **1000**: Success General\n- **1001**: User Registered\n- **1002**: Login Successful\n- **4000**: Invalid JSON\n- **4002**: Invalid Credentials\n- **4003**: Invalid Email\n- **4004**: Invalid Password\n- **4005**: Invalid Username\n- **4006**: User Exists\n- **5000**: Internal Server Error",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"JohnDoe\",\n    \"email\": \"john@example.com\",\n    \"password\": \"P@ssw0rd123\",\n    \"roleId\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register"
+							]
+						},
+						"description": "Registers a new user.\n\n**Codes:**\n- `1001`: Success\n- `4005`: Invalid Username\n- `4004`: Weak Password\n- `4006`: Email/User already exists"
+					},
+					"response": []
+				},
+				{
+					"name": "Login User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\",\n    \"password\": \"P@ssw0rd123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticates a user and returns a JWT.\n\n**Codes:**\n- `1002`: Login Successful\n- `4002`: Invalid Credentials"
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john@example.com\",\n    \"new_password\": \"NewP@ssw0rd123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/reset-password",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"reset-password"
+							]
+						},
+						"description": "Resets the user's password directly (Basic implementation).\n\n**Codes:**\n- `1000`: Success (always returns success if format is valid to prevent enumeration)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Hello World",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/hello",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"hello"
+							]
+						},
+						"description": "Simple health check endpoint.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "Count Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/users/count",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"users",
+								"count"
+							]
+						},
+						"description": "Returns the total number of registered users.\nTarget Code: `1000`"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	]
 }

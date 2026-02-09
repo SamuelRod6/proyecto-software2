@@ -1,0 +1,17 @@
+{
+  "devDependencies": {
+    "@types/react": "^19.2.11",
+    "prisma": "^6.12.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@playwright/test": "^1.58.1",
+    "lottie-react": "^2.4.1",
+    "playwright": "^1.58.1",
+    "react-day-picker": "^9.13.0",
+    "react-icons": "^5.5.0",
+    "react-select": "^5.10.2",
+    "react-toastify": "^11.0.5"
+  }
+}

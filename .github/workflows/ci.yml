@@ -110,7 +110,7 @@ jobs:
 
       - name: Start backend server
         run: |
-          nohup bash -c "go run ." </dev/null >/dev/null 2>&1 &
+          nohup bash -c "go run ./cmd/api" </dev/null >/dev/null 2>&1 &
         working-directory: backend
         env:
           DATABASE_URL: postgresql://projectuser:projectpassword@localhost:5432/project-sft2?schema=public

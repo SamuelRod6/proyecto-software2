@@ -48,6 +48,27 @@ frontend/cypress/screenshots/
 frontend/coverage/
 backend/coverage/
 
+### Root (Ra�z)
+.env
+.env.local
+
+### Prisma Specific
+*.db
+*.db-journal
+backend/prisma-cli-*
+backend/query-engine-*
+backend/schema-engine-*
+
 ### Misc
 *.tmp
 *.temp
+
+### Node Modules
+node_modules/
+### env files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
