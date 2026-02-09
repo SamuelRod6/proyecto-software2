@@ -102,14 +102,14 @@ model Roles {
 }
 
 model Evento {
-  id_evento                     Int      @id @default(autoincrement())
-  nombre                        String   @unique
-  fecha_inicio                  DateTime
-  fecha_fin                     DateTime
-  fecha_cierre_inscripcion      DateTime
-  inscripciones_abiertas_manual Boolean  @default(true)
-  ubicacion                     String
-  createdAt                     DateTime @default(now())
+  id_evento                  Int      @id @default(autoincrement())
+  nombre                     String   @unique
+  fecha_inicio               DateTime
+  fecha_fin                  DateTime
+  fecha_cierre_inscripcion   DateTime
+  inscripciones_abiertas_manual Boolean @default(true)
+  ubicacion                  String
+  createdAt                  DateTime @default(now())
 }
 `
 const schemaDatasourceURL = ""
