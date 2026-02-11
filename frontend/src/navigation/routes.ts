@@ -5,4 +5,5 @@ export const ROUTES = {
     events: "/events",
     eventDetail: (eventId: string = ":eventId"): string => `/events/${eventId}`,
     eventCreate: "/events/new",
+    roleManagement: "/roleManagement",
 };
