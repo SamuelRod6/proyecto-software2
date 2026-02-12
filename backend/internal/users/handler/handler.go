@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 )
 
 type Handler struct {
-	svc *service.Service
+	svc         *service.Service
 	roleService roles.UserRoleService
 }
 
@@ -47,6 +48,103 @@ func (h *Handler) UsersCountHandler(w http.ResponseWriter, r *http.Request) {
 	response.WriteSuccess(w, http.StatusOK, response.SuccessGeneral, map[string]int{"count": count})
 }
 
+func (h *Handler) UsersListHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	limit := 10
+	offset := 0
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		if parsedLimit, err := strconv.Atoi(rawLimit); err == nil && parsedLimit > 0 {
+			if parsedLimit > 100 {
+				parsedLimit = 100
+			}
+			limit = parsedLimit
+		}
+	}
+	if rawOffset := strings.TrimSpace(r.URL.Query().Get("offset")); rawOffset != "" {
+		if parsedOffset, err := strconv.Atoi(rawOffset); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	users, err := h.svc.ListUsersWithRoles(ctx, limit, offset)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	total, err := h.svc.CountUsers(ctx)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	type userRoleItem struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+		Role string `json:"role"`
+	}
+
+	items := make([]userRoleItem, 0, len(users))
+	for _, user := range users {
+		roleName := ""
+		if user.RelationsUsuario.Rol != nil {
+			roleName = user.RelationsUsuario.Rol.NombreRol
+		}
+		items = append(items, userRoleItem{
+			ID:   user.IDUsuario,
+			Name: user.Nombre,
+			Role: roleName,
+		})
+	}
+
+	response.WriteSuccess(w, http.StatusOK, response.SuccessGeneral, map[string]any{
+		"users":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
+	})
+}
+
+func (h *Handler) RolesListHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	roles, err := h.svc.ListRoles(ctx)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, response.ErrDatabase)
+		return
+	}
+
+	type roleItem struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+
+	items := make([]roleItem, 0, len(roles))
+	for _, role := range roles {
+		items = append(items, roleItem{
+			ID:   role.IDRol,
+			Name: role.NombreRol,
+		})
+	}
+
+	response.WriteSuccess(w, http.StatusOK, response.SuccessGeneral, map[string]any{
+		"roles": items,
+	})
+}
+
 func (h *Handler) UpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -55,12 +153,6 @@ func (h *Handler) UpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) 
 
 	if h.roleService == nil {
 		http.Error(w, "Role service unavailable", http.StatusInternalServerError)
-		return
-	}
-
-	roleHeader := strings.TrimSpace(r.Header.Get("X-Role"))
-	if strings.ToUpper(roleHeader) != "ADMIN" {
-		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
