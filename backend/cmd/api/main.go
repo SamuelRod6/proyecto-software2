@@ -50,6 +50,8 @@ func main() {
 	http.HandleFunc("/api/auth/logout", authHandler.LogoutHandler)
 
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
+	http.HandleFunc("/api/users", userHandler.UsersListHandler)
+	http.HandleFunc("/api/roles", userHandler.RolesListHandler)
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
 	http.Handle("/api/eventos", eventsHandler)
