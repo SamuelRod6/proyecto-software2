@@ -3,7 +3,11 @@ import { useToast } from "../../contexts/Toast/ToastContext";
 import Modal from "../../components/ui/Modal";
 import SelectInput, { OptionType } from "../../components/ui/SelectorInput";
 import Button from "../../components/ui/Button";
-import { getRoles, getUsers, updateUserRole } from "../../services/roleService";
+import {
+    getRoles,
+    getUsers,
+    updateUserRole,
+} from "../../services/roleServices";
 
 type UserRoleRow = {
     id: number;
