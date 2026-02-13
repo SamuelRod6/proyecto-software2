@@ -16,13 +16,19 @@ import (
 )
 
 type Handler struct {
-	svc         *service.Service
+	svc         UserService
 	roleService roles.UserRoleService
 }
 
 type UpdateRoleRequest struct {
 	UserID int    `json:"user_id"`
 	Rol    string `json:"rol"`
+}
+
+type UserService interface {
+	CountUsers(ctx context.Context) (int, error)
+	ListUsersWithRoles(ctx context.Context, limit, offset int) ([]db.UsuarioModel, error)
+	ListRoles(ctx context.Context) ([]db.RolesModel, error)
 }
 
 func New(repository *repo.UserRepository, roleService roles.UserRoleService) *Handler {
