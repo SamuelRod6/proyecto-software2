@@ -151,6 +151,12 @@ func (h *Handler) UpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	roleHeader := strings.TrimSpace(r.Header.Get("X-Role"))
+	if !strings.EqualFold(roleHeader, "ADMIN") {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	if h.roleService == nil {
 		http.Error(w, "Role service unavailable", http.StatusInternalServerError)
 		return
