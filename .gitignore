@@ -65,10 +65,14 @@ backend/schema-engine-*
 
 ### Node Modules
 node_modules/
+
 ### env files
-.env
+.env.neon
 .env.local
 .env.development
 .env.test
 .env.production
 .env.*.local
+
+## Backlog
+Product Backlog.pdf
