@@ -18,6 +18,8 @@ var (
 	ErrNotFound              = errors.New("Evento no encontrado")
 	ErrCannotCloseAfterStart = errors.New("No se pueden cerrar inscripciones después de que el evento haya iniciado")
 	ErrCannotOpenAfterStart  = errors.New("No se pueden reabrir inscripciones después de que el evento haya iniciado")
+	ErrCannotOpenAfterClose  = errors.New("No se pueden reabrir inscripciones después de la fecha de cierre")
+	ErrCloseDateLocked       = errors.New("La fecha de cierre de inscripción no puede modificarse una vez alcanzada")
 )
 
 type Service struct {
@@ -68,13 +70,28 @@ func (s *Service) ListEventos(ctx context.Context) ([]db.EventoModel, error) {
 	return eventos, nil
 }
 
-func (s *Service) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error) {
-	_, err := s.repo.FindByID(ctx, req.ID)
+func (s *Service) GetEventoByID(ctx context.Context, id int) (*db.EventoModel, error) {
+	evento, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return nil, ErrNotFound
 		}
 		return nil, ErrDB
+	}
+	return evento, nil
+}
+
+func (s *Service) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error) {
+	evento, err := s.repo.FindByID(ctx, req.ID)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, ErrDB
+	}
+
+	if time.Now().After(evento.FechaCierreInscripcion) && !sameDay(cierre, evento.FechaCierreInscripcion) {
+		return nil, ErrCloseDateLocked
 	}
 
 	existingName, err := s.repo.FindByName(ctx, strings.TrimSpace(req.Nombre))
@@ -134,10 +151,19 @@ func (s *Service) AbrirInscripciones(ctx context.Context, eventoID int) (*db.Eve
 	if time.Now().After(evento.FechaInicio) {
 		return nil, ErrCannotOpenAfterStart
 	}
+	if time.Now().After(evento.FechaCierreInscripcion) {
+		return nil, ErrCannotOpenAfterClose
+	}
 
 	updated, err := s.repo.SetInscripciones(ctx, eventoID, true)
 	if err != nil {
 		return nil, ErrDB
 	}
 	return updated, nil
+}
+
+func sameDay(a, b time.Time) bool {
+	y1, m1, d1 := a.Date()
+	y2, m2, d2 := b.Date()
+	return y1 == y2 && m1 == m2 && d1 == d2
 }
