@@ -13,14 +13,21 @@ import (
 	"project/backend/internal/auth/service"
 	"project/backend/internal/auth/validation"
 	"project/backend/internal/shared/response"
-	usersrepo "project/backend/internal/users/repo"
+	"project/backend/prisma/db"
 )
 
 type Handler struct {
-	Repo *usersrepo.UserRepository
+	Repo UserRepository
 }
 
-func New(repo *usersrepo.UserRepository) *Handler {
+type UserRepository interface {
+	FindRoleByID(ctx context.Context, roleID int) (*db.RolesModel, error)
+	CreateUser(ctx context.Context, name, email, passwordHash string, roleID int) (*db.UsuarioModel, error)
+	FindUserByEmail(ctx context.Context, email string) (*db.UsuarioModel, error)
+	UpdatePassword(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error)
+}
+
+func New(repo UserRepository) *Handler {
 	return &Handler{Repo: repo}
 }
 

@@ -17,12 +17,26 @@ import (
 )
 
 type Handler struct {
-	svc *service.Service
+	svc EventService
+}
+
+type EventService interface {
+	EnsureNombreUnico(ctx context.Context, nombre string) error
+	EnsureNoSolapamiento(ctx context.Context, start, end time.Time) error
+	CreateEvento(ctx context.Context, req dto.CreateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
+	ListEventos(ctx context.Context) ([]db.EventoModel, error)
+	UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
+	CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
+	AbrirInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
 }
 
 func New(client *db.PrismaClient) http.Handler {
 	repository := repo.New(client)
 	return &Handler{svc: service.New(repository)}
+}
+
+func NewWithService(svc EventService) *Handler {
+	return &Handler{svc: svc}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
