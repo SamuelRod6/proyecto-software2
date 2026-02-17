@@ -16,7 +16,10 @@ export default function DayPickerSingle({
 	disabled, 
 	className = "" 
 }: DayPickerSingleProps) {
+	const today = new Date();
+	today.setHours(0, 0, 0, 0);
 	const combinedDisabled = (date: Date) => {
+		if (date < today) return true;
 		if (maxDate && date > maxDate) return true;
 		if (disabled) return disabled(date);
 		return false;

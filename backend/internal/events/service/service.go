@@ -183,3 +183,7 @@ func sameDay(a, b time.Time) bool {
 	y2, m2, d2 := b.Date()
 	return y1 == y2 && m1 == m2 && d1 == d2
 }
+
+func (s *Service) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error) {
+	return s.repo.GetFechasOcupadas(ctx)
+}

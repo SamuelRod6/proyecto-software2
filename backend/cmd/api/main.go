@@ -41,6 +41,7 @@ func main() {
 	roleService := roles.NewUserRoleService(prismaClient)
 	userHandler := userhandler.New(userRepo, roleService)
 	eventsHandler := eventhandler.New(prismaClient)
+	fechasOcupadasHandler := eventhandler.GetFechasOcupadasHandler(eventsHandler.(*eventhandler.Handler).Svc())
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 
@@ -55,6 +56,7 @@ func main() {
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
 	http.Handle("/api/eventos", eventsHandler)
+	http.HandleFunc("/api/eventos/fechas-ocupadas", fechasOcupadasHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

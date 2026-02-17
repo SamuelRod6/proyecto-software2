@@ -10,3 +10,8 @@ type EventoResponse struct {
 	InscripcionesAbiertas  bool   `json:"inscripciones_abiertas"`
 	Ubicacion              string `json:"ubicacion"`
 }
+
+type RangoFechas struct {
+	FechaInicio string `json:"fecha_inicio"`
+	FechaFin    string `json:"fecha_fin"`
+}

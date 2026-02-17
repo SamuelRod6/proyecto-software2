@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import DayPickerSingle from "../ui/DayPickerSingle";
 import BackArrow from "../ui/BackArrow";
@@ -12,7 +12,7 @@ import SelectInput from "../ui/SelectorInput";
 import Button from "../ui/Button";
 import Input from "../ui/Input";
 // APIs
-import { createEvent } from "../../services/eventsServices";
+import { createEvent, fetchFechasOcupadas, RangoFechasApi } from "../../services/eventsServices";
 // constants
 import { venezuelaCities } from "../../constants/venezuelaCities";
 
@@ -30,9 +30,30 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	const [city, setCity] = useState("");
 	const [page2, setPage2] = useState(false);
 	const [closeDate, setCloseDate] = useState<Date | undefined>(undefined);
+	const [disabledRanges, setDisabledRanges] = useState<{ from: Date; to: Date }[]>([]);
+
 	// contexts
 	const { showLoader, hideLoader } = useLoader();
 	const { showToast } = useToast();
+
+	// effect to fetch occupied date ranges when modal opens
+	useEffect(() => {
+		if (open) {
+			fetchFechasOcupadas().then(({ status, data }) => {
+				if (status === 200 && Array.isArray(data)) {
+					setDisabledRanges(
+						data.map((r: RangoFechasApi) => ({
+							from: parseDate(r.fecha_inicio),
+							to: parseDate(r.fecha_fin),
+						}))
+					);
+				} else {
+					setDisabledRanges([]);
+				}
+			});
+		}
+	}, [open]);
+
 
 	// clean up and close modal
 	const handleClose = () => {
@@ -48,6 +69,12 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	// helper to format date
 	function formatDate(d: Date): string {
 		return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric" });
+	}
+
+	//function to parse date string from API
+	function parseDate(dateStr: string): Date {
+		const [day, month, year] = dateStr.split("/").map(Number);
+		return new Date(year, month - 1, day);
 	}
 
 	// function to form the payload
@@ -128,6 +155,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 									fromLabel="Inicio"
 									toLabel="Fin"
 									className="bg-[#e3e8f0] rounded p-2"
+									disabledRanges={disabledRanges}
 								/>
 							</div>
 						</div>

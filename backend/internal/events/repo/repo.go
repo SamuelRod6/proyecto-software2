@@ -2,10 +2,10 @@ package repo
 
 import (
 	"context"
+	"project/backend/internal/events/dto"
+	"project/backend/prisma/db"
 	"strings"
 	"time"
-
-	"project/backend/prisma/db"
 )
 
 type Repository struct {
@@ -67,4 +67,20 @@ func (r *Repository) SetInscripciones(ctx context.Context, id int, abiertas bool
 	).Update(
 		db.Evento.InscripcionesAbiertasManual.Set(abiertas),
 	).Exec(ctx)
+}
+
+func (r *Repository) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error) {
+	eventos, err := r.client.Evento.FindMany().Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	rangos := make([]dto.RangoFechas, 0, len(eventos))
+	for _, ev := range eventos {
+		rangos = append(rangos, dto.RangoFechas{
+			FechaInicio: ev.FechaInicio.Format("02/01/2006"),
+			FechaFin:    ev.FechaFin.Format("02/01/2006"),
+		})
+	}
+	return rangos, nil
 }

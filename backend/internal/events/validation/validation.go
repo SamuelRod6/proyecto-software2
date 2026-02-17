@@ -47,8 +47,8 @@ func ValidateEventoFechas(fechaInicio, fechaFin, fechaCierre string, now time.Ti
 		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de cierre de inscripción debe ser posterior a la fecha actual.")
 	}
 
-	if !end.After(start) {
-		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de fin debe ser posterior a la fecha de inicio.")
+	if end.Before(start) {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de fin no puede ser anterior a la fecha de inicio.")
 	}
 	if !cierre.Before(start) {
 		return time.Time{}, time.Time{}, time.Time{}, errors.New("La fecha de cierre de inscripción debe ser anterior a la fecha de inicio del evento.")

@@ -30,6 +30,7 @@ type EventService interface {
 	DeleteEvento(ctx context.Context, id int) error
 	CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
 	AbrirInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
+	GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error)
 }
 
 func New(client *db.PrismaClient) http.Handler {
@@ -360,4 +361,22 @@ func isInscripcionesAbiertas(evento *db.EventoModel, now time.Time) bool {
 		return false
 	}
 	return now.Before(evento.FechaCierreInscripcion)
+}
+
+func (h *Handler) Svc() EventService {
+	return h.svc
+}
+
+func GetFechasOcupadasHandler(svc EventService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		fechas, err := svc.GetFechasOcupadas(ctx)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{"error": "Error obteniendo fechas ocupadas por los eventos existentes"})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(fechas)
+	}
 }
