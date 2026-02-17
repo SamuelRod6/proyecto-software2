@@ -8,6 +8,7 @@ import { eventRoutes } from "./EventRoutes";
 import { roleManagementRoutes } from "./RoleManagement";
 // screens
 import HomeScreen from "../screens/HomeScreen";
+import NotificationListScreen from '../screens/notifications/NotificationListScreen';
 // contexts
 import { AuthProvider } from "../contexts/Auth/Authcontext";
 
@@ -32,6 +33,10 @@ export default function AppRouter(): JSX.Element {
 						/>
 						{eventRoutes}
 						{roleManagementRoutes}
+						<Route 
+							path="notifications" 
+							element={<NotificationListScreen />} 
+						/>
 					</Route>
 					<Route 
 						path="*" 

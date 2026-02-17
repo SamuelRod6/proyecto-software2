@@ -6,6 +6,7 @@ import Loader from "../components/ui/Loader";
 import Toast from "../components/ui/Toast";
 // contexts
 import { useLoader } from "../contexts/Loader/LoaderContext";
+import { NotificationProvider } from "../contexts/Notifications/NotificationContext";
 
 export default function AppLayout(): JSX.Element {
 	const { state: loaderState } = useLoader();
@@ -17,15 +18,17 @@ export default function AppLayout(): JSX.Element {
 					<Loader visible={true} />
 				</div>
 			)}
-			<div className="flex min-h-screen">
-				<Sidebar />
-				<div className="flex flex-1 flex-col">
-					<Header />
-					<main className="flex-1 px-6 py-6">
-						<Outlet />
-					</main>
+			<NotificationProvider>
+				<div className="flex min-h-screen">
+					<Sidebar />
+					<div className="flex flex-1 flex-col">
+						<Header />
+						<main className="flex-1 px-6 py-6">
+							<Outlet />
+						</main>
+					</div>
 				</div>
-			</div>
+			</NotificationProvider>
 		</div>
 	);
 }
