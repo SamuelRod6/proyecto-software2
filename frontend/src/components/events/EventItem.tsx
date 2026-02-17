@@ -1,5 +1,8 @@
+import { useState } from "react";
 // components
 import DeleteIconButton from "../ui/DeleteIconButton";
+import ToggleIconButton from "../ui/ToggleIconButton";
+import ConfirmModal from "../ui/ConfirmModal";
 // contexts
 import { useAuth } from "../../contexts/Auth/Authcontext";
 
@@ -14,6 +17,7 @@ interface EventItemProps {
 	onClick?: () => void;
 	inscrito?: boolean;
 	onDelete?: (id: number) => void;
+	onToggleInscripcion?: (id: number, open: boolean) => void;
 }
 
 export default function EventItem(props: EventItemProps) {
@@ -28,8 +32,15 @@ const {
 	onClick,
 	inscrito,
 	onDelete,
+	onToggleInscripcion,
 } = props;
+	// states
+	const [showConfirm, setShowConfirm] = useState<null | "abrir" | "cerrar">(null);
+	const [loading, setLoading] = useState(false);
+	// contexts
 	const { user } = useAuth();
+
+	// role checks
 	const isAdmin = user?.role === "ADMIN";
 	const isOrganizer = user?.role === "COMITE CIENTIFICO";
 	return (
@@ -53,11 +64,40 @@ const {
 					</span>
 				</div>
 			</div>
-				{(isAdmin || isOrganizer) && onDelete && (
-					<div className="mt-4 md:mt-0 md:ml-4 flex-shrink-0">
-						<DeleteIconButton onClick={(e) => { e.stopPropagation(); onDelete(id_evento); }} />
+				{(isAdmin || isOrganizer) && (
+					<div className="mt-4 md:mt-0 md:ml-4 flex-shrink-0 flex gap-2">
+						{onToggleInscripcion && (
+							<ToggleIconButton
+								open={!inscripciones_abiertas}
+								onClick={e => {
+									e.stopPropagation();
+									setShowConfirm(inscripciones_abiertas ? "cerrar" : "abrir");
+								}}
+								title={inscripciones_abiertas ? "Cerrar inscripciones" : "Abrir inscripciones"}
+							/>
+						)}
+						{onDelete && (
+							<DeleteIconButton onClick={e => { e.stopPropagation(); onDelete(id_evento); }} />
+						)}
 					</div>
 				)}
-		</div>
-	);
+		<ConfirmModal
+			open={!!showConfirm}
+			title={showConfirm === "cerrar" ? "Cerrar inscripciones" : "Abrir inscripciones"}
+			message={showConfirm === "cerrar"
+				? "¿Estás seguro que deseas cerrar las inscripciones para este evento?"
+				: "¿Estás seguro que deseas abrir las inscripciones para este evento?"}
+			confirmText={showConfirm === "cerrar" ? "Cerrar" : "Abrir"}
+			cancelText="Cancelar"
+			loading={loading}
+			onCancel={() => setShowConfirm(null)}
+			onConfirm={async () => {
+				setLoading(true);
+				await onToggleInscripcion?.(id_evento, inscripciones_abiertas);
+				setLoading(false);
+				setShowConfirm(null);
+			}}
+		/>
+	</div>
+);
 }

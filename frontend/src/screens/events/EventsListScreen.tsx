@@ -14,7 +14,7 @@ import { useAuth } from "../../contexts/Auth/Authcontext";
 // animations
 import emptyAnimation from "../../assets/animations/empty-animation.json";
 // APIs
-import { getEvents, Evento, deleteEvent } from "../../services/eventsServices";
+import { getEvents, Evento, deleteEvent, patchInscriptionDate } from "../../services/eventsServices";
 
 export default function EventsListScreen(): JSX.Element {
 	// states
@@ -103,6 +103,26 @@ export default function EventsListScreen(): JSX.Element {
 		setEventToDelete(null);
 	};
 
+	// handler to toggle inscription status
+	const handleToggleInscripcion = async (id: number, abiertas: boolean) => {
+		const action = abiertas ? "cerrar" : "abrir";
+		const { status, data } = await patchInscriptionDate(id, action);
+		if (status === 200) {
+			showToast({
+				title: abiertas ? "Inscripciones cerradas" : "Inscripciones abiertas",
+				message: abiertas ? "Las inscripciones fueron cerradas." : "Las inscripciones fueron abiertas.",
+				status: "success"
+			});
+			fetchEvents();
+		} else {
+			showToast({
+				title: "Error al cambiar inscripciones",
+				message: data?.message || data?.error || "No se pudo cambiar el estado de las inscripciones.",
+				status: "error"
+			});
+		}
+	};
+
 	useEffect(() => {
 		fetchEvents();
 	}, []);
@@ -159,8 +179,13 @@ export default function EventsListScreen(): JSX.Element {
 							inscripciones_abiertas={ev.inscripciones_abiertas}
 							ubicacion={ev.ubicacion}
 							inscrito={eventosInscritos.includes(ev.id_evento)}
-							onClick={() => setSelectedEvent(ev)}
+							onClick={e => {
+								// Only open modal if the click is not on a button or its children (like the toggle or delete icons)
+								if (e && e.target && (e.target.closest('button') || e.target.closest('svg'))) return;
+								setSelectedEvent(ev);
+							}}
 							onDelete={handleDeleteClick}
+							onToggleInscripcion={handleToggleInscripcion}
 						/>
 					))}
 					<EventDetailModal 
