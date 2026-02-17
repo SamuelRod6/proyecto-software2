@@ -25,6 +25,7 @@ type EventService interface {
 	EnsureNoSolapamiento(ctx context.Context, start, end time.Time) error
 	CreateEvento(ctx context.Context, req dto.CreateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
 	ListEventos(ctx context.Context) ([]db.EventoModel, error)
+	GetEventoByID(ctx context.Context, id int) (*db.EventoModel, error)
 	UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
 	CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
 	AbrirInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)

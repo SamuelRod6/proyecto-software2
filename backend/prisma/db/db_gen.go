@@ -84,13 +84,14 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario    Int      @id @default(autoincrement())
-  nombre        String   @unique
-  email         String   @unique
+  id_usuario    Int           @id @default(autoincrement())
+  nombre        String        @unique
+  email         String        @unique
   password_hash String
   id_rol        Int
-  rol           Roles    @relation(fields: [id_rol], references: [id_rol])
-  createdAt     DateTime @default(now())
+  rol           Roles         @relation(fields: [id_rol], references: [id_rol])
+  createdAt     DateTime      @default(now())
+  inscripciones Inscripcion[]
 }
 
 model Roles {
@@ -102,14 +103,28 @@ model Roles {
 }
 
 model Evento {
-  id_evento                  Int      @id @default(autoincrement())
-  nombre                     String   @unique
-  fecha_inicio               DateTime
-  fecha_fin                  DateTime
-  fecha_cierre_inscripcion   DateTime
-  inscripciones_abiertas_manual Boolean @default(true)
-  ubicacion                  String
-  createdAt                  DateTime @default(now())
+  id_evento                     Int           @id @default(autoincrement())
+  nombre                        String        @unique
+  fecha_inicio                  DateTime
+  fecha_fin                     DateTime
+  fecha_cierre_inscripcion      DateTime
+  inscripciones_abiertas_manual Boolean       @default(true)
+  ubicacion                     String
+  createdAt                     DateTime      @default(now())
+  inscripciones                 Inscripcion[]
+}
+
+model Inscripcion {
+  id_inscripcion Int      @id @default(autoincrement())
+  fecha          DateTime @default(now())
+  estado_pago    Boolean  @default(false)
+  comprobante    String   @default("")
+  id_evento      Int
+  id_usuario     Int
+  evento         Evento   @relation(fields: [id_evento], references: [id_evento])
+  usuario        Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@unique([id_evento, id_usuario])
 }
 `
 const schemaDatasourceURL = ""
@@ -185,6 +200,7 @@ func newClient() *PrismaClient {
 	c.Usuario = usuarioActions{client: c}
 	c.Roles = rolesActions{client: c}
 	c.Evento = eventoActions{client: c}
+	c.Inscripcion = inscripcionActions{client: c}
 
 	c.Prisma = &PrismaActions{
 		Raw: &raw.Raw{Engine: c},
@@ -215,6 +231,8 @@ type PrismaClient struct {
 	Roles rolesActions
 	// Evento provides access to CRUD methods.
 	Evento eventoActions
+	// Inscripcion provides access to CRUD methods.
+	Inscripcion inscripcionActions
 }
 
 // --- template enums.gotpl ---
@@ -259,6 +277,17 @@ const (
 	EventoScalarFieldEnumInscripcionesAbiertasManual EventoScalarFieldEnum = "inscripciones_abiertas_manual"
 	EventoScalarFieldEnumUbicacion                   EventoScalarFieldEnum = "ubicacion"
 	EventoScalarFieldEnumCreatedAt                   EventoScalarFieldEnum = "createdAt"
+)
+
+type InscripcionScalarFieldEnum string
+
+const (
+	InscripcionScalarFieldEnumIDInscripcion InscripcionScalarFieldEnum = "id_inscripcion"
+	InscripcionScalarFieldEnumFecha         InscripcionScalarFieldEnum = "fecha"
+	InscripcionScalarFieldEnumEstadoPago    InscripcionScalarFieldEnum = "estado_pago"
+	InscripcionScalarFieldEnumComprobante   InscripcionScalarFieldEnum = "comprobante"
+	InscripcionScalarFieldEnumIDEvento      InscripcionScalarFieldEnum = "id_evento"
+	InscripcionScalarFieldEnumIDUsuario     InscripcionScalarFieldEnum = "id_usuario"
 )
 
 type SortOrder string
@@ -322,6 +351,8 @@ const usuarioFieldRol usuarioPrismaFields = "rol"
 
 const usuarioFieldCreatedAt usuarioPrismaFields = "createdAt"
 
+const usuarioFieldInscripciones usuarioPrismaFields = "inscripciones"
+
 type rolesPrismaFields = prismaFields
 
 const rolesFieldIDRol rolesPrismaFields = "id_rol"
@@ -352,6 +383,26 @@ const eventoFieldUbicacion eventoPrismaFields = "ubicacion"
 
 const eventoFieldCreatedAt eventoPrismaFields = "createdAt"
 
+const eventoFieldInscripciones eventoPrismaFields = "inscripciones"
+
+type inscripcionPrismaFields = prismaFields
+
+const inscripcionFieldIDInscripcion inscripcionPrismaFields = "id_inscripcion"
+
+const inscripcionFieldFecha inscripcionPrismaFields = "fecha"
+
+const inscripcionFieldEstadoPago inscripcionPrismaFields = "estado_pago"
+
+const inscripcionFieldComprobante inscripcionPrismaFields = "comprobante"
+
+const inscripcionFieldIDEvento inscripcionPrismaFields = "id_evento"
+
+const inscripcionFieldIDUsuario inscripcionPrismaFields = "id_usuario"
+
+const inscripcionFieldEvento inscripcionPrismaFields = "evento"
+
+const inscripcionFieldUsuario inscripcionPrismaFields = "usuario"
+
 // --- template mock.gotpl ---
 func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 	expectations := new([]mock.Expectation)
@@ -374,6 +425,10 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.Inscripcion = inscripcionMock{
+		mock: m,
+	}
+
 	return pc, m, m.Ensure
 }
 
@@ -385,6 +440,8 @@ type Mock struct {
 	Roles rolesMock
 
 	Evento eventoMock
+
+	Inscripcion inscripcionMock
 }
 
 type usuarioMock struct {
@@ -513,6 +570,48 @@ func (m *eventoMockExec) Errors(err error) {
 	})
 }
 
+type inscripcionMock struct {
+	mock *Mock
+}
+
+type InscripcionMockExpectParam interface {
+	ExtractQuery() builder.Query
+	inscripcionModel()
+}
+
+func (m *inscripcionMock) Expect(query InscripcionMockExpectParam) *inscripcionMockExec {
+	return &inscripcionMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type inscripcionMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *inscripcionMockExec) Returns(v InscripcionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *inscripcionMockExec) ReturnsMany(v []InscripcionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *inscripcionMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
 // --- template models.gotpl ---
 
 // UsuarioModel represents the Usuario model and is a wrapper for accessing fields and methods
@@ -543,7 +642,8 @@ type RawUsuarioModel struct {
 
 // RelationsUsuario holds the relation data separately
 type RelationsUsuario struct {
-	Rol *RolesModel `json:"rol,omitempty"`
+	Rol           *RolesModel        `json:"rol,omitempty"`
+	Inscripciones []InscripcionModel `json:"inscripciones,omitempty"`
 }
 
 func (r UsuarioModel) Rol() (value *RolesModel) {
@@ -551,6 +651,13 @@ func (r UsuarioModel) Rol() (value *RolesModel) {
 		panic("attempted to access rol but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsUsuario.Rol
+}
+
+func (r UsuarioModel) Inscripciones() (value []InscripcionModel) {
+	if r.RelationsUsuario.Inscripciones == nil {
+		panic("attempted to access inscripciones but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.Inscripciones
 }
 
 // RolesModel represents the Roles model and is a wrapper for accessing fields and methods
@@ -619,6 +726,60 @@ type RawEventoModel struct {
 
 // RelationsEvento holds the relation data separately
 type RelationsEvento struct {
+	Inscripciones []InscripcionModel `json:"inscripciones,omitempty"`
+}
+
+func (r EventoModel) Inscripciones() (value []InscripcionModel) {
+	if r.RelationsEvento.Inscripciones == nil {
+		panic("attempted to access inscripciones but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsEvento.Inscripciones
+}
+
+// InscripcionModel represents the Inscripcion model and is a wrapper for accessing fields and methods
+type InscripcionModel struct {
+	InnerInscripcion
+	RelationsInscripcion
+}
+
+// InnerInscripcion holds the actual data
+type InnerInscripcion struct {
+	IDInscripcion int      `json:"id_inscripcion"`
+	Fecha         DateTime `json:"fecha"`
+	EstadoPago    bool     `json:"estado_pago"`
+	Comprobante   string   `json:"comprobante"`
+	IDEvento      int      `json:"id_evento"`
+	IDUsuario     int      `json:"id_usuario"`
+}
+
+// RawInscripcionModel is a struct for Inscripcion when used in raw queries
+type RawInscripcionModel struct {
+	IDInscripcion RawInt      `json:"id_inscripcion"`
+	Fecha         RawDateTime `json:"fecha"`
+	EstadoPago    RawBoolean  `json:"estado_pago"`
+	Comprobante   RawString   `json:"comprobante"`
+	IDEvento      RawInt      `json:"id_evento"`
+	IDUsuario     RawInt      `json:"id_usuario"`
+}
+
+// RelationsInscripcion holds the relation data separately
+type RelationsInscripcion struct {
+	Evento  *EventoModel  `json:"evento,omitempty"`
+	Usuario *UsuarioModel `json:"usuario,omitempty"`
+}
+
+func (r InscripcionModel) Evento() (value *EventoModel) {
+	if r.RelationsInscripcion.Evento == nil {
+		panic("attempted to access evento but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsInscripcion.Evento
+}
+
+func (r InscripcionModel) Usuario() (value *UsuarioModel) {
+	if r.RelationsInscripcion.Usuario == nil {
+		panic("attempted to access usuario but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsInscripcion.Usuario
 }
 
 // --- template query.gotpl ---
@@ -662,6 +823,8 @@ type usuarioQuery struct {
 	//
 	// @required
 	CreatedAt usuarioQueryCreatedAtDateTime
+
+	Inscripciones usuarioQueryInscripcionesRelations
 }
 
 func (usuarioQuery) Not(params ...UsuarioWhereParam) usuarioDefaultParam {
@@ -2953,6 +3116,178 @@ func (r usuarioQueryCreatedAtDateTime) Field() usuarioPrismaFields {
 	return usuarioFieldCreatedAt
 }
 
+// base struct
+type usuarioQueryInscripcionesInscripcion struct{}
+
+type usuarioQueryInscripcionesRelations struct{}
+
+// Usuario -> Inscripciones
+//
+// @relation
+// @required
+func (usuarioQueryInscripcionesRelations) Some(
+	params ...InscripcionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> Inscripciones
+//
+// @relation
+// @required
+func (usuarioQueryInscripcionesRelations) Every(
+	params ...InscripcionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> Inscripciones
+//
+// @relation
+// @required
+func (usuarioQueryInscripcionesRelations) None(
+	params ...InscripcionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQueryInscripcionesRelations) Fetch(
+
+	params ...InscripcionWhereParam,
+
+) usuarioToInscripcionesFindMany {
+	var v usuarioToInscripcionesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "inscripciones"
+	v.query.Outputs = inscripcionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQueryInscripcionesRelations) Link(
+	params ...InscripcionWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQueryInscripcionesRelations) Unlink(
+	params ...InscripcionWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQueryInscripcionesInscripcion) Field() usuarioPrismaFields {
+	return usuarioFieldInscripciones
+}
+
 // Roles acts as a namespaces to access query methods for the Roles model
 var Roles = rolesQuery{}
 
@@ -4656,6 +4991,8 @@ type eventoQuery struct {
 	//
 	// @required
 	CreatedAt eventoQueryCreatedAtDateTime
+
+	Inscripciones eventoQueryInscripcionesRelations
 }
 
 func (eventoQuery) Not(params ...EventoWhereParam) eventoDefaultParam {
@@ -7114,6 +7451,2387 @@ func (r eventoQueryCreatedAtDateTime) Field() eventoPrismaFields {
 	return eventoFieldCreatedAt
 }
 
+// base struct
+type eventoQueryInscripcionesInscripcion struct{}
+
+type eventoQueryInscripcionesRelations struct{}
+
+// Evento -> Inscripciones
+//
+// @relation
+// @required
+func (eventoQueryInscripcionesRelations) Some(
+	params ...InscripcionWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Evento -> Inscripciones
+//
+// @relation
+// @required
+func (eventoQueryInscripcionesRelations) Every(
+	params ...InscripcionWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Evento -> Inscripciones
+//
+// @relation
+// @required
+func (eventoQueryInscripcionesRelations) None(
+	params ...InscripcionWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (eventoQueryInscripcionesRelations) Fetch(
+
+	params ...InscripcionWhereParam,
+
+) eventoToInscripcionesFindMany {
+	var v eventoToInscripcionesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "inscripciones"
+	v.query.Outputs = inscripcionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r eventoQueryInscripcionesRelations) Link(
+	params ...InscripcionWhereParam,
+) eventoSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoSetParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryInscripcionesRelations) Unlink(
+	params ...InscripcionWhereParam,
+) eventoSetParam {
+	var v eventoSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = eventoSetParam{
+		data: builder.Field{
+			Name: "inscripciones",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r eventoQueryInscripcionesInscripcion) Field() eventoPrismaFields {
+	return eventoFieldInscripciones
+}
+
+// Inscripcion acts as a namespaces to access query methods for the Inscripcion model
+var Inscripcion = inscripcionQuery{}
+
+// inscripcionQuery exposes query functions for the inscripcion model
+type inscripcionQuery struct {
+
+	// IDInscripcion
+	//
+	// @required
+	IDInscripcion inscripcionQueryIDInscripcionInt
+
+	// Fecha
+	//
+	// @required
+	Fecha inscripcionQueryFechaDateTime
+
+	// EstadoPago
+	//
+	// @required
+	EstadoPago inscripcionQueryEstadoPagoBoolean
+
+	// Comprobante
+	//
+	// @required
+	Comprobante inscripcionQueryComprobanteString
+
+	// IDEvento
+	//
+	// @required
+	IDEvento inscripcionQueryIDEventoInt
+
+	// IDUsuario
+	//
+	// @required
+	IDUsuario inscripcionQueryIDUsuarioInt
+
+	Evento inscripcionQueryEventoRelations
+
+	Usuario inscripcionQueryUsuarioRelations
+}
+
+func (inscripcionQuery) Not(params ...InscripcionWhereParam) inscripcionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (inscripcionQuery) Or(params ...InscripcionWhereParam) inscripcionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (inscripcionQuery) And(params ...InscripcionWhereParam) inscripcionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (inscripcionQuery) IDEventoIDUsuario(
+	_idEvento InscripcionWithPrismaIDEventoWhereParam,
+
+	_idUsuario InscripcionWithPrismaIDUsuarioWhereParam,
+) InscripcionEqualsUniqueWhereParam {
+	var fields []builder.Field
+
+	fields = append(fields, _idEvento.field())
+	fields = append(fields, _idUsuario.field())
+
+	return inscripcionEqualsUniqueParam{
+		data: builder.Field{
+			Name:   "id_evento_id_usuario",
+			Fields: builder.TransformEquals(fields),
+		},
+	}
+}
+
+// base struct
+type inscripcionQueryIDInscripcionInt struct{}
+
+// Set the required value of IDInscripcion
+func (r inscripcionQueryIDInscripcionInt) Set(value int) inscripcionSetParam {
+
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name:  "id_inscripcion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDInscripcion dynamically
+func (r inscripcionQueryIDInscripcionInt) SetIfPresent(value *Int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDInscripcion
+func (r inscripcionQueryIDInscripcionInt) Increment(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) IncrementIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDInscripcion
+func (r inscripcionQueryIDInscripcionInt) Decrement(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) DecrementIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDInscripcion
+func (r inscripcionQueryIDInscripcionInt) Multiply(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) MultiplyIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDInscripcion
+func (r inscripcionQueryIDInscripcionInt) Divide(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) DivideIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) Equals(value int) inscripcionWithPrismaIDInscripcionEqualsUniqueParam {
+
+	return inscripcionWithPrismaIDInscripcionEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) EqualsIfPresent(value *int) inscripcionWithPrismaIDInscripcionEqualsUniqueParam {
+	if value == nil {
+		return inscripcionWithPrismaIDInscripcionEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) Order(direction SortOrder) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:  "id_inscripcion",
+			Value: direction,
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) Cursor(cursor int) inscripcionCursorParam {
+	return inscripcionCursorParam{
+		data: builder.Field{
+			Name:  "id_inscripcion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) In(value []int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) InIfPresent(value []int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) NotIn(value []int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) NotInIfPresent(value []int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) Lt(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) LtIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) Lte(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) LteIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) Gt(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) GtIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) Gte(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) GteIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) Not(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDInscripcionInt) NotIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r inscripcionQueryIDInscripcionInt) LT(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r inscripcionQueryIDInscripcionInt) LTIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r inscripcionQueryIDInscripcionInt) LTE(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r inscripcionQueryIDInscripcionInt) LTEIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r inscripcionQueryIDInscripcionInt) GT(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r inscripcionQueryIDInscripcionInt) GTIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r inscripcionQueryIDInscripcionInt) GTE(value int) inscripcionParamUnique {
+	return inscripcionParamUnique{
+		data: builder.Field{
+			Name: "id_inscripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r inscripcionQueryIDInscripcionInt) GTEIfPresent(value *int) inscripcionParamUnique {
+	if value == nil {
+		return inscripcionParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r inscripcionQueryIDInscripcionInt) Field() inscripcionPrismaFields {
+	return inscripcionFieldIDInscripcion
+}
+
+// base struct
+type inscripcionQueryFechaDateTime struct{}
+
+// Set the required value of Fecha
+func (r inscripcionQueryFechaDateTime) Set(value DateTime) inscripcionSetParam {
+
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name:  "fecha",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Fecha dynamically
+func (r inscripcionQueryFechaDateTime) SetIfPresent(value *DateTime) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r inscripcionQueryFechaDateTime) Equals(value DateTime) inscripcionWithPrismaFechaEqualsParam {
+
+	return inscripcionWithPrismaFechaEqualsParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) EqualsIfPresent(value *DateTime) inscripcionWithPrismaFechaEqualsParam {
+	if value == nil {
+		return inscripcionWithPrismaFechaEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r inscripcionQueryFechaDateTime) Order(direction SortOrder) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:  "fecha",
+			Value: direction,
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) Cursor(cursor DateTime) inscripcionCursorParam {
+	return inscripcionCursorParam{
+		data: builder.Field{
+			Name:  "fecha",
+			Value: cursor,
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) In(value []DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) InIfPresent(value []DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r inscripcionQueryFechaDateTime) NotIn(value []DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) NotInIfPresent(value []DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r inscripcionQueryFechaDateTime) Lt(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) LtIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r inscripcionQueryFechaDateTime) Lte(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) LteIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r inscripcionQueryFechaDateTime) Gt(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) GtIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r inscripcionQueryFechaDateTime) Gte(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) GteIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r inscripcionQueryFechaDateTime) Not(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryFechaDateTime) NotIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r inscripcionQueryFechaDateTime) Before(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r inscripcionQueryFechaDateTime) BeforeIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r inscripcionQueryFechaDateTime) After(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r inscripcionQueryFechaDateTime) AfterIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r inscripcionQueryFechaDateTime) BeforeEquals(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r inscripcionQueryFechaDateTime) BeforeEqualsIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r inscripcionQueryFechaDateTime) AfterEquals(value DateTime) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "fecha",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r inscripcionQueryFechaDateTime) AfterEqualsIfPresent(value *DateTime) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r inscripcionQueryFechaDateTime) Field() inscripcionPrismaFields {
+	return inscripcionFieldFecha
+}
+
+// base struct
+type inscripcionQueryEstadoPagoBoolean struct{}
+
+// Set the required value of EstadoPago
+func (r inscripcionQueryEstadoPagoBoolean) Set(value bool) inscripcionSetParam {
+
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name:  "estado_pago",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of EstadoPago dynamically
+func (r inscripcionQueryEstadoPagoBoolean) SetIfPresent(value *Boolean) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r inscripcionQueryEstadoPagoBoolean) Equals(value bool) inscripcionWithPrismaEstadoPagoEqualsParam {
+
+	return inscripcionWithPrismaEstadoPagoEqualsParam{
+		data: builder.Field{
+			Name: "estado_pago",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryEstadoPagoBoolean) EqualsIfPresent(value *bool) inscripcionWithPrismaEstadoPagoEqualsParam {
+	if value == nil {
+		return inscripcionWithPrismaEstadoPagoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r inscripcionQueryEstadoPagoBoolean) Order(direction SortOrder) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:  "estado_pago",
+			Value: direction,
+		},
+	}
+}
+
+func (r inscripcionQueryEstadoPagoBoolean) Cursor(cursor bool) inscripcionCursorParam {
+	return inscripcionCursorParam{
+		data: builder.Field{
+			Name:  "estado_pago",
+			Value: cursor,
+		},
+	}
+}
+
+func (r inscripcionQueryEstadoPagoBoolean) Field() inscripcionPrismaFields {
+	return inscripcionFieldEstadoPago
+}
+
+// base struct
+type inscripcionQueryComprobanteString struct{}
+
+// Set the required value of Comprobante
+func (r inscripcionQueryComprobanteString) Set(value string) inscripcionSetParam {
+
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name:  "comprobante",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Comprobante dynamically
+func (r inscripcionQueryComprobanteString) SetIfPresent(value *String) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Equals(value string) inscripcionWithPrismaComprobanteEqualsParam {
+
+	return inscripcionWithPrismaComprobanteEqualsParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) EqualsIfPresent(value *string) inscripcionWithPrismaComprobanteEqualsParam {
+	if value == nil {
+		return inscripcionWithPrismaComprobanteEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Order(direction SortOrder) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:  "comprobante",
+			Value: direction,
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) Cursor(cursor string) inscripcionCursorParam {
+	return inscripcionCursorParam{
+		data: builder.Field{
+			Name:  "comprobante",
+			Value: cursor,
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) In(value []string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) InIfPresent(value []string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r inscripcionQueryComprobanteString) NotIn(value []string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) NotInIfPresent(value []string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r inscripcionQueryComprobanteString) Lt(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) LtIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Lte(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) LteIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Gt(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) GtIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Gte(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) GteIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Contains(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) ContainsIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r inscripcionQueryComprobanteString) StartsWith(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) StartsWithIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r inscripcionQueryComprobanteString) EndsWith(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) EndsWithIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Mode(value QueryMode) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) ModeIfPresent(value *QueryMode) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Not(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryComprobanteString) NotIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r inscripcionQueryComprobanteString) HasPrefix(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r inscripcionQueryComprobanteString) HasPrefixIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r inscripcionQueryComprobanteString) HasSuffix(value string) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "comprobante",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r inscripcionQueryComprobanteString) HasSuffixIfPresent(value *string) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r inscripcionQueryComprobanteString) Field() inscripcionPrismaFields {
+	return inscripcionFieldComprobante
+}
+
+// base struct
+type inscripcionQueryIDEventoInt struct{}
+
+// Set the required value of IDEvento
+func (r inscripcionQueryIDEventoInt) Set(value int) inscripcionSetParam {
+
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDEvento dynamically
+func (r inscripcionQueryIDEventoInt) SetIfPresent(value *Int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDEvento
+func (r inscripcionQueryIDEventoInt) Increment(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) IncrementIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDEvento
+func (r inscripcionQueryIDEventoInt) Decrement(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) DecrementIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDEvento
+func (r inscripcionQueryIDEventoInt) Multiply(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) MultiplyIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDEvento
+func (r inscripcionQueryIDEventoInt) Divide(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) DivideIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r inscripcionQueryIDEventoInt) Equals(value int) inscripcionWithPrismaIDEventoEqualsParam {
+
+	return inscripcionWithPrismaIDEventoEqualsParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) EqualsIfPresent(value *int) inscripcionWithPrismaIDEventoEqualsParam {
+	if value == nil {
+		return inscripcionWithPrismaIDEventoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r inscripcionQueryIDEventoInt) Order(direction SortOrder) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: direction,
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) Cursor(cursor int) inscripcionCursorParam {
+	return inscripcionCursorParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: cursor,
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) In(value []int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) InIfPresent(value []int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r inscripcionQueryIDEventoInt) NotIn(value []int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) NotInIfPresent(value []int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r inscripcionQueryIDEventoInt) Lt(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) LtIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r inscripcionQueryIDEventoInt) Lte(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) LteIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r inscripcionQueryIDEventoInt) Gt(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) GtIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r inscripcionQueryIDEventoInt) Gte(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) GteIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r inscripcionQueryIDEventoInt) Not(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDEventoInt) NotIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r inscripcionQueryIDEventoInt) LT(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r inscripcionQueryIDEventoInt) LTIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r inscripcionQueryIDEventoInt) LTE(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r inscripcionQueryIDEventoInt) LTEIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r inscripcionQueryIDEventoInt) GT(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r inscripcionQueryIDEventoInt) GTIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r inscripcionQueryIDEventoInt) GTE(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r inscripcionQueryIDEventoInt) GTEIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r inscripcionQueryIDEventoInt) Field() inscripcionPrismaFields {
+	return inscripcionFieldIDEvento
+}
+
+// base struct
+type inscripcionQueryIDUsuarioInt struct{}
+
+// Set the required value of IDUsuario
+func (r inscripcionQueryIDUsuarioInt) Set(value int) inscripcionSetParam {
+
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDUsuario dynamically
+func (r inscripcionQueryIDUsuarioInt) SetIfPresent(value *Int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDUsuario
+func (r inscripcionQueryIDUsuarioInt) Increment(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) IncrementIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDUsuario
+func (r inscripcionQueryIDUsuarioInt) Decrement(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) DecrementIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDUsuario
+func (r inscripcionQueryIDUsuarioInt) Multiply(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) MultiplyIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDUsuario
+func (r inscripcionQueryIDUsuarioInt) Divide(value int) inscripcionSetParam {
+	return inscripcionSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) DivideIfPresent(value *int) inscripcionSetParam {
+	if value == nil {
+		return inscripcionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) Equals(value int) inscripcionWithPrismaIDUsuarioEqualsParam {
+
+	return inscripcionWithPrismaIDUsuarioEqualsParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) EqualsIfPresent(value *int) inscripcionWithPrismaIDUsuarioEqualsParam {
+	if value == nil {
+		return inscripcionWithPrismaIDUsuarioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) Order(direction SortOrder) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: direction,
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) Cursor(cursor int) inscripcionCursorParam {
+	return inscripcionCursorParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: cursor,
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) In(value []int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) InIfPresent(value []int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) NotIn(value []int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) NotInIfPresent(value []int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) Lt(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) LtIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) Lte(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) LteIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) Gt(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) GtIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) Gte(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) GteIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) Not(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryIDUsuarioInt) NotIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r inscripcionQueryIDUsuarioInt) LT(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r inscripcionQueryIDUsuarioInt) LTIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r inscripcionQueryIDUsuarioInt) LTE(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r inscripcionQueryIDUsuarioInt) LTEIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r inscripcionQueryIDUsuarioInt) GT(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r inscripcionQueryIDUsuarioInt) GTIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r inscripcionQueryIDUsuarioInt) GTE(value int) inscripcionDefaultParam {
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r inscripcionQueryIDUsuarioInt) GTEIfPresent(value *int) inscripcionDefaultParam {
+	if value == nil {
+		return inscripcionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r inscripcionQueryIDUsuarioInt) Field() inscripcionPrismaFields {
+	return inscripcionFieldIDUsuario
+}
+
+// base struct
+type inscripcionQueryEventoEvento struct{}
+
+type inscripcionQueryEventoRelations struct{}
+
+// Inscripcion -> Evento
+//
+// @relation
+// @required
+func (inscripcionQueryEventoRelations) Where(
+	params ...EventoWhereParam,
+) inscripcionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (inscripcionQueryEventoRelations) Fetch() inscripcionToEventoFindUnique {
+	var v inscripcionToEventoFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "evento"
+	v.query.Outputs = eventoOutput
+
+	return v
+}
+
+func (r inscripcionQueryEventoRelations) Link(
+	params EventoWhereParam,
+) inscripcionWithPrismaEventoSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return inscripcionWithPrismaEventoSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return inscripcionWithPrismaEventoSetParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryEventoRelations) Unlink() inscripcionWithPrismaEventoSetParam {
+	var v inscripcionWithPrismaEventoSetParam
+
+	v = inscripcionWithPrismaEventoSetParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r inscripcionQueryEventoEvento) Field() inscripcionPrismaFields {
+	return inscripcionFieldEvento
+}
+
+// base struct
+type inscripcionQueryUsuarioUsuario struct{}
+
+type inscripcionQueryUsuarioRelations struct{}
+
+// Inscripcion -> Usuario
+//
+// @relation
+// @required
+func (inscripcionQueryUsuarioRelations) Where(
+	params ...UsuarioWhereParam,
+) inscripcionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return inscripcionDefaultParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (inscripcionQueryUsuarioRelations) Fetch() inscripcionToUsuarioFindUnique {
+	var v inscripcionToUsuarioFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "usuario"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r inscripcionQueryUsuarioRelations) Link(
+	params UsuarioWhereParam,
+) inscripcionWithPrismaUsuarioSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return inscripcionWithPrismaUsuarioSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return inscripcionWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r inscripcionQueryUsuarioRelations) Unlink() inscripcionWithPrismaUsuarioSetParam {
+	var v inscripcionWithPrismaUsuarioSetParam
+
+	v = inscripcionWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r inscripcionQueryUsuarioUsuario) Field() inscripcionPrismaFields {
+	return inscripcionFieldUsuario
+}
+
 // --- template actions.gotpl ---
 var countOutput = []builder.Output{
 	{Name: "count"},
@@ -7842,6 +10560,84 @@ func (p usuarioWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
 
 func (usuarioWithPrismaCreatedAtEqualsUniqueParam) unique() {}
 func (usuarioWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type UsuarioWithPrismaInscripcionesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	inscripcionesField()
+}
+
+type UsuarioWithPrismaInscripcionesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	inscripcionesField()
+}
+
+type usuarioWithPrismaInscripcionesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaInscripcionesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaInscripcionesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaInscripcionesSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaInscripcionesSetParam) inscripcionesField() {}
+
+type UsuarioWithPrismaInscripcionesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	inscripcionesField()
+}
+
+type usuarioWithPrismaInscripcionesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaInscripcionesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaInscripcionesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaInscripcionesEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaInscripcionesEqualsParam) inscripcionesField() {}
+
+func (usuarioWithPrismaInscripcionesSetParam) settable()  {}
+func (usuarioWithPrismaInscripcionesEqualsParam) equals() {}
+
+type usuarioWithPrismaInscripcionesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaInscripcionesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaInscripcionesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaInscripcionesEqualsUniqueParam) usuarioModel()       {}
+func (p usuarioWithPrismaInscripcionesEqualsUniqueParam) inscripcionesField() {}
+
+func (usuarioWithPrismaInscripcionesEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaInscripcionesEqualsUniqueParam) equals() {}
 
 type rolesActions struct {
 	// client holds the prisma client
@@ -9214,6 +12010,886 @@ func (p eventoWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
 func (eventoWithPrismaCreatedAtEqualsUniqueParam) unique() {}
 func (eventoWithPrismaCreatedAtEqualsUniqueParam) equals() {}
 
+type EventoWithPrismaInscripcionesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	inscripcionesField()
+}
+
+type EventoWithPrismaInscripcionesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	inscripcionesField()
+}
+
+type eventoWithPrismaInscripcionesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaInscripcionesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaInscripcionesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaInscripcionesSetParam) eventoModel() {}
+
+func (p eventoWithPrismaInscripcionesSetParam) inscripcionesField() {}
+
+type EventoWithPrismaInscripcionesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	inscripcionesField()
+}
+
+type eventoWithPrismaInscripcionesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaInscripcionesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaInscripcionesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaInscripcionesEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaInscripcionesEqualsParam) inscripcionesField() {}
+
+func (eventoWithPrismaInscripcionesSetParam) settable()  {}
+func (eventoWithPrismaInscripcionesEqualsParam) equals() {}
+
+type eventoWithPrismaInscripcionesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaInscripcionesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaInscripcionesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaInscripcionesEqualsUniqueParam) eventoModel()        {}
+func (p eventoWithPrismaInscripcionesEqualsUniqueParam) inscripcionesField() {}
+
+func (eventoWithPrismaInscripcionesEqualsUniqueParam) unique() {}
+func (eventoWithPrismaInscripcionesEqualsUniqueParam) equals() {}
+
+type inscripcionActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var inscripcionOutput = []builder.Output{
+	{Name: "id_inscripcion"},
+	{Name: "fecha"},
+	{Name: "estado_pago"},
+	{Name: "comprobante"},
+	{Name: "id_evento"},
+	{Name: "id_usuario"},
+}
+
+type InscripcionRelationWith interface {
+	getQuery() builder.Query
+	with()
+	inscripcionRelation()
+}
+
+type InscripcionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+}
+
+type inscripcionDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionDefaultParam) inscripcionModel() {}
+
+type InscripcionOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+}
+
+type inscripcionOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionOrderByParam) inscripcionModel() {}
+
+type InscripcionCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	isCursor()
+}
+
+type inscripcionCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionCursorParam) isCursor() {}
+
+func (p inscripcionCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionCursorParam) inscripcionModel() {}
+
+type InscripcionParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	inscripcionModel()
+}
+
+type inscripcionParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionParamUnique) inscripcionModel() {}
+
+func (inscripcionParamUnique) unique() {}
+
+func (p inscripcionParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type InscripcionEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+}
+
+type inscripcionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionEqualsParam) inscripcionModel() {}
+
+func (inscripcionEqualsParam) equals() {}
+
+func (p inscripcionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type InscripcionEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	inscripcionModel()
+}
+
+type inscripcionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionEqualsUniqueParam) inscripcionModel() {}
+
+func (inscripcionEqualsUniqueParam) unique() {}
+func (inscripcionEqualsUniqueParam) equals() {}
+
+func (p inscripcionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type InscripcionSetParam interface {
+	field() builder.Field
+	settable()
+	inscripcionModel()
+}
+
+type inscripcionSetParam struct {
+	data builder.Field
+}
+
+func (inscripcionSetParam) settable() {}
+
+func (p inscripcionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionSetParam) inscripcionModel() {}
+
+type InscripcionWithPrismaIDInscripcionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+	idInscripcionField()
+}
+
+type InscripcionWithPrismaIDInscripcionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	idInscripcionField()
+}
+
+type inscripcionWithPrismaIDInscripcionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDInscripcionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDInscripcionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDInscripcionSetParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaIDInscripcionSetParam) idInscripcionField() {}
+
+type InscripcionWithPrismaIDInscripcionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	idInscripcionField()
+}
+
+type inscripcionWithPrismaIDInscripcionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDInscripcionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDInscripcionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDInscripcionEqualsParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaIDInscripcionEqualsParam) idInscripcionField() {}
+
+func (inscripcionWithPrismaIDInscripcionSetParam) settable()  {}
+func (inscripcionWithPrismaIDInscripcionEqualsParam) equals() {}
+
+type inscripcionWithPrismaIDInscripcionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDInscripcionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDInscripcionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDInscripcionEqualsUniqueParam) inscripcionModel()   {}
+func (p inscripcionWithPrismaIDInscripcionEqualsUniqueParam) idInscripcionField() {}
+
+func (inscripcionWithPrismaIDInscripcionEqualsUniqueParam) unique() {}
+func (inscripcionWithPrismaIDInscripcionEqualsUniqueParam) equals() {}
+
+type InscripcionWithPrismaFechaEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+	fechaField()
+}
+
+type InscripcionWithPrismaFechaSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	fechaField()
+}
+
+type inscripcionWithPrismaFechaSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaFechaSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaFechaSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaFechaSetParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaFechaSetParam) fechaField() {}
+
+type InscripcionWithPrismaFechaWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	fechaField()
+}
+
+type inscripcionWithPrismaFechaEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaFechaEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaFechaEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaFechaEqualsParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaFechaEqualsParam) fechaField() {}
+
+func (inscripcionWithPrismaFechaSetParam) settable()  {}
+func (inscripcionWithPrismaFechaEqualsParam) equals() {}
+
+type inscripcionWithPrismaFechaEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaFechaEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaFechaEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaFechaEqualsUniqueParam) inscripcionModel() {}
+func (p inscripcionWithPrismaFechaEqualsUniqueParam) fechaField()       {}
+
+func (inscripcionWithPrismaFechaEqualsUniqueParam) unique() {}
+func (inscripcionWithPrismaFechaEqualsUniqueParam) equals() {}
+
+type InscripcionWithPrismaEstadoPagoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+	estadoPagoField()
+}
+
+type InscripcionWithPrismaEstadoPagoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	estadoPagoField()
+}
+
+type inscripcionWithPrismaEstadoPagoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaEstadoPagoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaEstadoPagoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaEstadoPagoSetParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaEstadoPagoSetParam) estadoPagoField() {}
+
+type InscripcionWithPrismaEstadoPagoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	estadoPagoField()
+}
+
+type inscripcionWithPrismaEstadoPagoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaEstadoPagoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaEstadoPagoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaEstadoPagoEqualsParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaEstadoPagoEqualsParam) estadoPagoField() {}
+
+func (inscripcionWithPrismaEstadoPagoSetParam) settable()  {}
+func (inscripcionWithPrismaEstadoPagoEqualsParam) equals() {}
+
+type inscripcionWithPrismaEstadoPagoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaEstadoPagoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaEstadoPagoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaEstadoPagoEqualsUniqueParam) inscripcionModel() {}
+func (p inscripcionWithPrismaEstadoPagoEqualsUniqueParam) estadoPagoField()  {}
+
+func (inscripcionWithPrismaEstadoPagoEqualsUniqueParam) unique() {}
+func (inscripcionWithPrismaEstadoPagoEqualsUniqueParam) equals() {}
+
+type InscripcionWithPrismaComprobanteEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+	comprobanteField()
+}
+
+type InscripcionWithPrismaComprobanteSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	comprobanteField()
+}
+
+type inscripcionWithPrismaComprobanteSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaComprobanteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaComprobanteSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaComprobanteSetParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaComprobanteSetParam) comprobanteField() {}
+
+type InscripcionWithPrismaComprobanteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	comprobanteField()
+}
+
+type inscripcionWithPrismaComprobanteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaComprobanteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaComprobanteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaComprobanteEqualsParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaComprobanteEqualsParam) comprobanteField() {}
+
+func (inscripcionWithPrismaComprobanteSetParam) settable()  {}
+func (inscripcionWithPrismaComprobanteEqualsParam) equals() {}
+
+type inscripcionWithPrismaComprobanteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaComprobanteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaComprobanteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaComprobanteEqualsUniqueParam) inscripcionModel() {}
+func (p inscripcionWithPrismaComprobanteEqualsUniqueParam) comprobanteField() {}
+
+func (inscripcionWithPrismaComprobanteEqualsUniqueParam) unique() {}
+func (inscripcionWithPrismaComprobanteEqualsUniqueParam) equals() {}
+
+type InscripcionWithPrismaIDEventoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+	idEventoField()
+}
+
+type InscripcionWithPrismaIDEventoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	idEventoField()
+}
+
+type inscripcionWithPrismaIDEventoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDEventoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDEventoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDEventoSetParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaIDEventoSetParam) idEventoField() {}
+
+type InscripcionWithPrismaIDEventoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	idEventoField()
+}
+
+type inscripcionWithPrismaIDEventoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDEventoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDEventoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDEventoEqualsParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaIDEventoEqualsParam) idEventoField() {}
+
+func (inscripcionWithPrismaIDEventoSetParam) settable()  {}
+func (inscripcionWithPrismaIDEventoEqualsParam) equals() {}
+
+type inscripcionWithPrismaIDEventoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDEventoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDEventoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDEventoEqualsUniqueParam) inscripcionModel() {}
+func (p inscripcionWithPrismaIDEventoEqualsUniqueParam) idEventoField()    {}
+
+func (inscripcionWithPrismaIDEventoEqualsUniqueParam) unique() {}
+func (inscripcionWithPrismaIDEventoEqualsUniqueParam) equals() {}
+
+type InscripcionWithPrismaIDUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+	idUsuarioField()
+}
+
+type InscripcionWithPrismaIDUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	idUsuarioField()
+}
+
+type inscripcionWithPrismaIDUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDUsuarioSetParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaIDUsuarioSetParam) idUsuarioField() {}
+
+type InscripcionWithPrismaIDUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	idUsuarioField()
+}
+
+type inscripcionWithPrismaIDUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDUsuarioEqualsParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaIDUsuarioEqualsParam) idUsuarioField() {}
+
+func (inscripcionWithPrismaIDUsuarioSetParam) settable()  {}
+func (inscripcionWithPrismaIDUsuarioEqualsParam) equals() {}
+
+type inscripcionWithPrismaIDUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaIDUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaIDUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaIDUsuarioEqualsUniqueParam) inscripcionModel() {}
+func (p inscripcionWithPrismaIDUsuarioEqualsUniqueParam) idUsuarioField()   {}
+
+func (inscripcionWithPrismaIDUsuarioEqualsUniqueParam) unique() {}
+func (inscripcionWithPrismaIDUsuarioEqualsUniqueParam) equals() {}
+
+type InscripcionWithPrismaEventoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+	eventoField()
+}
+
+type InscripcionWithPrismaEventoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	eventoField()
+}
+
+type inscripcionWithPrismaEventoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaEventoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaEventoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaEventoSetParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaEventoSetParam) eventoField() {}
+
+type InscripcionWithPrismaEventoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	eventoField()
+}
+
+type inscripcionWithPrismaEventoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaEventoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaEventoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaEventoEqualsParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaEventoEqualsParam) eventoField() {}
+
+func (inscripcionWithPrismaEventoSetParam) settable()  {}
+func (inscripcionWithPrismaEventoEqualsParam) equals() {}
+
+type inscripcionWithPrismaEventoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaEventoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaEventoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaEventoEqualsUniqueParam) inscripcionModel() {}
+func (p inscripcionWithPrismaEventoEqualsUniqueParam) eventoField()      {}
+
+func (inscripcionWithPrismaEventoEqualsUniqueParam) unique() {}
+func (inscripcionWithPrismaEventoEqualsUniqueParam) equals() {}
+
+type InscripcionWithPrismaUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	inscripcionModel()
+	usuarioField()
+}
+
+type InscripcionWithPrismaUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	usuarioField()
+}
+
+type inscripcionWithPrismaUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaUsuarioSetParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaUsuarioSetParam) usuarioField() {}
+
+type InscripcionWithPrismaUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	inscripcionModel()
+	usuarioField()
+}
+
+type inscripcionWithPrismaUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaUsuarioEqualsParam) inscripcionModel() {}
+
+func (p inscripcionWithPrismaUsuarioEqualsParam) usuarioField() {}
+
+func (inscripcionWithPrismaUsuarioSetParam) settable()  {}
+func (inscripcionWithPrismaUsuarioEqualsParam) equals() {}
+
+type inscripcionWithPrismaUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p inscripcionWithPrismaUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p inscripcionWithPrismaUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionWithPrismaUsuarioEqualsUniqueParam) inscripcionModel() {}
+func (p inscripcionWithPrismaUsuarioEqualsUniqueParam) usuarioField()     {}
+
+func (inscripcionWithPrismaUsuarioEqualsUniqueParam) unique() {}
+func (inscripcionWithPrismaUsuarioEqualsUniqueParam) equals() {}
+
 // --- template create.gotpl ---
 
 // Creates a single usuario.
@@ -9431,6 +13107,76 @@ func (r eventoCreateOne) Exec(ctx context.Context) (*EventoModel, error) {
 
 func (r eventoCreateOne) Tx() EventoUniqueTxResult {
 	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single inscripcion.
+func (r inscripcionActions) CreateOne(
+	_evento InscripcionWithPrismaEventoSetParam,
+	_usuario InscripcionWithPrismaUsuarioSetParam,
+
+	optional ...InscripcionSetParam,
+) inscripcionCreateOne {
+	var v inscripcionCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "Inscripcion"
+	v.query.Outputs = inscripcionOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _evento.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r inscripcionCreateOne) With(params ...InscripcionRelationWith) inscripcionCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type inscripcionCreateOne struct {
+	query builder.Query
+}
+
+func (p inscripcionCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p inscripcionCreateOne) inscripcionModel() {}
+
+func (r inscripcionCreateOne) Exec(ctx context.Context) (*InscripcionModel, error) {
+	var v InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionCreateOne) Tx() InscripcionUniqueTxResult {
+	v := newInscripcionUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -9986,6 +13732,560 @@ func (r usuarioToRolDeleteMany) Exec(ctx context.Context) (*BatchResult, error) 
 }
 
 func (r usuarioToRolDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToInscripcionesFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToInscripcionesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToInscripcionesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToInscripcionesFindUnique) with()            {}
+func (r usuarioToInscripcionesFindUnique) usuarioModel()    {}
+func (r usuarioToInscripcionesFindUnique) usuarioRelation() {}
+
+func (r usuarioToInscripcionesFindUnique) With(params ...InscripcionRelationWith) usuarioToInscripcionesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindUnique) Select(params ...usuarioPrismaFields) usuarioToInscripcionesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindUnique) Omit(params ...usuarioPrismaFields) usuarioToInscripcionesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToInscripcionesFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToInscripcionesFindUnique) Update(params ...UsuarioSetParam) usuarioToInscripcionesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToInscripcionesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToInscripcionesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToInscripcionesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToInscripcionesUpdateUnique) usuarioModel() {}
+
+func (r usuarioToInscripcionesUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToInscripcionesUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToInscripcionesFindUnique) Delete() usuarioToInscripcionesDeleteUnique {
+	var v usuarioToInscripcionesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToInscripcionesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToInscripcionesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToInscripcionesDeleteUnique) usuarioModel() {}
+
+func (r usuarioToInscripcionesDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToInscripcionesDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToInscripcionesFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToInscripcionesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToInscripcionesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToInscripcionesFindFirst) with()            {}
+func (r usuarioToInscripcionesFindFirst) usuarioModel()    {}
+func (r usuarioToInscripcionesFindFirst) usuarioRelation() {}
+
+func (r usuarioToInscripcionesFindFirst) With(params ...InscripcionRelationWith) usuarioToInscripcionesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindFirst) Select(params ...usuarioPrismaFields) usuarioToInscripcionesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindFirst) Omit(params ...usuarioPrismaFields) usuarioToInscripcionesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindFirst) OrderBy(params ...InscripcionOrderByParam) usuarioToInscripcionesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindFirst) Skip(count int) usuarioToInscripcionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToInscripcionesFindFirst) Take(count int) usuarioToInscripcionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToInscripcionesFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToInscripcionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToInscripcionesFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToInscripcionesFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToInscripcionesFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToInscripcionesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToInscripcionesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToInscripcionesFindMany) with()            {}
+func (r usuarioToInscripcionesFindMany) usuarioModel()    {}
+func (r usuarioToInscripcionesFindMany) usuarioRelation() {}
+
+func (r usuarioToInscripcionesFindMany) With(params ...InscripcionRelationWith) usuarioToInscripcionesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindMany) Select(params ...usuarioPrismaFields) usuarioToInscripcionesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindMany) Omit(params ...usuarioPrismaFields) usuarioToInscripcionesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindMany) OrderBy(params ...InscripcionOrderByParam) usuarioToInscripcionesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToInscripcionesFindMany) Skip(count int) usuarioToInscripcionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToInscripcionesFindMany) Take(count int) usuarioToInscripcionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToInscripcionesFindMany) Cursor(cursor UsuarioCursorParam) usuarioToInscripcionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToInscripcionesFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToInscripcionesFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToInscripcionesFindMany) Update(params ...UsuarioSetParam) usuarioToInscripcionesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToInscripcionesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToInscripcionesUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToInscripcionesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToInscripcionesUpdateMany) usuarioModel() {}
+
+func (r usuarioToInscripcionesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToInscripcionesUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToInscripcionesFindMany) Delete() usuarioToInscripcionesDeleteMany {
+	var v usuarioToInscripcionesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToInscripcionesDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToInscripcionesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToInscripcionesDeleteMany) usuarioModel() {}
+
+func (r usuarioToInscripcionesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToInscripcionesDeleteMany) Tx() UsuarioManyTxResult {
 	v := newUsuarioManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -11846,6 +16146,560 @@ func (r rolesDeleteMany) Tx() RolesManyTxResult {
 	return v
 }
 
+type eventoToInscripcionesFindUnique struct {
+	query builder.Query
+}
+
+func (r eventoToInscripcionesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToInscripcionesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToInscripcionesFindUnique) with()           {}
+func (r eventoToInscripcionesFindUnique) eventoModel()    {}
+func (r eventoToInscripcionesFindUnique) eventoRelation() {}
+
+func (r eventoToInscripcionesFindUnique) With(params ...InscripcionRelationWith) eventoToInscripcionesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToInscripcionesFindUnique) Select(params ...eventoPrismaFields) eventoToInscripcionesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToInscripcionesFindUnique) Omit(params ...eventoPrismaFields) eventoToInscripcionesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToInscripcionesFindUnique) Exec(ctx context.Context) (
+	*EventoModel,
+	error,
+) {
+	var v *EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToInscripcionesFindUnique) ExecInner(ctx context.Context) (
+	*InnerEvento,
+	error,
+) {
+	var v *InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToInscripcionesFindUnique) Update(params ...EventoSetParam) eventoToInscripcionesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Evento"
+
+	var v eventoToInscripcionesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type eventoToInscripcionesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r eventoToInscripcionesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToInscripcionesUpdateUnique) eventoModel() {}
+
+func (r eventoToInscripcionesUpdateUnique) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToInscripcionesUpdateUnique) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r eventoToInscripcionesFindUnique) Delete() eventoToInscripcionesDeleteUnique {
+	var v eventoToInscripcionesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Evento"
+
+	return v
+}
+
+type eventoToInscripcionesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r eventoToInscripcionesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p eventoToInscripcionesDeleteUnique) eventoModel() {}
+
+func (r eventoToInscripcionesDeleteUnique) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToInscripcionesDeleteUnique) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type eventoToInscripcionesFindFirst struct {
+	query builder.Query
+}
+
+func (r eventoToInscripcionesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToInscripcionesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToInscripcionesFindFirst) with()           {}
+func (r eventoToInscripcionesFindFirst) eventoModel()    {}
+func (r eventoToInscripcionesFindFirst) eventoRelation() {}
+
+func (r eventoToInscripcionesFindFirst) With(params ...InscripcionRelationWith) eventoToInscripcionesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToInscripcionesFindFirst) Select(params ...eventoPrismaFields) eventoToInscripcionesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToInscripcionesFindFirst) Omit(params ...eventoPrismaFields) eventoToInscripcionesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToInscripcionesFindFirst) OrderBy(params ...InscripcionOrderByParam) eventoToInscripcionesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r eventoToInscripcionesFindFirst) Skip(count int) eventoToInscripcionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToInscripcionesFindFirst) Take(count int) eventoToInscripcionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToInscripcionesFindFirst) Cursor(cursor EventoCursorParam) eventoToInscripcionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r eventoToInscripcionesFindFirst) Exec(ctx context.Context) (
+	*EventoModel,
+	error,
+) {
+	var v *EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToInscripcionesFindFirst) ExecInner(ctx context.Context) (
+	*InnerEvento,
+	error,
+) {
+	var v *InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type eventoToInscripcionesFindMany struct {
+	query builder.Query
+}
+
+func (r eventoToInscripcionesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToInscripcionesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToInscripcionesFindMany) with()           {}
+func (r eventoToInscripcionesFindMany) eventoModel()    {}
+func (r eventoToInscripcionesFindMany) eventoRelation() {}
+
+func (r eventoToInscripcionesFindMany) With(params ...InscripcionRelationWith) eventoToInscripcionesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToInscripcionesFindMany) Select(params ...eventoPrismaFields) eventoToInscripcionesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToInscripcionesFindMany) Omit(params ...eventoPrismaFields) eventoToInscripcionesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToInscripcionesFindMany) OrderBy(params ...InscripcionOrderByParam) eventoToInscripcionesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r eventoToInscripcionesFindMany) Skip(count int) eventoToInscripcionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToInscripcionesFindMany) Take(count int) eventoToInscripcionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToInscripcionesFindMany) Cursor(cursor EventoCursorParam) eventoToInscripcionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r eventoToInscripcionesFindMany) Exec(ctx context.Context) (
+	[]EventoModel,
+	error,
+) {
+	var v []EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r eventoToInscripcionesFindMany) ExecInner(ctx context.Context) (
+	[]InnerEvento,
+	error,
+) {
+	var v []InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r eventoToInscripcionesFindMany) Update(params ...EventoSetParam) eventoToInscripcionesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Evento"
+
+	r.query.Outputs = countOutput
+
+	var v eventoToInscripcionesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type eventoToInscripcionesUpdateMany struct {
+	query builder.Query
+}
+
+func (r eventoToInscripcionesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToInscripcionesUpdateMany) eventoModel() {}
+
+func (r eventoToInscripcionesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToInscripcionesUpdateMany) Tx() EventoManyTxResult {
+	v := newEventoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r eventoToInscripcionesFindMany) Delete() eventoToInscripcionesDeleteMany {
+	var v eventoToInscripcionesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Evento"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type eventoToInscripcionesDeleteMany struct {
+	query builder.Query
+}
+
+func (r eventoToInscripcionesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p eventoToInscripcionesDeleteMany) eventoModel() {}
+
+func (r eventoToInscripcionesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToInscripcionesDeleteMany) Tx() EventoManyTxResult {
+	v := newEventoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 type eventoFindUnique struct {
 	query builder.Query
 }
@@ -12496,6 +17350,1764 @@ func (r eventoDeleteMany) Tx() EventoManyTxResult {
 	return v
 }
 
+type inscripcionToEventoFindUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionToEventoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToEventoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToEventoFindUnique) with()                {}
+func (r inscripcionToEventoFindUnique) inscripcionModel()    {}
+func (r inscripcionToEventoFindUnique) inscripcionRelation() {}
+
+func (r inscripcionToEventoFindUnique) With(params ...EventoRelationWith) inscripcionToEventoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionToEventoFindUnique) Select(params ...inscripcionPrismaFields) inscripcionToEventoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToEventoFindUnique) Omit(params ...inscripcionPrismaFields) inscripcionToEventoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToEventoFindUnique) Exec(ctx context.Context) (
+	*InscripcionModel,
+	error,
+) {
+	var v *InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToEventoFindUnique) ExecInner(ctx context.Context) (
+	*InnerInscripcion,
+	error,
+) {
+	var v *InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToEventoFindUnique) Update(params ...InscripcionSetParam) inscripcionToEventoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Inscripcion"
+
+	var v inscripcionToEventoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type inscripcionToEventoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionToEventoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToEventoUpdateUnique) inscripcionModel() {}
+
+func (r inscripcionToEventoUpdateUnique) Exec(ctx context.Context) (*InscripcionModel, error) {
+	var v InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionToEventoUpdateUnique) Tx() InscripcionUniqueTxResult {
+	v := newInscripcionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r inscripcionToEventoFindUnique) Delete() inscripcionToEventoDeleteUnique {
+	var v inscripcionToEventoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Inscripcion"
+
+	return v
+}
+
+type inscripcionToEventoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionToEventoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p inscripcionToEventoDeleteUnique) inscripcionModel() {}
+
+func (r inscripcionToEventoDeleteUnique) Exec(ctx context.Context) (*InscripcionModel, error) {
+	var v InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionToEventoDeleteUnique) Tx() InscripcionUniqueTxResult {
+	v := newInscripcionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type inscripcionToEventoFindFirst struct {
+	query builder.Query
+}
+
+func (r inscripcionToEventoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToEventoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToEventoFindFirst) with()                {}
+func (r inscripcionToEventoFindFirst) inscripcionModel()    {}
+func (r inscripcionToEventoFindFirst) inscripcionRelation() {}
+
+func (r inscripcionToEventoFindFirst) With(params ...EventoRelationWith) inscripcionToEventoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionToEventoFindFirst) Select(params ...inscripcionPrismaFields) inscripcionToEventoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToEventoFindFirst) Omit(params ...inscripcionPrismaFields) inscripcionToEventoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToEventoFindFirst) OrderBy(params ...EventoOrderByParam) inscripcionToEventoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r inscripcionToEventoFindFirst) Skip(count int) inscripcionToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionToEventoFindFirst) Take(count int) inscripcionToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionToEventoFindFirst) Cursor(cursor InscripcionCursorParam) inscripcionToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r inscripcionToEventoFindFirst) Exec(ctx context.Context) (
+	*InscripcionModel,
+	error,
+) {
+	var v *InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToEventoFindFirst) ExecInner(ctx context.Context) (
+	*InnerInscripcion,
+	error,
+) {
+	var v *InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type inscripcionToEventoFindMany struct {
+	query builder.Query
+}
+
+func (r inscripcionToEventoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToEventoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToEventoFindMany) with()                {}
+func (r inscripcionToEventoFindMany) inscripcionModel()    {}
+func (r inscripcionToEventoFindMany) inscripcionRelation() {}
+
+func (r inscripcionToEventoFindMany) With(params ...EventoRelationWith) inscripcionToEventoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionToEventoFindMany) Select(params ...inscripcionPrismaFields) inscripcionToEventoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToEventoFindMany) Omit(params ...inscripcionPrismaFields) inscripcionToEventoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToEventoFindMany) OrderBy(params ...EventoOrderByParam) inscripcionToEventoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r inscripcionToEventoFindMany) Skip(count int) inscripcionToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionToEventoFindMany) Take(count int) inscripcionToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionToEventoFindMany) Cursor(cursor InscripcionCursorParam) inscripcionToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r inscripcionToEventoFindMany) Exec(ctx context.Context) (
+	[]InscripcionModel,
+	error,
+) {
+	var v []InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToEventoFindMany) ExecInner(ctx context.Context) (
+	[]InnerInscripcion,
+	error,
+) {
+	var v []InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToEventoFindMany) Update(params ...InscripcionSetParam) inscripcionToEventoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Inscripcion"
+
+	r.query.Outputs = countOutput
+
+	var v inscripcionToEventoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type inscripcionToEventoUpdateMany struct {
+	query builder.Query
+}
+
+func (r inscripcionToEventoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToEventoUpdateMany) inscripcionModel() {}
+
+func (r inscripcionToEventoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionToEventoUpdateMany) Tx() InscripcionManyTxResult {
+	v := newInscripcionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r inscripcionToEventoFindMany) Delete() inscripcionToEventoDeleteMany {
+	var v inscripcionToEventoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Inscripcion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type inscripcionToEventoDeleteMany struct {
+	query builder.Query
+}
+
+func (r inscripcionToEventoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p inscripcionToEventoDeleteMany) inscripcionModel() {}
+
+func (r inscripcionToEventoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionToEventoDeleteMany) Tx() InscripcionManyTxResult {
+	v := newInscripcionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type inscripcionToUsuarioFindUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionToUsuarioFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToUsuarioFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToUsuarioFindUnique) with()                {}
+func (r inscripcionToUsuarioFindUnique) inscripcionModel()    {}
+func (r inscripcionToUsuarioFindUnique) inscripcionRelation() {}
+
+func (r inscripcionToUsuarioFindUnique) With(params ...UsuarioRelationWith) inscripcionToUsuarioFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindUnique) Select(params ...inscripcionPrismaFields) inscripcionToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindUnique) Omit(params ...inscripcionPrismaFields) inscripcionToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindUnique) Exec(ctx context.Context) (
+	*InscripcionModel,
+	error,
+) {
+	var v *InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToUsuarioFindUnique) ExecInner(ctx context.Context) (
+	*InnerInscripcion,
+	error,
+) {
+	var v *InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToUsuarioFindUnique) Update(params ...InscripcionSetParam) inscripcionToUsuarioUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Inscripcion"
+
+	var v inscripcionToUsuarioUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type inscripcionToUsuarioUpdateUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionToUsuarioUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToUsuarioUpdateUnique) inscripcionModel() {}
+
+func (r inscripcionToUsuarioUpdateUnique) Exec(ctx context.Context) (*InscripcionModel, error) {
+	var v InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionToUsuarioUpdateUnique) Tx() InscripcionUniqueTxResult {
+	v := newInscripcionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r inscripcionToUsuarioFindUnique) Delete() inscripcionToUsuarioDeleteUnique {
+	var v inscripcionToUsuarioDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Inscripcion"
+
+	return v
+}
+
+type inscripcionToUsuarioDeleteUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionToUsuarioDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p inscripcionToUsuarioDeleteUnique) inscripcionModel() {}
+
+func (r inscripcionToUsuarioDeleteUnique) Exec(ctx context.Context) (*InscripcionModel, error) {
+	var v InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionToUsuarioDeleteUnique) Tx() InscripcionUniqueTxResult {
+	v := newInscripcionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type inscripcionToUsuarioFindFirst struct {
+	query builder.Query
+}
+
+func (r inscripcionToUsuarioFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToUsuarioFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToUsuarioFindFirst) with()                {}
+func (r inscripcionToUsuarioFindFirst) inscripcionModel()    {}
+func (r inscripcionToUsuarioFindFirst) inscripcionRelation() {}
+
+func (r inscripcionToUsuarioFindFirst) With(params ...UsuarioRelationWith) inscripcionToUsuarioFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindFirst) Select(params ...inscripcionPrismaFields) inscripcionToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindFirst) Omit(params ...inscripcionPrismaFields) inscripcionToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindFirst) OrderBy(params ...UsuarioOrderByParam) inscripcionToUsuarioFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindFirst) Skip(count int) inscripcionToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionToUsuarioFindFirst) Take(count int) inscripcionToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionToUsuarioFindFirst) Cursor(cursor InscripcionCursorParam) inscripcionToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r inscripcionToUsuarioFindFirst) Exec(ctx context.Context) (
+	*InscripcionModel,
+	error,
+) {
+	var v *InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToUsuarioFindFirst) ExecInner(ctx context.Context) (
+	*InnerInscripcion,
+	error,
+) {
+	var v *InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type inscripcionToUsuarioFindMany struct {
+	query builder.Query
+}
+
+func (r inscripcionToUsuarioFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToUsuarioFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToUsuarioFindMany) with()                {}
+func (r inscripcionToUsuarioFindMany) inscripcionModel()    {}
+func (r inscripcionToUsuarioFindMany) inscripcionRelation() {}
+
+func (r inscripcionToUsuarioFindMany) With(params ...UsuarioRelationWith) inscripcionToUsuarioFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindMany) Select(params ...inscripcionPrismaFields) inscripcionToUsuarioFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindMany) Omit(params ...inscripcionPrismaFields) inscripcionToUsuarioFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindMany) OrderBy(params ...UsuarioOrderByParam) inscripcionToUsuarioFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r inscripcionToUsuarioFindMany) Skip(count int) inscripcionToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionToUsuarioFindMany) Take(count int) inscripcionToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionToUsuarioFindMany) Cursor(cursor InscripcionCursorParam) inscripcionToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r inscripcionToUsuarioFindMany) Exec(ctx context.Context) (
+	[]InscripcionModel,
+	error,
+) {
+	var v []InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToUsuarioFindMany) ExecInner(ctx context.Context) (
+	[]InnerInscripcion,
+	error,
+) {
+	var v []InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r inscripcionToUsuarioFindMany) Update(params ...InscripcionSetParam) inscripcionToUsuarioUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Inscripcion"
+
+	r.query.Outputs = countOutput
+
+	var v inscripcionToUsuarioUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type inscripcionToUsuarioUpdateMany struct {
+	query builder.Query
+}
+
+func (r inscripcionToUsuarioUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionToUsuarioUpdateMany) inscripcionModel() {}
+
+func (r inscripcionToUsuarioUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionToUsuarioUpdateMany) Tx() InscripcionManyTxResult {
+	v := newInscripcionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r inscripcionToUsuarioFindMany) Delete() inscripcionToUsuarioDeleteMany {
+	var v inscripcionToUsuarioDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Inscripcion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type inscripcionToUsuarioDeleteMany struct {
+	query builder.Query
+}
+
+func (r inscripcionToUsuarioDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p inscripcionToUsuarioDeleteMany) inscripcionModel() {}
+
+func (r inscripcionToUsuarioDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionToUsuarioDeleteMany) Tx() InscripcionManyTxResult {
+	v := newInscripcionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type inscripcionFindUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionFindUnique) with()                {}
+func (r inscripcionFindUnique) inscripcionModel()    {}
+func (r inscripcionFindUnique) inscripcionRelation() {}
+
+func (r inscripcionActions) FindUnique(
+	params InscripcionEqualsUniqueWhereParam,
+) inscripcionFindUnique {
+	var v inscripcionFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "Inscripcion"
+	v.query.Outputs = inscripcionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r inscripcionFindUnique) With(params ...InscripcionRelationWith) inscripcionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionFindUnique) Select(params ...inscripcionPrismaFields) inscripcionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionFindUnique) Omit(params ...inscripcionPrismaFields) inscripcionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionFindUnique) Exec(ctx context.Context) (
+	*InscripcionModel,
+	error,
+) {
+	var v *InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionFindUnique) ExecInner(ctx context.Context) (
+	*InnerInscripcion,
+	error,
+) {
+	var v *InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionFindUnique) Update(params ...InscripcionSetParam) inscripcionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Inscripcion"
+
+	var v inscripcionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type inscripcionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionUpdateUnique) inscripcionModel() {}
+
+func (r inscripcionUpdateUnique) Exec(ctx context.Context) (*InscripcionModel, error) {
+	var v InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionUpdateUnique) Tx() InscripcionUniqueTxResult {
+	v := newInscripcionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r inscripcionFindUnique) Delete() inscripcionDeleteUnique {
+	var v inscripcionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Inscripcion"
+
+	return v
+}
+
+type inscripcionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r inscripcionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p inscripcionDeleteUnique) inscripcionModel() {}
+
+func (r inscripcionDeleteUnique) Exec(ctx context.Context) (*InscripcionModel, error) {
+	var v InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionDeleteUnique) Tx() InscripcionUniqueTxResult {
+	v := newInscripcionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type inscripcionFindFirst struct {
+	query builder.Query
+}
+
+func (r inscripcionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionFindFirst) with()                {}
+func (r inscripcionFindFirst) inscripcionModel()    {}
+func (r inscripcionFindFirst) inscripcionRelation() {}
+
+func (r inscripcionActions) FindFirst(
+	params ...InscripcionWhereParam,
+) inscripcionFindFirst {
+	var v inscripcionFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "Inscripcion"
+	v.query.Outputs = inscripcionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r inscripcionFindFirst) With(params ...InscripcionRelationWith) inscripcionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionFindFirst) Select(params ...inscripcionPrismaFields) inscripcionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionFindFirst) Omit(params ...inscripcionPrismaFields) inscripcionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionFindFirst) OrderBy(params ...InscripcionOrderByParam) inscripcionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r inscripcionFindFirst) Skip(count int) inscripcionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionFindFirst) Take(count int) inscripcionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionFindFirst) Cursor(cursor InscripcionCursorParam) inscripcionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r inscripcionFindFirst) Exec(ctx context.Context) (
+	*InscripcionModel,
+	error,
+) {
+	var v *InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r inscripcionFindFirst) ExecInner(ctx context.Context) (
+	*InnerInscripcion,
+	error,
+) {
+	var v *InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type inscripcionFindMany struct {
+	query builder.Query
+}
+
+func (r inscripcionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionFindMany) with()                {}
+func (r inscripcionFindMany) inscripcionModel()    {}
+func (r inscripcionFindMany) inscripcionRelation() {}
+
+func (r inscripcionActions) FindMany(
+	params ...InscripcionWhereParam,
+) inscripcionFindMany {
+	var v inscripcionFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "Inscripcion"
+	v.query.Outputs = inscripcionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r inscripcionFindMany) With(params ...InscripcionRelationWith) inscripcionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r inscripcionFindMany) Select(params ...inscripcionPrismaFields) inscripcionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionFindMany) Omit(params ...inscripcionPrismaFields) inscripcionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range inscripcionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r inscripcionFindMany) OrderBy(params ...InscripcionOrderByParam) inscripcionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r inscripcionFindMany) Skip(count int) inscripcionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionFindMany) Take(count int) inscripcionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r inscripcionFindMany) Cursor(cursor InscripcionCursorParam) inscripcionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r inscripcionFindMany) Exec(ctx context.Context) (
+	[]InscripcionModel,
+	error,
+) {
+	var v []InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r inscripcionFindMany) ExecInner(ctx context.Context) (
+	[]InnerInscripcion,
+	error,
+) {
+	var v []InnerInscripcion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r inscripcionFindMany) Update(params ...InscripcionSetParam) inscripcionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Inscripcion"
+
+	r.query.Outputs = countOutput
+
+	var v inscripcionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type inscripcionUpdateMany struct {
+	query builder.Query
+}
+
+func (r inscripcionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionUpdateMany) inscripcionModel() {}
+
+func (r inscripcionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionUpdateMany) Tx() InscripcionManyTxResult {
+	v := newInscripcionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r inscripcionFindMany) Delete() inscripcionDeleteMany {
+	var v inscripcionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Inscripcion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type inscripcionDeleteMany struct {
+	query builder.Query
+}
+
+func (r inscripcionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p inscripcionDeleteMany) inscripcionModel() {}
+
+func (r inscripcionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionDeleteMany) Tx() InscripcionManyTxResult {
+	v := newInscripcionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template transaction.gotpl ---
 
 func newUsuarioUniqueTxResult() UsuarioUniqueTxResult {
@@ -12636,6 +19248,54 @@ func (p EventoManyTxResult) ExtractQuery() builder.Query {
 func (p EventoManyTxResult) IsTx() {}
 
 func (r EventoManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newInscripcionUniqueTxResult() InscripcionUniqueTxResult {
+	return InscripcionUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type InscripcionUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p InscripcionUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p InscripcionUniqueTxResult) IsTx() {}
+
+func (r InscripcionUniqueTxResult) Result() (v *InscripcionModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newInscripcionManyTxResult() InscripcionManyTxResult {
+	return InscripcionManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type InscripcionManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p InscripcionManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p InscripcionManyTxResult) IsTx() {}
+
+func (r InscripcionManyTxResult) Result() (v *BatchResult) {
 	if err := r.result.Get(r.query.TxResult, &v); err != nil {
 		panic(err)
 	}
@@ -13093,6 +19753,149 @@ func (r eventoUpsertOne) Tx() EventoUniqueTxResult {
 	return v
 }
 
+type inscripcionUpsertOne struct {
+	query builder.Query
+}
+
+func (r inscripcionUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionUpsertOne) with()                {}
+func (r inscripcionUpsertOne) inscripcionModel()    {}
+func (r inscripcionUpsertOne) inscripcionRelation() {}
+
+func (r inscripcionActions) UpsertOne(
+	params InscripcionEqualsUniqueWhereParam,
+) inscripcionUpsertOne {
+	var v inscripcionUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "Inscripcion"
+	v.query.Outputs = inscripcionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r inscripcionUpsertOne) Create(
+
+	_evento InscripcionWithPrismaEventoSetParam,
+	_usuario InscripcionWithPrismaUsuarioSetParam,
+
+	optional ...InscripcionSetParam,
+) inscripcionUpsertOne {
+	var v inscripcionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _evento.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r inscripcionUpsertOne) Update(
+	params ...InscripcionSetParam,
+) inscripcionUpsertOne {
+	var v inscripcionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r inscripcionUpsertOne) CreateOrUpdate(
+
+	_evento InscripcionWithPrismaEventoSetParam,
+	_usuario InscripcionWithPrismaUsuarioSetParam,
+
+	optional ...InscripcionSetParam,
+) inscripcionUpsertOne {
+	var v inscripcionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _evento.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r inscripcionUpsertOne) Exec(ctx context.Context) (*InscripcionModel, error) {
+	var v InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r inscripcionUpsertOne) Tx() InscripcionUniqueTxResult {
+	v := newInscripcionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template raw.gotpl ---
 
 type usuarioAggregateRaw struct {
@@ -13332,6 +20135,87 @@ func (r eventoAggregateRaw) Exec(ctx context.Context) ([]EventoModel, error) {
 
 func (r eventoAggregateRaw) ExecInner(ctx context.Context) ([]InnerEvento, error) {
 	var v []InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type inscripcionAggregateRaw struct {
+	query builder.Query
+}
+
+func (r inscripcionAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r inscripcionAggregateRaw) with()                {}
+func (r inscripcionAggregateRaw) inscripcionModel()    {}
+func (r inscripcionAggregateRaw) inscripcionRelation() {}
+
+func (r inscripcionActions) FindRaw(filter interface{}, options ...interface{}) inscripcionAggregateRaw {
+	var v inscripcionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Inscripcion"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r inscripcionActions) AggregateRaw(pipeline []interface{}, options ...interface{}) inscripcionAggregateRaw {
+	var v inscripcionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Inscripcion"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r inscripcionAggregateRaw) Exec(ctx context.Context) ([]InscripcionModel, error) {
+	var v []InscripcionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r inscripcionAggregateRaw) ExecInner(ctx context.Context) ([]InnerInscripcion, error) {
+	var v []InnerInscripcion
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}
