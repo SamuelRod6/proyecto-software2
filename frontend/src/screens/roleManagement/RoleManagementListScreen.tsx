@@ -3,6 +3,7 @@ import { useToast } from "../../contexts/Toast/ToastContext";
 import Modal from "../../components/ui/Modal";
 import SelectInput, { OptionType } from "../../components/ui/SelectorInput";
 import Button from "../../components/ui/Button";
+import Loader from "../../components/ui/Loader";
 import {
     getRoles,
     getUsers,
@@ -215,8 +216,10 @@ export default function RoleManagementListScreen(): JSX.Element {
                     <tbody className="divide-y divide-slate-700 text-slate-300">
                         {isLoading ? (
                             <tr>
-                                <td className="px-4 py-6 text-center" colSpan={3}>
-                                    Cargando usuarios...
+                                <td colSpan={3}>
+                                    <div className="flex justify-center items-center min-h-[200px] pt-16 pb-16">
+                                        <Loader visible={true} />
+                                    </div>
                                 </td>
                             </tr>
                         ) : error ? (
