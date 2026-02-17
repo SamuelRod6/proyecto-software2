@@ -28,6 +28,7 @@ type EventService interface {
 	UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
 	CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
 	AbrirInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
+	GetEventoByID(ctx context.Context, id int) (*db.EventoModel, error)
 }
 
 func New(client *db.PrismaClient) http.Handler {

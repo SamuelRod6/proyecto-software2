@@ -9,6 +9,7 @@ import ErrorState from "../../components/ui/ErrorState";
 import EmptyState from "../../components/ui/EmptyState";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
+import { useAuth } from "../../contexts/Auth/Authcontext";
 // animations
 import emptyAnimation from "../../assets/animations/empty-animation.json";
 // APIs
@@ -23,6 +24,11 @@ export default function EventsListScreen(): JSX.Element {
 	const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null);
 	// contexts
 	const { showToast } = useToast();
+	const { user } = useAuth();
+	const isAdmin = user?.role === "ADMIN";
+	const isOrganizer = user?.role === "COMITE CIENTIFICO";
+	// ToDo: fetch user's inscriptions to mark which events they are inscribed to
+	const eventosInscritos = [/* id_evento: number */];
 
 	// function to fetch events
 	async function fetchEvents() {
@@ -32,7 +38,7 @@ export default function EventsListScreen(): JSX.Element {
 			if (status === 200 && Array.isArray(data)) {
 				setEvents(data);
 			} else {
-				const msg = data?.error || "Error al cargar eventos";
+				const msg = data?.message || "Error al cargar eventos";
 				setError(msg);
 				showToast({
 					title: "Error",
@@ -40,11 +46,12 @@ export default function EventsListScreen(): JSX.Element {
 					status: "error"
 				});
 			}
-		} catch {
-			setError("Error al cargar eventos");
+		} catch (error: any) {
+			const msg = error?.response?.data?.message || error.message || "Error al cargar eventos";
+			setError(msg);
 			showToast({
 				title: "Error",
-				message: "Error al cargar eventos",
+				message: msg,
 				status: "error"
 			});
 		} finally {
@@ -67,9 +74,11 @@ export default function EventsListScreen(): JSX.Element {
 						Administra los eventos, fechas, ubicaciones y sesiones.
 					</p>
 				</div>
-				 <Button onClick={() => setShowCreateModal(true)}>
-					 Crear evento
-				 </Button>
+				{(isAdmin || isOrganizer) && (
+					<Button onClick={() => setShowCreateModal(true)}>
+						Crear evento
+					</Button>
+				)}
 			</header>
 
 			<EventCreateModal 
@@ -105,6 +114,7 @@ export default function EventsListScreen(): JSX.Element {
 							fecha_cierre_inscripcion={ev.fecha_cierre_inscripcion}
 							inscripciones_abiertas={ev.inscripciones_abiertas}
 							ubicacion={ev.ubicacion}
+							inscrito={eventosInscritos.includes(ev.id_evento)}
 							onClick={() => setSelectedEvent(ev)}
 						/>
 					))}

@@ -8,6 +8,7 @@ interface EventItemProps {
 	inscripciones_abiertas: boolean;
 	ubicacion: string;
 	onClick?: () => void;
+	inscrito?: boolean;
 }
 
 export default function EventItem(props: EventItemProps) {
@@ -19,8 +20,9 @@ export default function EventItem(props: EventItemProps) {
     fecha_cierre_inscripcion,
     inscripciones_abiertas,
     ubicacion,
-    onClick,
-  } = props;
+		onClick,
+		inscrito,
+	} = props;
 
 	return (
 		<div
@@ -28,8 +30,11 @@ export default function EventItem(props: EventItemProps) {
 			onClick={typeof onClick === 'function' ? onClick : undefined}
 		>
 			<div>
-				<h2 className="text-xl font-semibold text-[#F5E427] mb-2">
+				<h2 className="text-xl font-semibold text-[#F5E427] mb-2 flex items-center gap-2">
 					{nombre}
+					{inscrito && (
+						<span className="ml-2 px-2 py-1 text-xs rounded-full bg-green-500 text-white font-semibold">Inscrito</span>
+					)}
 				</h2>
 				<div className="text-slate-300 text-sm">
 					<span className="mr-4">

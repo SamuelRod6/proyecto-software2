@@ -78,14 +78,15 @@ export default function EventDetailModal({
             } else {
                 showToast({
                     title: "Error",
-                    message: response.data?.error || "No se pudo actualizar el estado de las inscripciones.",
+                    message: response.data?.message || "No se pudo actualizar el estado de las inscripciones.",
                     status: "error",
                 });
             }
         } catch (error: any) {
+            const msg = error?.response?.data?.message || error.message || "No se pudo actualizar el estado de las inscripciones.";
             showToast({
                 title: "Error",
-                message: error?.response?.data?.error || "No se pudo actualizar el estado de las inscripciones.",
+                message: msg,
                 status: "error",
             });
         } finally {

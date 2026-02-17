@@ -70,14 +70,6 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		showLoader();
 		try {
 			const payload = getEventPayload();
-			if (!payload) {
-				showToast({
-					title: "Faltan datos",
-					message: "Por favor completa todos los campos.",
-					status: "error",
-				});
-				return;
-			}
 			const { status, data } = await createEvent(payload);
 			if (status === 200 && data) {
 				showToast({
@@ -95,14 +87,15 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 			} else {
 				showToast({
 					title: "Error al crear evento",
-					message: data?.error || "No se pudo crear el evento.",
+					message: data?.message || "No se pudo crear el evento.",
 					status: "error",
 				});
 			}
-		} catch (err: any) {
+		} catch (error: any) {
+			const msg = error?.response?.data?.message || error.message || "El evento no pudo ser creado, ocurrió un error inesperado.";
 			showToast({
 				title: "Error al crear evento",
-				message: err.message || "El evento no pudo ser creado, ocurrió un error inesperado.",
+				message: msg,
 				status: "error",
 			});
 		} finally {
