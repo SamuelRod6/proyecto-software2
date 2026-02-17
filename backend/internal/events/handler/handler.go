@@ -25,10 +25,11 @@ type EventService interface {
 	EnsureNoSolapamiento(ctx context.Context, start, end time.Time) error
 	CreateEvento(ctx context.Context, req dto.CreateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
 	ListEventos(ctx context.Context) ([]db.EventoModel, error)
+	GetEventoByID(ctx context.Context, id int) (*db.EventoModel, error)
 	UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
+	DeleteEvento(ctx context.Context, id int) error
 	CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
 	AbrirInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error)
-	GetEventoByID(ctx context.Context, id int) (*db.EventoModel, error)
 }
 
 func New(client *db.PrismaClient) http.Handler {
@@ -50,6 +51,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.updateEvento(w, r)
 	case http.MethodPatch:
 		h.patchEvento(w, r)
+	case http.MethodDelete:
+		h.deleteEvento(w, r)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -253,6 +256,31 @@ func (h *Handler) patchEvento(w http.ResponseWriter, r *http.Request) {
 	default:
 		httperror.WriteJSON(w, http.StatusBadRequest, "action debe ser 'cerrar' o 'abrir'")
 	}
+}
+
+func (h *Handler) deleteEvento(w http.ResponseWriter, r *http.Request) {
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		httperror.WriteJSON(w, http.StatusBadRequest, "id es requerido")
+		return
+	}
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		httperror.WriteJSON(w, http.StatusBadRequest, "id inválido")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+	err = h.svc.DeleteEvento(ctx, id)
+	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			httperror.WriteJSON(w, http.StatusNotFound, err.Error())
+			return
+		}
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {

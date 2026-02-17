@@ -7,13 +7,14 @@ import EventDetailModal from "../../components/events/EventDetailModal";
 import Loader from "../../components/ui/Loader";
 import ErrorState from "../../components/ui/ErrorState";
 import EmptyState from "../../components/ui/EmptyState";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
 import { useAuth } from "../../contexts/Auth/Authcontext";
 // animations
 import emptyAnimation from "../../assets/animations/empty-animation.json";
 // APIs
-import { getEvents, Evento } from "../../services/eventsServices";
+import { getEvents, Evento, deleteEvent } from "../../services/eventsServices";
 
 export default function EventsListScreen(): JSX.Element {
 	// states
@@ -22,13 +23,20 @@ export default function EventsListScreen(): JSX.Element {
 	const [loading, setLoading] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null);
+	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+	const [eventToDelete, setEventToDelete] = useState<number | null>(null);
+	const [deleting, setDeleting] = useState(false);
+
 	// contexts
 	const { showToast } = useToast();
 	const { user } = useAuth();
+
+	// role checks
 	const isAdmin = user?.role === "ADMIN";
 	const isOrganizer = user?.role === "COMITE CIENTIFICO";
+
 	// ToDo: fetch user's inscriptions to mark which events they are inscribed to
-	const eventosInscritos = [/* id_evento: number */];
+	const eventosInscritos: number[] = [];
 
 	// function to fetch events
 	async function fetchEvents() {
@@ -58,6 +66,42 @@ export default function EventsListScreen(): JSX.Element {
 			setLoading(false);
 		}
 	}
+
+	// handler to open delete confirmation modal
+	const handleDeleteClick = (id: number) => {
+		setEventToDelete(id);
+		setDeleteModalOpen(true);
+	};
+
+	// handler to confirm deletion
+	const handleConfirmDelete = async () => {
+		if (eventToDelete == null) return;
+		setDeleting(true);
+		const { status, data } = await deleteEvent(eventToDelete);
+		if (status === 204) {
+			showToast({ 
+				title: "Evento eliminado", 
+				message: "El evento fue eliminado correctamente.", 
+				status: "success" 
+			});
+			fetchEvents();
+		} else {
+			showToast({ 
+				title: "Error al eliminar", 
+				message: data?.message || data?.error || "No se pudo eliminar el evento.", 
+				status: "error" 
+			});
+		}
+		setDeleting(false);
+		setDeleteModalOpen(false);
+		setEventToDelete(null);
+	};
+
+	// handler to cancel deletion
+	const handleCancelDelete = () => {
+		setDeleteModalOpen(false);
+		setEventToDelete(null);
+	};
 
 	useEffect(() => {
 		fetchEvents();
@@ -116,6 +160,7 @@ export default function EventsListScreen(): JSX.Element {
 							ubicacion={ev.ubicacion}
 							inscrito={eventosInscritos.includes(ev.id_evento)}
 							onClick={() => setSelectedEvent(ev)}
+							onDelete={handleDeleteClick}
 						/>
 					))}
 					<EventDetailModal 
@@ -129,6 +174,16 @@ export default function EventsListScreen(): JSX.Element {
 					/>
 				</div>
 			)}
+			<ConfirmModal
+				open={deleteModalOpen}
+				title="Eliminar evento"
+				message="¿Seguro que deseas eliminar este evento? Esta acción no se puede deshacer."
+				confirmText="Eliminar"
+				cancelText="Cancelar"
+				onConfirm={handleConfirmDelete}
+				onCancel={handleCancelDelete}
+				loading={deleting}
+			/>
 		</section>
 	);
 }

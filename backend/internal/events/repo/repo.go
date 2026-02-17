@@ -54,6 +54,13 @@ func (r *Repository) Update(ctx context.Context, id int, reqNombre, reqUbicacion
 	).Exec(ctx)
 }
 
+func (r *Repository) DeleteByID(ctx context.Context, id int) error {
+	_, err := r.client.Evento.FindUnique(
+		db.Evento.IDEvento.Equals(id),
+	).Delete().Exec(ctx)
+	return err
+}
+
 func (r *Repository) SetInscripciones(ctx context.Context, id int, abiertas bool) (*db.EventoModel, error) {
 	return r.client.Evento.FindUnique(
 		db.Evento.IDEvento.Equals(id),

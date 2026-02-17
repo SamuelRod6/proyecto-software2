@@ -119,6 +119,22 @@ func (s *Service) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest,
 	return updated, nil
 }
 
+func (s *Service) DeleteEvento(ctx context.Context, id int) error {
+	// Verify that the event exists
+	_, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return ErrNotFound
+		}
+		return ErrDB
+	}
+	// Proceed to delete the event if it exists
+	if err := s.repo.DeleteByID(ctx, id); err != nil {
+		return ErrDB
+	}
+	return nil
+}
+
 func (s *Service) CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error) {
 	evento, err := s.repo.FindByID(ctx, eventoID)
 	if err != nil {
