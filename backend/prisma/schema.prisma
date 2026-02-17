@@ -16,6 +16,7 @@ model Usuario {
   id_rol        Int
   rol           Roles    @relation(fields: [id_rol], references: [id_rol])
   createdAt     DateTime @default(now())
+  inscripciones Inscripcion[]
 }
 
 model Roles {
@@ -35,4 +36,18 @@ model Evento {
   inscripciones_abiertas_manual Boolean @default(true)
   ubicacion                  String
   createdAt                  DateTime @default(now())
+  inscripciones              Inscripcion[]
+}
+
+model Inscripcion {
+  id_inscripcion Int      @id @default(autoincrement())
+  fecha          DateTime @default(now())
+  estado_pago    Boolean  @default(false)
+  comprobante    String   @default("")
+  id_evento      Int
+  id_usuario     Int
+  evento         Evento   @relation(fields: [id_evento], references: [id_evento])
+  usuario        Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@unique([id_evento, id_usuario])
 }

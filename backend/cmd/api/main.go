@@ -7,6 +7,7 @@ import (
 
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
+	registrationhandler "project/backend/internal/registrations/handler"
 	"project/backend/internal/roles"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
@@ -42,6 +43,7 @@ func main() {
 	userHandler := userhandler.New(userRepo, roleService)
 	eventsHandler := eventhandler.New(prismaClient)
 	fechasOcupadasHandler := eventhandler.GetFechasOcupadasHandler(eventsHandler.(*eventhandler.Handler).Svc())
+	registrationsHandler := registrationhandler.New(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 
@@ -57,6 +59,7 @@ func main() {
 
 	http.Handle("/api/eventos", eventsHandler)
 	http.HandleFunc("/api/eventos/fechas-ocupadas", fechasOcupadasHandler)
+	http.Handle("/api/inscripciones", registrationsHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
