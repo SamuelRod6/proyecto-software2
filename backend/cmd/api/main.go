@@ -7,6 +7,7 @@ import (
 
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
+	paishandler "project/backend/internal/pais/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
 	"project/backend/internal/roles"
 	userhandler "project/backend/internal/users/handler"
@@ -42,6 +43,7 @@ func main() {
 	roleService := roles.NewUserRoleService(prismaClient)
 	userHandler := userhandler.New(userRepo, roleService)
 	eventsHandler := eventhandler.New(prismaClient)
+	paisesHandler := paishandler.New(prismaClient)
 	fechasOcupadasHandler := eventhandler.GetFechasOcupadasHandler(eventsHandler.(*eventhandler.Handler).Svc())
 	registrationsHandler := registrationhandler.New(prismaClient)
 
@@ -60,6 +62,10 @@ func main() {
 	http.Handle("/api/eventos", eventsHandler)
 	http.HandleFunc("/api/eventos/fechas-ocupadas", fechasOcupadasHandler)
 	http.Handle("/api/inscripciones", registrationsHandler)
+	http.Handle("/api/paises", paisesHandler)
+	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
+		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
