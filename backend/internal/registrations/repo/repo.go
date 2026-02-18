@@ -76,3 +76,7 @@ func (r *Repository) UpdatePago(ctx context.Context, inscripcionID int, estadoPa
 		db.Inscripcion.Comprobante.Set(comprobante),
 	).Exec(ctx)
 }
+
+func (r *Repository) GetAllEventos(ctx context.Context) ([]db.EventoModel, error) {
+	return r.client.Evento.FindMany().Exec(ctx)
+}

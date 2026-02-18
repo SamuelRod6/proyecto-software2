@@ -125,3 +125,7 @@ func isInscripcionesAbiertas(evento *db.EventoModel, now time.Time) bool {
 	}
 	return true
 }
+
+func (s *Service) GetAllEventos(ctx context.Context) ([]db.EventoModel, error) {
+	return s.repo.GetAllEventos(ctx)
+}

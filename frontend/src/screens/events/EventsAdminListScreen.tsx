@@ -16,7 +16,7 @@ import emptyAnimation from "../../assets/animations/empty-animation.json";
 // APIs
 import { getEvents, Evento, deleteEvent, patchInscriptionDate } from "../../services/eventsServices";
 
-export default function EventsListScreen(): JSX.Element {
+export default function EventsAdminListScreen(): JSX.Element {
 	// states
 	const [events, setEvents] = useState<Evento[]>([]);
 	const [error, setError] = useState("");
@@ -26,17 +26,11 @@ export default function EventsListScreen(): JSX.Element {
 	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 	const [eventToDelete, setEventToDelete] = useState<number | null>(null);
 	const [deleting, setDeleting] = useState(false);
+	const [eventosInscritos, setEventosInscritos] = useState<number[]>([]);
 
 	// contexts
 	const { showToast } = useToast();
 	const { user } = useAuth();
-
-	// role checks
-	const isAdmin = user?.role === "ADMIN";
-	const isOrganizer = user?.role === "COMITE CIENTIFICO";
-
-	// ToDo: fetch user's inscriptions to mark which events they are inscribed to
-	const eventosInscritos: number[] = [];
 
 	// function to fetch events
 	async function fetchEvents() {
@@ -138,11 +132,9 @@ export default function EventsListScreen(): JSX.Element {
 						Administra los eventos, fechas, ubicaciones y sesiones.
 					</p>
 				</div>
-				{(isAdmin || isOrganizer) && (
-					<Button onClick={() => setShowCreateModal(true)}>
-						Crear evento
-					</Button>
-				)}
+				<Button onClick={() => setShowCreateModal(true)}>
+					Crear evento
+				</Button>
 			</header>
 
 			<EventCreateModal 

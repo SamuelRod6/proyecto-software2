@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	eventdto "project/backend/internal/events/dto"
 	"project/backend/internal/registrations/dto"
 	"project/backend/internal/registrations/repo"
 	"project/backend/internal/registrations/service"
@@ -86,40 +87,59 @@ func (h *Handler) createInscripcion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listInscripciones(w http.ResponseWriter, r *http.Request) {
-	eventoID, err := parseOptionalID(r.URL.Query().Get("evento_id"))
-	if err != nil {
-		httperror.WriteJSON(w, http.StatusBadRequest, "evento_id invalido")
-		return
-	}
 	usuarioID, err := parseOptionalID(r.URL.Query().Get("usuario_id"))
-	if err != nil {
+	if err != nil || usuarioID == 0 {
 		httperror.WriteJSON(w, http.StatusBadRequest, "usuario_id invalido")
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	inscripciones, err := h.svc.ListInscripciones(ctx, eventoID, usuarioID)
+	inscripciones, err := h.svc.ListInscripciones(ctx, 0, usuarioID)
 	if err != nil {
 		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	res := make([]dto.InscripcionResponse, 0, len(inscripciones))
+	eventos, err := h.svc.GetAllEventos(ctx)
+	if err != nil {
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error eventos")
+		return
+	}
+
+	now := time.Now()
+	inscritosMap := make(map[int]struct{})
 	for _, ins := range inscripciones {
-		res = append(res, dto.InscripcionResponse{
-			ID:          ins.IDInscripcion,
-			EventoID:    ins.IDEvento,
-			UsuarioID:   ins.IDUsuario,
-			Fecha:       ins.Fecha.Format("02/01/2006 15:04"),
-			EstadoPago:  ins.EstadoPago,
-			Comprobante: ins.Comprobante,
-		})
+		inscritosMap[ins.IDEvento] = struct{}{}
+	}
+
+	eventosInscritos := make([]eventdto.EventoResponse, 0)
+	eventosDisponibles := make([]eventdto.EventoResponse, 0)
+	for _, ev := range eventos {
+		_, inscrito := inscritosMap[ev.IDEvento]
+		abierto := ev.InscripcionesAbiertasManual && now.Before(ev.FechaCierreInscripcion) && now.Before(ev.FechaInicio)
+		er := eventdto.EventoResponse{
+			ID:                     ev.IDEvento,
+			Nombre:                 ev.Nombre,
+			FechaInicio:            ev.FechaInicio.Format("02/01/2006"),
+			FechaFin:               ev.FechaFin.Format("02/01/2006"),
+			FechaCierreInscripcion: ev.FechaCierreInscripcion.Format("02/01/2006"),
+			InscripcionesAbiertas:  abierto,
+			Ubicacion:              ev.Ubicacion,
+		}
+		if inscrito {
+			eventosInscritos = append(eventosInscritos, er)
+		} else if abierto {
+			eventosDisponibles = append(eventosDisponibles, er)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"eventos_inscritos":   eventosInscritos,
+		"eventos_disponibles": eventosDisponibles,
+	})
 }
 
 func (h *Handler) updatePago(w http.ResponseWriter, r *http.Request) {
