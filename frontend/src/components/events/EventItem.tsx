@@ -16,6 +16,10 @@ interface EventItemProps {
 	inscrito?: boolean;
 	showInscribirmeButton?: boolean;
 	isLastRow?: boolean;
+	showActionButton?: boolean;
+	actionLabel?: string;
+	actionDisabled?: boolean;
+	onActionClick?: (idEvento: number) => void;
 	onClick?: () => void;
 	onInscribirmeClick?: (idEvento: number) => void;
 }
@@ -46,12 +50,24 @@ export default function EventItem(props: EventItemProps) {
 	inscrito,
 	showInscribirmeButton = false,
 	isLastRow = false,
+	showActionButton,
+	actionLabel,
+	actionDisabled,
+	onActionClick,
     onClick,
 	onInscribirmeClick,
   } = props;
 
 	const isClickable = typeof onClick === "function";
 	const canEnroll = showInscribirmeButton && inscripciones_abiertas && !inscrito;
+	const shouldShowActionButton =
+		typeof showActionButton === "boolean"
+			? showActionButton
+			: showInscribirmeButton;
+	const resolvedActionLabel = actionLabel ?? (canEnroll ? "Inscribir" : "Agotado");
+	const resolvedActionDisabled =
+		typeof actionDisabled === "boolean" ? actionDisabled : !canEnroll;
+	const resolvedActionHandler = onActionClick ?? onInscribirmeClick;
 	const inscritosActuales = typeof inscritos_actuales === "number" ? inscritos_actuales : 0;
 	const cupoMaximo = typeof cupo_maximo === "number" ? cupo_maximo : 0;
 	const enrollmentRatio = `${inscritosActuales} / ${cupoMaximo}`;
@@ -79,17 +95,21 @@ export default function EventItem(props: EventItemProps) {
 			<div>{formatDate(fecha_inicio)}</div>
 			<div>{formatDate(fecha_fin)}</div>
 
-			<div className="space-y-1">
-				<p>{enrollmentRatio}</p>
-				<div className="h-1.5 w-full rounded-full bg-slate-700">
-					<div
-						className="h-1.5 rounded-full bg-[#F5E427]"
-						style={{ width: `${progressPercent}%` }}
-					/>
+			<div>
+				<div className="relative">
+					<div className="h-1.5 w-full rounded-full bg-slate-700">
+						<div
+							className="h-1.5 rounded-full bg-[#F5E427]"
+							style={{ width: `${progressPercent}%` }}
+						/>
+					</div>
+					<span className="absolute -bottom-4 right-0 text-[11px] text-slate-300">
+						{enrollmentRatio}
+					</span>
 				</div>
 			</div>
 
-			<div>
+			<div className="md:justify-self-center">
 				<span
 					className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
 						inscripciones_abiertas
@@ -101,20 +121,22 @@ export default function EventItem(props: EventItemProps) {
 				</span>
 			</div>
 
-			<div className="md:justify-self-end">
-				<Button
-					type="button"
-					disabled={!canEnroll}
-					className="w-[130px]"
-					onClick={(event) => {
-						event.stopPropagation();
-						if (canEnroll) {
-							onInscribirmeClick?.(id_evento);
-						}
-					}}
-				>
-					{canEnroll ? "Inscribir" : "Agotado"}
-				</Button>
+			<div className="flex md:justify-end">
+				{shouldShowActionButton ? (
+					<Button
+						type="button"
+						disabled={resolvedActionDisabled}
+						className="w-[130px]"
+						onClick={(event) => {
+							event.stopPropagation();
+							if (!resolvedActionDisabled) {
+								resolvedActionHandler?.(id_evento);
+							}
+						}}
+					>
+						{resolvedActionLabel}
+					</Button>
+				) : null}
 			</div>
 		</div>
 	);

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Button from "../../components/ui/Button";
 import EventCreateModal from "../../components/events/EventCreateModal";
 import EventItem from "../../components/events/EventItem";
+import EventFilters from "../../components/events/EventFilters";
 import EventDetailModal from "../../components/events/EventDetailModal";
 import Loader from "../../components/ui/Loader";
 import ErrorState from "../../components/ui/ErrorState";
@@ -13,6 +14,11 @@ import { useToast } from "../../contexts/Toast/ToastContext";
 import emptyAnimation from "../../assets/animations/empty-animation.json";
 // APIs
 import { getEvents, Evento } from "../../services/eventsServices";
+import {
+	normalizeText,
+	parseFlexibleDate,
+	parseLocationParts
+} from "../../utils/dataParsing";
 
 export default function EventsListScreen(): JSX.Element {
 	// states
@@ -21,8 +27,39 @@ export default function EventsListScreen(): JSX.Element {
 	const [loading, setLoading] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null);
+	const [searchTerm, setSearchTerm] = useState("");
+	const [countryTerm, setCountryTerm] = useState("");
+	const [cityTerm, setCityTerm] = useState("");
+	const [fromDate, setFromDate] = useState("");
+	const [toDate, setToDate] = useState("");
 	// contexts
 	const { showToast } = useToast();
+	const fromDateValue = fromDate ? parseFlexibleDate(fromDate) : null;
+	const toDateValue = toDate ? parseFlexibleDate(toDate) : null;
+
+	const filteredEvents = events.filter((event) => {
+		const eventStartDate = parseFlexibleDate(event.fecha_inicio);
+		const { city, country } = parseLocationParts(event.ubicacion);
+		const matchesName = event.nombre
+			.toLowerCase()
+			.includes(searchTerm.trim().toLowerCase());
+		const matchesCountry =
+			!countryTerm || normalizeText(country) === normalizeText(countryTerm);
+		const matchesCity =
+			!cityTerm || normalizeText(city) === normalizeText(cityTerm);
+		const matchesFromDate =
+			!fromDateValue || (!!eventStartDate && eventStartDate >= fromDateValue);
+		const matchesToDate =
+			!toDateValue || (!!eventStartDate && eventStartDate <= toDateValue);
+
+		return (
+			matchesName &&
+			matchesCountry &&
+			matchesCity &&
+			matchesFromDate &&
+			matchesToDate
+		);
+	});
 
 	// function to fetch events
 	async function fetchEvents() {
@@ -76,6 +113,18 @@ export default function EventsListScreen(): JSX.Element {
 				open={showCreateModal} 
 				onClose={() => { setShowCreateModal(false); fetchEvents(); }} 
 			/>
+			<EventFilters
+				searchTerm={searchTerm}
+				countryTerm={countryTerm}
+				cityTerm={cityTerm}
+				fromDate={fromDate}
+				toDate={toDate}
+				onSearchTermChange={setSearchTerm}
+				onCountryTermChange={setCountryTerm}
+				onCityTermChange={setCityTerm}
+				onFromDateChange={setFromDate}
+				onToDateChange={setToDate}
+			/>
 			{loading ? (
 					<div className="flex justify-center items-center min-h-[200px] pt-16">
 						<Loader visible={true} />
@@ -93,11 +142,28 @@ export default function EventsListScreen(): JSX.Element {
 						description="Cuando existan eventos, los mostraremos en esta sección."
 						animationData={emptyAnimation}
 					/>
+			) : filteredEvents.length === 0 ? (
+					<EmptyState
+						title="No se encontraron eventos"
+						description="Prueba con otro nombre, país, ciudad, rango de fechas o limpia los filtros."
+						animationData={emptyAnimation}
+					/>
 			) : (
-				<div className="mt-6">
-					{events.map(ev => (
+				<div className="mt-6 overflow-hidden rounded-[0.5rem] border border-slate-700 bg-slate-800/40">
+					<div className="hidden border-b border-slate-700 bg-slate-800 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-300 md:grid md:gap-2 md:[grid-template-columns:90px_minmax(280px,2fr)_120px_120px_160px_130px_150px]">
+						<span>#ID</span>
+						<span>Nombre del Evento</span>
+						<span>Fecha Inicio</span>
+						<span>Fecha Fin</span>
+						<span className="text-center">Inscritos</span>
+						<span className="text-center">Estado</span>
+						<span className="text-center">Acción</span>
+					</div>
+
+					{filteredEvents.map((ev, index) => (
 						<EventItem
 							key={ev.id_evento}
+							isLastRow={index === filteredEvents.length - 1}
 							id_evento={ev.id_evento}
 							nombre={ev.nombre}
 							fecha_inicio={ev.fecha_inicio}
@@ -105,6 +171,13 @@ export default function EventsListScreen(): JSX.Element {
 							fecha_cierre_inscripcion={ev.fecha_cierre_inscripcion}
 							inscripciones_abiertas={ev.inscripciones_abiertas}
 							ubicacion={ev.ubicacion}
+							categoria={ev.categoria}
+							inscritos_actuales={ev.inscritos_actuales}
+							cupo_maximo={ev.cupo_maximo}
+							showActionButton
+							actionLabel="Modificar"
+							actionDisabled={false}
+							onActionClick={() => setSelectedEvent(ev)}
 							onClick={() => setSelectedEvent(ev)}
 						/>
 					))}

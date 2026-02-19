@@ -151,14 +151,14 @@ export default function EventCatalogScreen(): JSX.Element {
 					/>
 			) : (
 				<div className="mt-6 overflow-hidden rounded-[0.5rem] border border-slate-700 bg-slate-800/40">
-					<div className="hidden border-b border-slate-700 bg-slate-800 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-300 md:grid md:[grid-template-columns:90px_minmax(280px,2fr)_120px_120px_160px_130px_150px]">
+					<div className="hidden border-b border-slate-700 bg-slate-800 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-300 md:grid md:gap-2 md:[grid-template-columns:90px_minmax(280px,2fr)_120px_120px_160px_130px_150px]">
 						<span>#ID</span>
 						<span>Nombre del Evento</span>
 						<span>Fecha Inicio</span>
 						<span>Fecha Fin</span>
-						<span>Inscritos</span>
-						<span>Estado</span>
-						<span>Acción</span>
+						<span className="text-center">Inscritos</span>
+						<span className="text-center">Estado</span>
+						<span className="text-center">Acción</span>
 					</div>
 
 					{filteredEvents.map((ev, index) => (
@@ -177,7 +177,8 @@ export default function EventCatalogScreen(): JSX.Element {
 							cupo_maximo={ev.cupo_maximo}
 							inscrito={ev.ya_inscrito}
 							showInscribirmeButton
-							onInscribirmeClick={handleInscripcionClick}
+							showActionButton
+							onActionClick={handleInscripcionClick}
 						/>
 					))}
 				</div>
