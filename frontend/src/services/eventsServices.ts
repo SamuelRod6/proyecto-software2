@@ -27,10 +27,10 @@ export interface Evento {
     fecha_cierre_inscripcion: string;
     inscripciones_abiertas: boolean;
     ubicacion: string;
-    ya_inscrito?: boolean;
-    categoria?: string;
-    inscritos_actuales?: number;
-    cupo_maximo?: number;
+    is_enrolled?: boolean;
+    category?: string;
+    current_enrolled?: number;
+    max_enrolled?: number;
 }
 
 export async function getEvents(): Promise<{ status: number; data: Evento[] | any }> {

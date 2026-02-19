@@ -172,10 +172,10 @@ export default function EventCatalogScreen(): JSX.Element {
 							fecha_cierre_inscripcion={ev.fecha_cierre_inscripcion}
 							inscripciones_abiertas={ev.inscripciones_abiertas}
 							ubicacion={ev.ubicacion}
-							categoria={ev.categoria}
-							inscritos_actuales={ev.inscritos_actuales}
-							cupo_maximo={ev.cupo_maximo}
-							inscrito={ev.ya_inscrito}
+							categoria={ev.category}
+							inscritos_actuales={ev.current_enrolled}
+							cupo_maximo={ev.max_enrolled}
+							inscrito={ev.is_enrolled}
 							showInscribirmeButton
 							showActionButton
 							onActionClick={handleInscripcionClick}
