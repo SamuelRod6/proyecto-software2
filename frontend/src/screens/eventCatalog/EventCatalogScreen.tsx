@@ -11,70 +11,12 @@ import { useToast } from "../../contexts/Toast/ToastContext";
 import emptyAnimation from "../../assets/animations/empty-animation.json";
 // APIs
 import { getEvents, Evento } from "../../services/eventsServices";
-
-function toStartOfLocalDay(date: Date): Date {
-	return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function buildValidLocalDate(year: number, month: number, day: number): Date | null {
-	const candidate = new Date(year, month - 1, day);
-	const isValid =
-		candidate.getFullYear() === year &&
-		candidate.getMonth() === month - 1 &&
-		candidate.getDate() === day;
-
-	return isValid ? candidate : null;
-}
-
-function parseFlexibleDate(rawValue: string): Date | null {
-	if (!rawValue) return null;
-
-	const value = rawValue.trim();
-
-	const ymdMatch = value.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\b|T|\s)/);
-	if (ymdMatch) {
-		const [, year, month, day] = ymdMatch;
-		return buildValidLocalDate(Number(year), Number(month), Number(day));
-	}
-
-	const dmyMatch = value.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\b|T|\s|$)/);
-	if (dmyMatch) {
-		const [, day, month, year] = dmyMatch;
-		return buildValidLocalDate(Number(year), Number(month), Number(day));
-	}
-
-	const parsed = new Date(value);
-	if (Number.isNaN(parsed.getTime())) return null;
-
-	return toStartOfLocalDay(parsed);
-}
-
-function normalizeText(value: string): string {
-	return value
-		.normalize("NFD")
-		.replace(/\p{Diacritic}/gu, "")
-		.toLowerCase()
-		.trim();
-}
-
-function parseLocationParts(location: string): { city: string; country: string } {
-	const parts = location
-		.split(",")
-		.map((part) => part.trim())
-		.filter(Boolean);
-
-	if (parts.length >= 2) {
-		return {
-			city: parts[0],
-			country: parts.slice(1).join(", ")
-		};
-	}
-
-	return {
-		city: parts[0] ?? "",
-		country: ""
-	};
-}
+import {
+	normalizeText,
+	parseFlexibleDate,
+	parseLocationParts,
+	toStartOfLocalDay
+} from "../../utils/dataParsing";
 
 export default function EventCatalogScreen(): JSX.Element {
 	// states
@@ -151,6 +93,14 @@ export default function EventCatalogScreen(): JSX.Element {
 		fetchEvents();
 	}, []);
 
+	function handleInscripcionClick(idEvento: number) {
+		showToast({
+			title: "Inscripción pendiente",
+			message: `El endpoint de inscripción aún no está listo (evento #${idEvento}).`,
+			status: "info"
+		});
+	}
+
 	return (
 		<section className="space-y-6 bg-slate-900 min-h-screen px-4 py-8">
 			<header>
@@ -200,10 +150,21 @@ export default function EventCatalogScreen(): JSX.Element {
 						animationData={emptyAnimation}
 					/>
 			) : (
-				<div className="mt-6">
-					{filteredEvents.map(ev => (
+				<div className="mt-6 overflow-hidden rounded-[0.5rem] border border-slate-700 bg-slate-800/40">
+					<div className="hidden border-b border-slate-700 bg-slate-800 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-300 md:grid md:[grid-template-columns:90px_minmax(280px,2fr)_120px_120px_160px_130px_150px]">
+						<span>#ID</span>
+						<span>Nombre del Evento</span>
+						<span>Fecha Inicio</span>
+						<span>Fecha Fin</span>
+						<span>Inscritos</span>
+						<span>Estado</span>
+						<span>Acción</span>
+					</div>
+
+					{filteredEvents.map((ev, index) => (
 						<EventItem
 							key={ev.id_evento}
+							isLastRow={index === filteredEvents.length - 1}
 							id_evento={ev.id_evento}
 							nombre={ev.nombre}
 							fecha_inicio={ev.fecha_inicio}
@@ -211,6 +172,12 @@ export default function EventCatalogScreen(): JSX.Element {
 							fecha_cierre_inscripcion={ev.fecha_cierre_inscripcion}
 							inscripciones_abiertas={ev.inscripciones_abiertas}
 							ubicacion={ev.ubicacion}
+							categoria={ev.categoria}
+							inscritos_actuales={ev.inscritos_actuales}
+							cupo_maximo={ev.cupo_maximo}
+							inscrito={ev.ya_inscrito}
+							showInscribirmeButton
+							onInscribirmeClick={handleInscripcionClick}
 						/>
 					))}
 				</div>

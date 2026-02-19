@@ -30,48 +30,50 @@ export default function EventFilters({
 	onToDateChange
 }: EventFiltersProps): JSX.Element {
 	return (
-		<div className="grid gap-4 md:items-end md:[grid-template-columns:3fr_2fr_2fr_1fr_1fr]">
-			<Input
-				label="Buscar por nombre"
-				placeholder="Ej. Congreso de Biología"
-				value={searchTerm}
-				onChange={(e) => onSearchTermChange(e.target.value)}
-			/>
-			<div>
-				<SelectInput
-					inputLabel="Filtrar por país"
-					value={countryTerm}
-					onChange={onCountryTermChange}
-					isClearable
-					options={countryOptions}
-					placeholder="Selecciona un país"
+		<section className="rounded-[0.5rem] border border-slate-700 bg-slate-800/40 p-4">
+			<div className="grid gap-4 md:items-end md:[grid-template-columns:minmax(220px,2.2fr)_minmax(180px,1.2fr)_minmax(180px,1.2fr)_minmax(140px,1fr)_minmax(140px,1fr)]">
+				<Input
+					label="Buscar evento"
+					placeholder="Ej. Congreso de Biología"
+					value={searchTerm}
+					onChange={(e) => onSearchTermChange(e.target.value)}
+				/>
+				<div>
+					<SelectInput
+						inputLabel="País"
+						value={countryTerm}
+						onChange={onCountryTermChange}
+						isClearable
+						options={countryOptions}
+						placeholder="Selecciona"
+					/>
+				</div>
+				<div>
+					<SelectInput
+						inputLabel="Ciudad"
+						value={cityTerm}
+						onChange={onCityTermChange}
+						isClearable
+						options={venezuelaCities.map((city) => ({
+							value: city,
+							label: city
+						}))}
+						placeholder="Selecciona"
+					/>
+				</div>
+				<Input
+					type="date"
+					label="Desde"
+					value={fromDate}
+					onChange={(e) => onFromDateChange(e.target.value)}
+				/>
+				<Input
+					type="date"
+					label="Hasta"
+					value={toDate}
+					onChange={(e) => onToDateChange(e.target.value)}
 				/>
 			</div>
-			<div>
-				<SelectInput
-					inputLabel="Filtrar por ciudad"
-					value={cityTerm}
-					onChange={onCityTermChange}
-					isClearable
-					options={venezuelaCities.map((city) => ({
-						value: city,
-						label: city
-					}))}
-					placeholder="Selecciona una ciudad"
-				/>
-			</div>
-			<Input
-				type="date"
-				label="Desde"
-				value={fromDate}
-				onChange={(e) => onFromDateChange(e.target.value)}
-			/>
-			<Input
-				type="date"
-				label="Hasta"
-				value={toDate}
-				onChange={(e) => onToDateChange(e.target.value)}
-			/>
-		</div>
+		</section>
 	);
 }
