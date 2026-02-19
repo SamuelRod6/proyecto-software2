@@ -148,6 +148,23 @@ model JobExecution {
   job_name String   @unique
   last_run DateTime
 }
+
+model Pais {
+  id_pais   Int      @id @default(autoincrement())
+  nombre    String   @unique
+  createdAt DateTime @default(now())
+  ciudades  Ciudad[]
+}
+
+model Ciudad {
+  id_ciudad Int      @id @default(autoincrement())
+  nombre    String
+  id_pais   Int
+  pais      Pais     @relation(fields: [id_pais], references: [id_pais])
+  createdAt DateTime @default(now())
+
+  @@unique([nombre, id_pais])
+}
 `
 const schemaDatasourceURL = ""
 const schemaEnvVarName = "DATABASE_URL"
@@ -225,6 +242,8 @@ func newClient() *PrismaClient {
 	c.Inscripcion = inscripcionActions{client: c}
 	c.Notificacion = notificacionActions{client: c}
 	c.JobExecution = jobExecutionActions{client: c}
+	c.Pais = paisActions{client: c}
+	c.Ciudad = ciudadActions{client: c}
 
 	c.Prisma = &PrismaActions{
 		Raw: &raw.Raw{Engine: c},
@@ -261,6 +280,10 @@ type PrismaClient struct {
 	Notificacion notificacionActions
 	// JobExecution provides access to CRUD methods.
 	JobExecution jobExecutionActions
+	// Pais provides access to CRUD methods.
+	Pais paisActions
+	// Ciudad provides access to CRUD methods.
+	Ciudad ciudadActions
 }
 
 // --- template enums.gotpl ---
@@ -337,6 +360,23 @@ const (
 	JobExecutionScalarFieldEnumID      JobExecutionScalarFieldEnum = "id"
 	JobExecutionScalarFieldEnumJobName JobExecutionScalarFieldEnum = "job_name"
 	JobExecutionScalarFieldEnumLastRun JobExecutionScalarFieldEnum = "last_run"
+)
+
+type PaisScalarFieldEnum string
+
+const (
+	PaisScalarFieldEnumIDPais    PaisScalarFieldEnum = "id_pais"
+	PaisScalarFieldEnumNombre    PaisScalarFieldEnum = "nombre"
+	PaisScalarFieldEnumCreatedAt PaisScalarFieldEnum = "createdAt"
+)
+
+type CiudadScalarFieldEnum string
+
+const (
+	CiudadScalarFieldEnumIDCiudad  CiudadScalarFieldEnum = "id_ciudad"
+	CiudadScalarFieldEnumNombre    CiudadScalarFieldEnum = "nombre"
+	CiudadScalarFieldEnumIDPais    CiudadScalarFieldEnum = "id_pais"
+	CiudadScalarFieldEnumCreatedAt CiudadScalarFieldEnum = "createdAt"
 )
 
 type SortOrder string
@@ -493,6 +533,28 @@ const jobExecutionFieldJobName jobExecutionPrismaFields = "job_name"
 
 const jobExecutionFieldLastRun jobExecutionPrismaFields = "last_run"
 
+type paisPrismaFields = prismaFields
+
+const paisFieldIDPais paisPrismaFields = "id_pais"
+
+const paisFieldNombre paisPrismaFields = "nombre"
+
+const paisFieldCreatedAt paisPrismaFields = "createdAt"
+
+const paisFieldCiudades paisPrismaFields = "ciudades"
+
+type ciudadPrismaFields = prismaFields
+
+const ciudadFieldIDCiudad ciudadPrismaFields = "id_ciudad"
+
+const ciudadFieldNombre ciudadPrismaFields = "nombre"
+
+const ciudadFieldIDPais ciudadPrismaFields = "id_pais"
+
+const ciudadFieldPais ciudadPrismaFields = "pais"
+
+const ciudadFieldCreatedAt ciudadPrismaFields = "createdAt"
+
 // --- template mock.gotpl ---
 func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 	expectations := new([]mock.Expectation)
@@ -527,6 +589,14 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.Pais = paisMock{
+		mock: m,
+	}
+
+	m.Ciudad = ciudadMock{
+		mock: m,
+	}
+
 	return pc, m, m.Ensure
 }
 
@@ -544,6 +614,10 @@ type Mock struct {
 	Notificacion notificacionMock
 
 	JobExecution jobExecutionMock
+
+	Pais paisMock
+
+	Ciudad ciudadMock
 }
 
 type usuarioMock struct {
@@ -792,6 +866,90 @@ func (m *jobExecutionMockExec) ReturnsMany(v []JobExecutionModel) {
 }
 
 func (m *jobExecutionMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type paisMock struct {
+	mock *Mock
+}
+
+type PaisMockExpectParam interface {
+	ExtractQuery() builder.Query
+	paisModel()
+}
+
+func (m *paisMock) Expect(query PaisMockExpectParam) *paisMockExec {
+	return &paisMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type paisMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *paisMockExec) Returns(v PaisModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *paisMockExec) ReturnsMany(v []PaisModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *paisMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type ciudadMock struct {
+	mock *Mock
+}
+
+type CiudadMockExpectParam interface {
+	ExtractQuery() builder.Query
+	ciudadModel()
+}
+
+func (m *ciudadMock) Expect(query CiudadMockExpectParam) *ciudadMockExec {
+	return &ciudadMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type ciudadMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *ciudadMockExec) Returns(v CiudadModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *ciudadMockExec) ReturnsMany(v []CiudadModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *ciudadMockExec) Errors(err error) {
 	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
 		Query:   m.query,
 		WantErr: err,
@@ -1063,6 +1221,72 @@ type RawJobExecutionModel struct {
 
 // RelationsJobExecution holds the relation data separately
 type RelationsJobExecution struct {
+}
+
+// PaisModel represents the Pais model and is a wrapper for accessing fields and methods
+type PaisModel struct {
+	InnerPais
+	RelationsPais
+}
+
+// InnerPais holds the actual data
+type InnerPais struct {
+	IDPais    int      `json:"id_pais"`
+	Nombre    string   `json:"nombre"`
+	CreatedAt DateTime `json:"createdAt"`
+}
+
+// RawPaisModel is a struct for Pais when used in raw queries
+type RawPaisModel struct {
+	IDPais    RawInt      `json:"id_pais"`
+	Nombre    RawString   `json:"nombre"`
+	CreatedAt RawDateTime `json:"createdAt"`
+}
+
+// RelationsPais holds the relation data separately
+type RelationsPais struct {
+	Ciudades []CiudadModel `json:"ciudades,omitempty"`
+}
+
+func (r PaisModel) Ciudades() (value []CiudadModel) {
+	if r.RelationsPais.Ciudades == nil {
+		panic("attempted to access ciudades but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsPais.Ciudades
+}
+
+// CiudadModel represents the Ciudad model and is a wrapper for accessing fields and methods
+type CiudadModel struct {
+	InnerCiudad
+	RelationsCiudad
+}
+
+// InnerCiudad holds the actual data
+type InnerCiudad struct {
+	IDCiudad  int      `json:"id_ciudad"`
+	Nombre    string   `json:"nombre"`
+	IDPais    int      `json:"id_pais"`
+	CreatedAt DateTime `json:"createdAt"`
+}
+
+// RawCiudadModel is a struct for Ciudad when used in raw queries
+type RawCiudadModel struct {
+	IDCiudad  RawInt      `json:"id_ciudad"`
+	Nombre    RawString   `json:"nombre"`
+	IDPais    RawInt      `json:"id_pais"`
+	CreatedAt RawDateTime `json:"createdAt"`
+}
+
+// RelationsCiudad holds the relation data separately
+type RelationsCiudad struct {
+	Pais *PaisModel `json:"pais,omitempty"`
+}
+
+func (r CiudadModel) Pais() (value *PaisModel) {
+	if r.RelationsCiudad.Pais == nil {
+		panic("attempted to access pais but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsCiudad.Pais
 }
 
 // --- template query.gotpl ---
@@ -14255,6 +14479,2953 @@ func (r jobExecutionQueryLastRunDateTime) Field() jobExecutionPrismaFields {
 	return jobExecutionFieldLastRun
 }
 
+// Pais acts as a namespaces to access query methods for the Pais model
+var Pais = paisQuery{}
+
+// paisQuery exposes query functions for the pais model
+type paisQuery struct {
+
+	// IDPais
+	//
+	// @required
+	IDPais paisQueryIDPaisInt
+
+	// Nombre
+	//
+	// @required
+	// @unique
+	Nombre paisQueryNombreString
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt paisQueryCreatedAtDateTime
+
+	Ciudades paisQueryCiudadesRelations
+}
+
+func (paisQuery) Not(params ...PaisWhereParam) paisDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return paisDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (paisQuery) Or(params ...PaisWhereParam) paisDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return paisDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (paisQuery) And(params ...PaisWhereParam) paisDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return paisDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type paisQueryIDPaisInt struct{}
+
+// Set the required value of IDPais
+func (r paisQueryIDPaisInt) Set(value int) paisSetParam {
+
+	return paisSetParam{
+		data: builder.Field{
+			Name:  "id_pais",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDPais dynamically
+func (r paisQueryIDPaisInt) SetIfPresent(value *Int) paisSetParam {
+	if value == nil {
+		return paisSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDPais
+func (r paisQueryIDPaisInt) Increment(value int) paisSetParam {
+	return paisSetParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) IncrementIfPresent(value *int) paisSetParam {
+	if value == nil {
+		return paisSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDPais
+func (r paisQueryIDPaisInt) Decrement(value int) paisSetParam {
+	return paisSetParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) DecrementIfPresent(value *int) paisSetParam {
+	if value == nil {
+		return paisSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDPais
+func (r paisQueryIDPaisInt) Multiply(value int) paisSetParam {
+	return paisSetParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) MultiplyIfPresent(value *int) paisSetParam {
+	if value == nil {
+		return paisSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDPais
+func (r paisQueryIDPaisInt) Divide(value int) paisSetParam {
+	return paisSetParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) DivideIfPresent(value *int) paisSetParam {
+	if value == nil {
+		return paisSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r paisQueryIDPaisInt) Equals(value int) paisWithPrismaIDPaisEqualsUniqueParam {
+
+	return paisWithPrismaIDPaisEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) EqualsIfPresent(value *int) paisWithPrismaIDPaisEqualsUniqueParam {
+	if value == nil {
+		return paisWithPrismaIDPaisEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r paisQueryIDPaisInt) Order(direction SortOrder) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name:  "id_pais",
+			Value: direction,
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) Cursor(cursor int) paisCursorParam {
+	return paisCursorParam{
+		data: builder.Field{
+			Name:  "id_pais",
+			Value: cursor,
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) In(value []int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) InIfPresent(value []int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r paisQueryIDPaisInt) NotIn(value []int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) NotInIfPresent(value []int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r paisQueryIDPaisInt) Lt(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) LtIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r paisQueryIDPaisInt) Lte(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) LteIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r paisQueryIDPaisInt) Gt(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) GtIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r paisQueryIDPaisInt) Gte(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) GteIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r paisQueryIDPaisInt) Not(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryIDPaisInt) NotIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r paisQueryIDPaisInt) LT(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r paisQueryIDPaisInt) LTIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r paisQueryIDPaisInt) LTE(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r paisQueryIDPaisInt) LTEIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r paisQueryIDPaisInt) GT(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r paisQueryIDPaisInt) GTIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r paisQueryIDPaisInt) GTE(value int) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r paisQueryIDPaisInt) GTEIfPresent(value *int) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r paisQueryIDPaisInt) Field() paisPrismaFields {
+	return paisFieldIDPais
+}
+
+// base struct
+type paisQueryNombreString struct{}
+
+// Set the required value of Nombre
+func (r paisQueryNombreString) Set(value string) paisWithPrismaNombreSetParam {
+
+	return paisWithPrismaNombreSetParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Nombre dynamically
+func (r paisQueryNombreString) SetIfPresent(value *String) paisWithPrismaNombreSetParam {
+	if value == nil {
+		return paisWithPrismaNombreSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r paisQueryNombreString) Equals(value string) paisWithPrismaNombreEqualsUniqueParam {
+
+	return paisWithPrismaNombreEqualsUniqueParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) EqualsIfPresent(value *string) paisWithPrismaNombreEqualsUniqueParam {
+	if value == nil {
+		return paisWithPrismaNombreEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r paisQueryNombreString) Order(direction SortOrder) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: direction,
+		},
+	}
+}
+
+func (r paisQueryNombreString) Cursor(cursor string) paisCursorParam {
+	return paisCursorParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: cursor,
+		},
+	}
+}
+
+func (r paisQueryNombreString) In(value []string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) InIfPresent(value []string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r paisQueryNombreString) NotIn(value []string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) NotInIfPresent(value []string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r paisQueryNombreString) Lt(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) LtIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r paisQueryNombreString) Lte(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) LteIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r paisQueryNombreString) Gt(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) GtIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r paisQueryNombreString) Gte(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) GteIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r paisQueryNombreString) Contains(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) ContainsIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Contains(*value)
+}
+
+func (r paisQueryNombreString) StartsWith(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) StartsWithIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r paisQueryNombreString) EndsWith(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) EndsWithIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r paisQueryNombreString) Mode(value QueryMode) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) ModeIfPresent(value *QueryMode) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Mode(*value)
+}
+
+func (r paisQueryNombreString) Not(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryNombreString) NotIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r paisQueryNombreString) HasPrefix(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r paisQueryNombreString) HasPrefixIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r paisQueryNombreString) HasSuffix(value string) paisParamUnique {
+	return paisParamUnique{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r paisQueryNombreString) HasSuffixIfPresent(value *string) paisParamUnique {
+	if value == nil {
+		return paisParamUnique{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r paisQueryNombreString) Field() paisPrismaFields {
+	return paisFieldNombre
+}
+
+// base struct
+type paisQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r paisQueryCreatedAtDateTime) Set(value DateTime) paisSetParam {
+
+	return paisSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r paisQueryCreatedAtDateTime) SetIfPresent(value *DateTime) paisSetParam {
+	if value == nil {
+		return paisSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r paisQueryCreatedAtDateTime) Equals(value DateTime) paisWithPrismaCreatedAtEqualsParam {
+
+	return paisWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) paisWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return paisWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r paisQueryCreatedAtDateTime) Order(direction SortOrder) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) Cursor(cursor DateTime) paisCursorParam {
+	return paisCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) In(value []DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) InIfPresent(value []DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r paisQueryCreatedAtDateTime) NotIn(value []DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r paisQueryCreatedAtDateTime) Lt(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) LtIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r paisQueryCreatedAtDateTime) Lte(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) LteIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r paisQueryCreatedAtDateTime) Gt(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) GtIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r paisQueryCreatedAtDateTime) Gte(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) GteIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r paisQueryCreatedAtDateTime) Not(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCreatedAtDateTime) NotIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r paisQueryCreatedAtDateTime) Before(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r paisQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r paisQueryCreatedAtDateTime) After(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r paisQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r paisQueryCreatedAtDateTime) BeforeEquals(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r paisQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r paisQueryCreatedAtDateTime) AfterEquals(value DateTime) paisDefaultParam {
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r paisQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) paisDefaultParam {
+	if value == nil {
+		return paisDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r paisQueryCreatedAtDateTime) Field() paisPrismaFields {
+	return paisFieldCreatedAt
+}
+
+// base struct
+type paisQueryCiudadesCiudad struct{}
+
+type paisQueryCiudadesRelations struct{}
+
+// Pais -> Ciudades
+//
+// @relation
+// @required
+func (paisQueryCiudadesRelations) Some(
+	params ...CiudadWhereParam,
+) paisDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "ciudades",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Pais -> Ciudades
+//
+// @relation
+// @required
+func (paisQueryCiudadesRelations) Every(
+	params ...CiudadWhereParam,
+) paisDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "ciudades",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Pais -> Ciudades
+//
+// @relation
+// @required
+func (paisQueryCiudadesRelations) None(
+	params ...CiudadWhereParam,
+) paisDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return paisDefaultParam{
+		data: builder.Field{
+			Name: "ciudades",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (paisQueryCiudadesRelations) Fetch(
+
+	params ...CiudadWhereParam,
+
+) paisToCiudadesFindMany {
+	var v paisToCiudadesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "ciudades"
+	v.query.Outputs = ciudadOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r paisQueryCiudadesRelations) Link(
+	params ...CiudadWhereParam,
+) paisSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return paisSetParam{
+		data: builder.Field{
+			Name: "ciudades",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r paisQueryCiudadesRelations) Unlink(
+	params ...CiudadWhereParam,
+) paisSetParam {
+	var v paisSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = paisSetParam{
+		data: builder.Field{
+			Name: "ciudades",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r paisQueryCiudadesCiudad) Field() paisPrismaFields {
+	return paisFieldCiudades
+}
+
+// Ciudad acts as a namespaces to access query methods for the Ciudad model
+var Ciudad = ciudadQuery{}
+
+// ciudadQuery exposes query functions for the ciudad model
+type ciudadQuery struct {
+
+	// IDCiudad
+	//
+	// @required
+	IDCiudad ciudadQueryIDCiudadInt
+
+	// Nombre
+	//
+	// @required
+	Nombre ciudadQueryNombreString
+
+	// IDPais
+	//
+	// @required
+	IDPais ciudadQueryIDPaisInt
+
+	Pais ciudadQueryPaisRelations
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt ciudadQueryCreatedAtDateTime
+}
+
+func (ciudadQuery) Not(params ...CiudadWhereParam) ciudadDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (ciudadQuery) Or(params ...CiudadWhereParam) ciudadDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (ciudadQuery) And(params ...CiudadWhereParam) ciudadDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (ciudadQuery) NombreIDPais(
+	_nombre CiudadWithPrismaNombreWhereParam,
+
+	_idPais CiudadWithPrismaIDPaisWhereParam,
+) CiudadEqualsUniqueWhereParam {
+	var fields []builder.Field
+
+	fields = append(fields, _nombre.field())
+	fields = append(fields, _idPais.field())
+
+	return ciudadEqualsUniqueParam{
+		data: builder.Field{
+			Name:   "nombre_id_pais",
+			Fields: builder.TransformEquals(fields),
+		},
+	}
+}
+
+// base struct
+type ciudadQueryIDCiudadInt struct{}
+
+// Set the required value of IDCiudad
+func (r ciudadQueryIDCiudadInt) Set(value int) ciudadSetParam {
+
+	return ciudadSetParam{
+		data: builder.Field{
+			Name:  "id_ciudad",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDCiudad dynamically
+func (r ciudadQueryIDCiudadInt) SetIfPresent(value *Int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDCiudad
+func (r ciudadQueryIDCiudadInt) Increment(value int) ciudadSetParam {
+	return ciudadSetParam{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) IncrementIfPresent(value *int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDCiudad
+func (r ciudadQueryIDCiudadInt) Decrement(value int) ciudadSetParam {
+	return ciudadSetParam{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) DecrementIfPresent(value *int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDCiudad
+func (r ciudadQueryIDCiudadInt) Multiply(value int) ciudadSetParam {
+	return ciudadSetParam{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) MultiplyIfPresent(value *int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDCiudad
+func (r ciudadQueryIDCiudadInt) Divide(value int) ciudadSetParam {
+	return ciudadSetParam{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) DivideIfPresent(value *int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r ciudadQueryIDCiudadInt) Equals(value int) ciudadWithPrismaIDCiudadEqualsUniqueParam {
+
+	return ciudadWithPrismaIDCiudadEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) EqualsIfPresent(value *int) ciudadWithPrismaIDCiudadEqualsUniqueParam {
+	if value == nil {
+		return ciudadWithPrismaIDCiudadEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r ciudadQueryIDCiudadInt) Order(direction SortOrder) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name:  "id_ciudad",
+			Value: direction,
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) Cursor(cursor int) ciudadCursorParam {
+	return ciudadCursorParam{
+		data: builder.Field{
+			Name:  "id_ciudad",
+			Value: cursor,
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) In(value []int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) InIfPresent(value []int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r ciudadQueryIDCiudadInt) NotIn(value []int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) NotInIfPresent(value []int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r ciudadQueryIDCiudadInt) Lt(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) LtIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r ciudadQueryIDCiudadInt) Lte(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) LteIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r ciudadQueryIDCiudadInt) Gt(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) GtIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r ciudadQueryIDCiudadInt) Gte(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) GteIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r ciudadQueryIDCiudadInt) Not(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDCiudadInt) NotIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r ciudadQueryIDCiudadInt) LT(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r ciudadQueryIDCiudadInt) LTIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r ciudadQueryIDCiudadInt) LTE(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r ciudadQueryIDCiudadInt) LTEIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r ciudadQueryIDCiudadInt) GT(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r ciudadQueryIDCiudadInt) GTIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r ciudadQueryIDCiudadInt) GTE(value int) ciudadParamUnique {
+	return ciudadParamUnique{
+		data: builder.Field{
+			Name: "id_ciudad",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r ciudadQueryIDCiudadInt) GTEIfPresent(value *int) ciudadParamUnique {
+	if value == nil {
+		return ciudadParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r ciudadQueryIDCiudadInt) Field() ciudadPrismaFields {
+	return ciudadFieldIDCiudad
+}
+
+// base struct
+type ciudadQueryNombreString struct{}
+
+// Set the required value of Nombre
+func (r ciudadQueryNombreString) Set(value string) ciudadWithPrismaNombreSetParam {
+
+	return ciudadWithPrismaNombreSetParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Nombre dynamically
+func (r ciudadQueryNombreString) SetIfPresent(value *String) ciudadWithPrismaNombreSetParam {
+	if value == nil {
+		return ciudadWithPrismaNombreSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r ciudadQueryNombreString) Equals(value string) ciudadWithPrismaNombreEqualsParam {
+
+	return ciudadWithPrismaNombreEqualsParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) EqualsIfPresent(value *string) ciudadWithPrismaNombreEqualsParam {
+	if value == nil {
+		return ciudadWithPrismaNombreEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r ciudadQueryNombreString) Order(direction SortOrder) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: direction,
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) Cursor(cursor string) ciudadCursorParam {
+	return ciudadCursorParam{
+		data: builder.Field{
+			Name:  "nombre",
+			Value: cursor,
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) In(value []string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) InIfPresent(value []string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r ciudadQueryNombreString) NotIn(value []string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) NotInIfPresent(value []string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r ciudadQueryNombreString) Lt(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) LtIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r ciudadQueryNombreString) Lte(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) LteIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r ciudadQueryNombreString) Gt(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) GtIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r ciudadQueryNombreString) Gte(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) GteIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r ciudadQueryNombreString) Contains(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) ContainsIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r ciudadQueryNombreString) StartsWith(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) StartsWithIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r ciudadQueryNombreString) EndsWith(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) EndsWithIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r ciudadQueryNombreString) Mode(value QueryMode) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) ModeIfPresent(value *QueryMode) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r ciudadQueryNombreString) Not(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryNombreString) NotIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r ciudadQueryNombreString) HasPrefix(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r ciudadQueryNombreString) HasPrefixIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r ciudadQueryNombreString) HasSuffix(value string) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r ciudadQueryNombreString) HasSuffixIfPresent(value *string) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r ciudadQueryNombreString) Field() ciudadPrismaFields {
+	return ciudadFieldNombre
+}
+
+// base struct
+type ciudadQueryIDPaisInt struct{}
+
+// Set the required value of IDPais
+func (r ciudadQueryIDPaisInt) Set(value int) ciudadSetParam {
+
+	return ciudadSetParam{
+		data: builder.Field{
+			Name:  "id_pais",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDPais dynamically
+func (r ciudadQueryIDPaisInt) SetIfPresent(value *Int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDPais
+func (r ciudadQueryIDPaisInt) Increment(value int) ciudadSetParam {
+	return ciudadSetParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) IncrementIfPresent(value *int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDPais
+func (r ciudadQueryIDPaisInt) Decrement(value int) ciudadSetParam {
+	return ciudadSetParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) DecrementIfPresent(value *int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDPais
+func (r ciudadQueryIDPaisInt) Multiply(value int) ciudadSetParam {
+	return ciudadSetParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) MultiplyIfPresent(value *int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDPais
+func (r ciudadQueryIDPaisInt) Divide(value int) ciudadSetParam {
+	return ciudadSetParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) DivideIfPresent(value *int) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r ciudadQueryIDPaisInt) Equals(value int) ciudadWithPrismaIDPaisEqualsParam {
+
+	return ciudadWithPrismaIDPaisEqualsParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) EqualsIfPresent(value *int) ciudadWithPrismaIDPaisEqualsParam {
+	if value == nil {
+		return ciudadWithPrismaIDPaisEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r ciudadQueryIDPaisInt) Order(direction SortOrder) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name:  "id_pais",
+			Value: direction,
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) Cursor(cursor int) ciudadCursorParam {
+	return ciudadCursorParam{
+		data: builder.Field{
+			Name:  "id_pais",
+			Value: cursor,
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) In(value []int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) InIfPresent(value []int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r ciudadQueryIDPaisInt) NotIn(value []int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) NotInIfPresent(value []int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r ciudadQueryIDPaisInt) Lt(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) LtIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r ciudadQueryIDPaisInt) Lte(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) LteIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r ciudadQueryIDPaisInt) Gt(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) GtIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r ciudadQueryIDPaisInt) Gte(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) GteIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r ciudadQueryIDPaisInt) Not(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryIDPaisInt) NotIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r ciudadQueryIDPaisInt) LT(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r ciudadQueryIDPaisInt) LTIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r ciudadQueryIDPaisInt) LTE(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r ciudadQueryIDPaisInt) LTEIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r ciudadQueryIDPaisInt) GT(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r ciudadQueryIDPaisInt) GTIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r ciudadQueryIDPaisInt) GTE(value int) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "id_pais",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r ciudadQueryIDPaisInt) GTEIfPresent(value *int) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r ciudadQueryIDPaisInt) Field() ciudadPrismaFields {
+	return ciudadFieldIDPais
+}
+
+// base struct
+type ciudadQueryPaisPais struct{}
+
+type ciudadQueryPaisRelations struct{}
+
+// Ciudad -> Pais
+//
+// @relation
+// @required
+func (ciudadQueryPaisRelations) Where(
+	params ...PaisWhereParam,
+) ciudadDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "pais",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (ciudadQueryPaisRelations) Fetch() ciudadToPaisFindUnique {
+	var v ciudadToPaisFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "pais"
+	v.query.Outputs = paisOutput
+
+	return v
+}
+
+func (r ciudadQueryPaisRelations) Link(
+	params PaisWhereParam,
+) ciudadWithPrismaPaisSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return ciudadWithPrismaPaisSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return ciudadWithPrismaPaisSetParam{
+		data: builder.Field{
+			Name: "pais",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryPaisRelations) Unlink() ciudadWithPrismaPaisSetParam {
+	var v ciudadWithPrismaPaisSetParam
+
+	v = ciudadWithPrismaPaisSetParam{
+		data: builder.Field{
+			Name: "pais",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r ciudadQueryPaisPais) Field() ciudadPrismaFields {
+	return ciudadFieldPais
+}
+
+// base struct
+type ciudadQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r ciudadQueryCreatedAtDateTime) Set(value DateTime) ciudadSetParam {
+
+	return ciudadSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r ciudadQueryCreatedAtDateTime) SetIfPresent(value *DateTime) ciudadSetParam {
+	if value == nil {
+		return ciudadSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) Equals(value DateTime) ciudadWithPrismaCreatedAtEqualsParam {
+
+	return ciudadWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) ciudadWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return ciudadWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) Order(direction SortOrder) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) Cursor(cursor DateTime) ciudadCursorParam {
+	return ciudadCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) In(value []DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) InIfPresent(value []DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) NotIn(value []DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) Lt(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) LtIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) Lte(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) LteIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) Gt(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) GtIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) Gte(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) GteIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) Not(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r ciudadQueryCreatedAtDateTime) NotIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r ciudadQueryCreatedAtDateTime) Before(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r ciudadQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r ciudadQueryCreatedAtDateTime) After(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r ciudadQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r ciudadQueryCreatedAtDateTime) BeforeEquals(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r ciudadQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r ciudadQueryCreatedAtDateTime) AfterEquals(value DateTime) ciudadDefaultParam {
+	return ciudadDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r ciudadQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) ciudadDefaultParam {
+	if value == nil {
+		return ciudadDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r ciudadQueryCreatedAtDateTime) Field() ciudadPrismaFields {
+	return ciudadFieldCreatedAt
+}
+
 // --- template actions.gotpl ---
 var countOutput = []builder.Output{
 	{Name: "count"},
@@ -18838,6 +22009,1059 @@ func (p jobExecutionWithPrismaLastRunEqualsUniqueParam) lastRunField()      {}
 func (jobExecutionWithPrismaLastRunEqualsUniqueParam) unique() {}
 func (jobExecutionWithPrismaLastRunEqualsUniqueParam) equals() {}
 
+type paisActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var paisOutput = []builder.Output{
+	{Name: "id_pais"},
+	{Name: "nombre"},
+	{Name: "createdAt"},
+}
+
+type PaisRelationWith interface {
+	getQuery() builder.Query
+	with()
+	paisRelation()
+}
+
+type PaisWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+}
+
+type paisDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisDefaultParam) paisModel() {}
+
+type PaisOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+}
+
+type paisOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisOrderByParam) paisModel() {}
+
+type PaisCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	isCursor()
+}
+
+type paisCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisCursorParam) isCursor() {}
+
+func (p paisCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisCursorParam) paisModel() {}
+
+type PaisParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	paisModel()
+}
+
+type paisParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisParamUnique) paisModel() {}
+
+func (paisParamUnique) unique() {}
+
+func (p paisParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p paisParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type PaisEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	paisModel()
+}
+
+type paisEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisEqualsParam) paisModel() {}
+
+func (paisEqualsParam) equals() {}
+
+func (p paisEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type PaisEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	paisModel()
+}
+
+type paisEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisEqualsUniqueParam) paisModel() {}
+
+func (paisEqualsUniqueParam) unique() {}
+func (paisEqualsUniqueParam) equals() {}
+
+func (p paisEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type PaisSetParam interface {
+	field() builder.Field
+	settable()
+	paisModel()
+}
+
+type paisSetParam struct {
+	data builder.Field
+}
+
+func (paisSetParam) settable() {}
+
+func (p paisSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisSetParam) paisModel() {}
+
+type PaisWithPrismaIDPaisEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	paisModel()
+	idPaisField()
+}
+
+type PaisWithPrismaIDPaisSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	idPaisField()
+}
+
+type paisWithPrismaIDPaisSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaIDPaisSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaIDPaisSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaIDPaisSetParam) paisModel() {}
+
+func (p paisWithPrismaIDPaisSetParam) idPaisField() {}
+
+type PaisWithPrismaIDPaisWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	idPaisField()
+}
+
+type paisWithPrismaIDPaisEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaIDPaisEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaIDPaisEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaIDPaisEqualsParam) paisModel() {}
+
+func (p paisWithPrismaIDPaisEqualsParam) idPaisField() {}
+
+func (paisWithPrismaIDPaisSetParam) settable()  {}
+func (paisWithPrismaIDPaisEqualsParam) equals() {}
+
+type paisWithPrismaIDPaisEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaIDPaisEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaIDPaisEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaIDPaisEqualsUniqueParam) paisModel()   {}
+func (p paisWithPrismaIDPaisEqualsUniqueParam) idPaisField() {}
+
+func (paisWithPrismaIDPaisEqualsUniqueParam) unique() {}
+func (paisWithPrismaIDPaisEqualsUniqueParam) equals() {}
+
+type PaisWithPrismaNombreEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	paisModel()
+	nombreField()
+}
+
+type PaisWithPrismaNombreSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	nombreField()
+}
+
+type paisWithPrismaNombreSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaNombreSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaNombreSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaNombreSetParam) paisModel() {}
+
+func (p paisWithPrismaNombreSetParam) nombreField() {}
+
+type PaisWithPrismaNombreWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	nombreField()
+}
+
+type paisWithPrismaNombreEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaNombreEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaNombreEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaNombreEqualsParam) paisModel() {}
+
+func (p paisWithPrismaNombreEqualsParam) nombreField() {}
+
+func (paisWithPrismaNombreSetParam) settable()  {}
+func (paisWithPrismaNombreEqualsParam) equals() {}
+
+type paisWithPrismaNombreEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaNombreEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaNombreEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaNombreEqualsUniqueParam) paisModel()   {}
+func (p paisWithPrismaNombreEqualsUniqueParam) nombreField() {}
+
+func (paisWithPrismaNombreEqualsUniqueParam) unique() {}
+func (paisWithPrismaNombreEqualsUniqueParam) equals() {}
+
+type PaisWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	paisModel()
+	createdAtField()
+}
+
+type PaisWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	createdAtField()
+}
+
+type paisWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaCreatedAtSetParam) paisModel() {}
+
+func (p paisWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type PaisWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	createdAtField()
+}
+
+type paisWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaCreatedAtEqualsParam) paisModel() {}
+
+func (p paisWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (paisWithPrismaCreatedAtSetParam) settable()  {}
+func (paisWithPrismaCreatedAtEqualsParam) equals() {}
+
+type paisWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaCreatedAtEqualsUniqueParam) paisModel()      {}
+func (p paisWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
+
+func (paisWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (paisWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type PaisWithPrismaCiudadesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	paisModel()
+	ciudadesField()
+}
+
+type PaisWithPrismaCiudadesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	ciudadesField()
+}
+
+type paisWithPrismaCiudadesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaCiudadesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaCiudadesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaCiudadesSetParam) paisModel() {}
+
+func (p paisWithPrismaCiudadesSetParam) ciudadesField() {}
+
+type PaisWithPrismaCiudadesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	paisModel()
+	ciudadesField()
+}
+
+type paisWithPrismaCiudadesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaCiudadesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaCiudadesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaCiudadesEqualsParam) paisModel() {}
+
+func (p paisWithPrismaCiudadesEqualsParam) ciudadesField() {}
+
+func (paisWithPrismaCiudadesSetParam) settable()  {}
+func (paisWithPrismaCiudadesEqualsParam) equals() {}
+
+type paisWithPrismaCiudadesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p paisWithPrismaCiudadesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p paisWithPrismaCiudadesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p paisWithPrismaCiudadesEqualsUniqueParam) paisModel()     {}
+func (p paisWithPrismaCiudadesEqualsUniqueParam) ciudadesField() {}
+
+func (paisWithPrismaCiudadesEqualsUniqueParam) unique() {}
+func (paisWithPrismaCiudadesEqualsUniqueParam) equals() {}
+
+type ciudadActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var ciudadOutput = []builder.Output{
+	{Name: "id_ciudad"},
+	{Name: "nombre"},
+	{Name: "id_pais"},
+	{Name: "createdAt"},
+}
+
+type CiudadRelationWith interface {
+	getQuery() builder.Query
+	with()
+	ciudadRelation()
+}
+
+type CiudadWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+}
+
+type ciudadDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadDefaultParam) ciudadModel() {}
+
+type CiudadOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+}
+
+type ciudadOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadOrderByParam) ciudadModel() {}
+
+type CiudadCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	isCursor()
+}
+
+type ciudadCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadCursorParam) isCursor() {}
+
+func (p ciudadCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadCursorParam) ciudadModel() {}
+
+type CiudadParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	ciudadModel()
+}
+
+type ciudadParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadParamUnique) ciudadModel() {}
+
+func (ciudadParamUnique) unique() {}
+
+func (p ciudadParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type CiudadEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	ciudadModel()
+}
+
+type ciudadEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadEqualsParam) ciudadModel() {}
+
+func (ciudadEqualsParam) equals() {}
+
+func (p ciudadEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type CiudadEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	ciudadModel()
+}
+
+type ciudadEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadEqualsUniqueParam) ciudadModel() {}
+
+func (ciudadEqualsUniqueParam) unique() {}
+func (ciudadEqualsUniqueParam) equals() {}
+
+func (p ciudadEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type CiudadSetParam interface {
+	field() builder.Field
+	settable()
+	ciudadModel()
+}
+
+type ciudadSetParam struct {
+	data builder.Field
+}
+
+func (ciudadSetParam) settable() {}
+
+func (p ciudadSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadSetParam) ciudadModel() {}
+
+type CiudadWithPrismaIDCiudadEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	ciudadModel()
+	idCiudadField()
+}
+
+type CiudadWithPrismaIDCiudadSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	idCiudadField()
+}
+
+type ciudadWithPrismaIDCiudadSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaIDCiudadSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaIDCiudadSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaIDCiudadSetParam) ciudadModel() {}
+
+func (p ciudadWithPrismaIDCiudadSetParam) idCiudadField() {}
+
+type CiudadWithPrismaIDCiudadWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	idCiudadField()
+}
+
+type ciudadWithPrismaIDCiudadEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaIDCiudadEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaIDCiudadEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaIDCiudadEqualsParam) ciudadModel() {}
+
+func (p ciudadWithPrismaIDCiudadEqualsParam) idCiudadField() {}
+
+func (ciudadWithPrismaIDCiudadSetParam) settable()  {}
+func (ciudadWithPrismaIDCiudadEqualsParam) equals() {}
+
+type ciudadWithPrismaIDCiudadEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaIDCiudadEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaIDCiudadEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaIDCiudadEqualsUniqueParam) ciudadModel()   {}
+func (p ciudadWithPrismaIDCiudadEqualsUniqueParam) idCiudadField() {}
+
+func (ciudadWithPrismaIDCiudadEqualsUniqueParam) unique() {}
+func (ciudadWithPrismaIDCiudadEqualsUniqueParam) equals() {}
+
+type CiudadWithPrismaNombreEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	ciudadModel()
+	nombreField()
+}
+
+type CiudadWithPrismaNombreSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	nombreField()
+}
+
+type ciudadWithPrismaNombreSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaNombreSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaNombreSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaNombreSetParam) ciudadModel() {}
+
+func (p ciudadWithPrismaNombreSetParam) nombreField() {}
+
+type CiudadWithPrismaNombreWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	nombreField()
+}
+
+type ciudadWithPrismaNombreEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaNombreEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaNombreEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaNombreEqualsParam) ciudadModel() {}
+
+func (p ciudadWithPrismaNombreEqualsParam) nombreField() {}
+
+func (ciudadWithPrismaNombreSetParam) settable()  {}
+func (ciudadWithPrismaNombreEqualsParam) equals() {}
+
+type ciudadWithPrismaNombreEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaNombreEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaNombreEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaNombreEqualsUniqueParam) ciudadModel() {}
+func (p ciudadWithPrismaNombreEqualsUniqueParam) nombreField() {}
+
+func (ciudadWithPrismaNombreEqualsUniqueParam) unique() {}
+func (ciudadWithPrismaNombreEqualsUniqueParam) equals() {}
+
+type CiudadWithPrismaIDPaisEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	ciudadModel()
+	idPaisField()
+}
+
+type CiudadWithPrismaIDPaisSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	idPaisField()
+}
+
+type ciudadWithPrismaIDPaisSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaIDPaisSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaIDPaisSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaIDPaisSetParam) ciudadModel() {}
+
+func (p ciudadWithPrismaIDPaisSetParam) idPaisField() {}
+
+type CiudadWithPrismaIDPaisWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	idPaisField()
+}
+
+type ciudadWithPrismaIDPaisEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaIDPaisEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaIDPaisEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaIDPaisEqualsParam) ciudadModel() {}
+
+func (p ciudadWithPrismaIDPaisEqualsParam) idPaisField() {}
+
+func (ciudadWithPrismaIDPaisSetParam) settable()  {}
+func (ciudadWithPrismaIDPaisEqualsParam) equals() {}
+
+type ciudadWithPrismaIDPaisEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaIDPaisEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaIDPaisEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaIDPaisEqualsUniqueParam) ciudadModel() {}
+func (p ciudadWithPrismaIDPaisEqualsUniqueParam) idPaisField() {}
+
+func (ciudadWithPrismaIDPaisEqualsUniqueParam) unique() {}
+func (ciudadWithPrismaIDPaisEqualsUniqueParam) equals() {}
+
+type CiudadWithPrismaPaisEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	ciudadModel()
+	paisField()
+}
+
+type CiudadWithPrismaPaisSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	paisField()
+}
+
+type ciudadWithPrismaPaisSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaPaisSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaPaisSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaPaisSetParam) ciudadModel() {}
+
+func (p ciudadWithPrismaPaisSetParam) paisField() {}
+
+type CiudadWithPrismaPaisWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	paisField()
+}
+
+type ciudadWithPrismaPaisEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaPaisEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaPaisEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaPaisEqualsParam) ciudadModel() {}
+
+func (p ciudadWithPrismaPaisEqualsParam) paisField() {}
+
+func (ciudadWithPrismaPaisSetParam) settable()  {}
+func (ciudadWithPrismaPaisEqualsParam) equals() {}
+
+type ciudadWithPrismaPaisEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaPaisEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaPaisEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaPaisEqualsUniqueParam) ciudadModel() {}
+func (p ciudadWithPrismaPaisEqualsUniqueParam) paisField()   {}
+
+func (ciudadWithPrismaPaisEqualsUniqueParam) unique() {}
+func (ciudadWithPrismaPaisEqualsUniqueParam) equals() {}
+
+type CiudadWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	ciudadModel()
+	createdAtField()
+}
+
+type CiudadWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	createdAtField()
+}
+
+type ciudadWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaCreatedAtSetParam) ciudadModel() {}
+
+func (p ciudadWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type CiudadWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	ciudadModel()
+	createdAtField()
+}
+
+type ciudadWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaCreatedAtEqualsParam) ciudadModel() {}
+
+func (p ciudadWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (ciudadWithPrismaCreatedAtSetParam) settable()  {}
+func (ciudadWithPrismaCreatedAtEqualsParam) equals() {}
+
+type ciudadWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p ciudadWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p ciudadWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadWithPrismaCreatedAtEqualsUniqueParam) ciudadModel()    {}
+func (p ciudadWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
+
+func (ciudadWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (ciudadWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
 // --- template create.gotpl ---
 
 // Creates a single usuario.
@@ -19267,6 +23491,144 @@ func (r jobExecutionCreateOne) Exec(ctx context.Context) (*JobExecutionModel, er
 
 func (r jobExecutionCreateOne) Tx() JobExecutionUniqueTxResult {
 	v := newJobExecutionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single pais.
+func (r paisActions) CreateOne(
+	_nombre PaisWithPrismaNombreSetParam,
+
+	optional ...PaisSetParam,
+) paisCreateOne {
+	var v paisCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "Pais"
+	v.query.Outputs = paisOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _nombre.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r paisCreateOne) With(params ...PaisRelationWith) paisCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type paisCreateOne struct {
+	query builder.Query
+}
+
+func (p paisCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p paisCreateOne) paisModel() {}
+
+func (r paisCreateOne) Exec(ctx context.Context) (*PaisModel, error) {
+	var v PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisCreateOne) Tx() PaisUniqueTxResult {
+	v := newPaisUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single ciudad.
+func (r ciudadActions) CreateOne(
+	_nombre CiudadWithPrismaNombreSetParam,
+	_pais CiudadWithPrismaPaisSetParam,
+
+	optional ...CiudadSetParam,
+) ciudadCreateOne {
+	var v ciudadCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "Ciudad"
+	v.query.Outputs = ciudadOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _nombre.field())
+	fields = append(fields, _pais.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r ciudadCreateOne) With(params ...CiudadRelationWith) ciudadCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type ciudadCreateOne struct {
+	query builder.Query
+}
+
+func (p ciudadCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p ciudadCreateOne) ciudadModel() {}
+
+func (r ciudadCreateOne) Exec(ctx context.Context) (*CiudadModel, error) {
+	var v CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadCreateOne) Tx() CiudadUniqueTxResult {
+	v := newCiudadUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -28714,6 +33076,2414 @@ func (r jobExecutionDeleteMany) Tx() JobExecutionManyTxResult {
 	return v
 }
 
+type paisToCiudadesFindUnique struct {
+	query builder.Query
+}
+
+func (r paisToCiudadesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r paisToCiudadesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisToCiudadesFindUnique) with()         {}
+func (r paisToCiudadesFindUnique) paisModel()    {}
+func (r paisToCiudadesFindUnique) paisRelation() {}
+
+func (r paisToCiudadesFindUnique) With(params ...CiudadRelationWith) paisToCiudadesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r paisToCiudadesFindUnique) Select(params ...paisPrismaFields) paisToCiudadesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisToCiudadesFindUnique) Omit(params ...paisPrismaFields) paisToCiudadesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range paisOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisToCiudadesFindUnique) Exec(ctx context.Context) (
+	*PaisModel,
+	error,
+) {
+	var v *PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r paisToCiudadesFindUnique) ExecInner(ctx context.Context) (
+	*InnerPais,
+	error,
+) {
+	var v *InnerPais
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r paisToCiudadesFindUnique) Update(params ...PaisSetParam) paisToCiudadesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Pais"
+
+	var v paisToCiudadesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type paisToCiudadesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r paisToCiudadesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisToCiudadesUpdateUnique) paisModel() {}
+
+func (r paisToCiudadesUpdateUnique) Exec(ctx context.Context) (*PaisModel, error) {
+	var v PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisToCiudadesUpdateUnique) Tx() PaisUniqueTxResult {
+	v := newPaisUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r paisToCiudadesFindUnique) Delete() paisToCiudadesDeleteUnique {
+	var v paisToCiudadesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Pais"
+
+	return v
+}
+
+type paisToCiudadesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r paisToCiudadesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p paisToCiudadesDeleteUnique) paisModel() {}
+
+func (r paisToCiudadesDeleteUnique) Exec(ctx context.Context) (*PaisModel, error) {
+	var v PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisToCiudadesDeleteUnique) Tx() PaisUniqueTxResult {
+	v := newPaisUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type paisToCiudadesFindFirst struct {
+	query builder.Query
+}
+
+func (r paisToCiudadesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r paisToCiudadesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisToCiudadesFindFirst) with()         {}
+func (r paisToCiudadesFindFirst) paisModel()    {}
+func (r paisToCiudadesFindFirst) paisRelation() {}
+
+func (r paisToCiudadesFindFirst) With(params ...CiudadRelationWith) paisToCiudadesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r paisToCiudadesFindFirst) Select(params ...paisPrismaFields) paisToCiudadesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisToCiudadesFindFirst) Omit(params ...paisPrismaFields) paisToCiudadesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range paisOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisToCiudadesFindFirst) OrderBy(params ...CiudadOrderByParam) paisToCiudadesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r paisToCiudadesFindFirst) Skip(count int) paisToCiudadesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r paisToCiudadesFindFirst) Take(count int) paisToCiudadesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r paisToCiudadesFindFirst) Cursor(cursor PaisCursorParam) paisToCiudadesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r paisToCiudadesFindFirst) Exec(ctx context.Context) (
+	*PaisModel,
+	error,
+) {
+	var v *PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r paisToCiudadesFindFirst) ExecInner(ctx context.Context) (
+	*InnerPais,
+	error,
+) {
+	var v *InnerPais
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type paisToCiudadesFindMany struct {
+	query builder.Query
+}
+
+func (r paisToCiudadesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r paisToCiudadesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisToCiudadesFindMany) with()         {}
+func (r paisToCiudadesFindMany) paisModel()    {}
+func (r paisToCiudadesFindMany) paisRelation() {}
+
+func (r paisToCiudadesFindMany) With(params ...CiudadRelationWith) paisToCiudadesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r paisToCiudadesFindMany) Select(params ...paisPrismaFields) paisToCiudadesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisToCiudadesFindMany) Omit(params ...paisPrismaFields) paisToCiudadesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range paisOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisToCiudadesFindMany) OrderBy(params ...CiudadOrderByParam) paisToCiudadesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r paisToCiudadesFindMany) Skip(count int) paisToCiudadesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r paisToCiudadesFindMany) Take(count int) paisToCiudadesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r paisToCiudadesFindMany) Cursor(cursor PaisCursorParam) paisToCiudadesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r paisToCiudadesFindMany) Exec(ctx context.Context) (
+	[]PaisModel,
+	error,
+) {
+	var v []PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r paisToCiudadesFindMany) ExecInner(ctx context.Context) (
+	[]InnerPais,
+	error,
+) {
+	var v []InnerPais
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r paisToCiudadesFindMany) Update(params ...PaisSetParam) paisToCiudadesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Pais"
+
+	r.query.Outputs = countOutput
+
+	var v paisToCiudadesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type paisToCiudadesUpdateMany struct {
+	query builder.Query
+}
+
+func (r paisToCiudadesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisToCiudadesUpdateMany) paisModel() {}
+
+func (r paisToCiudadesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisToCiudadesUpdateMany) Tx() PaisManyTxResult {
+	v := newPaisManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r paisToCiudadesFindMany) Delete() paisToCiudadesDeleteMany {
+	var v paisToCiudadesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Pais"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type paisToCiudadesDeleteMany struct {
+	query builder.Query
+}
+
+func (r paisToCiudadesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p paisToCiudadesDeleteMany) paisModel() {}
+
+func (r paisToCiudadesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisToCiudadesDeleteMany) Tx() PaisManyTxResult {
+	v := newPaisManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type paisFindUnique struct {
+	query builder.Query
+}
+
+func (r paisFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r paisFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisFindUnique) with()         {}
+func (r paisFindUnique) paisModel()    {}
+func (r paisFindUnique) paisRelation() {}
+
+func (r paisActions) FindUnique(
+	params PaisEqualsUniqueWhereParam,
+) paisFindUnique {
+	var v paisFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "Pais"
+	v.query.Outputs = paisOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r paisFindUnique) With(params ...PaisRelationWith) paisFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r paisFindUnique) Select(params ...paisPrismaFields) paisFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisFindUnique) Omit(params ...paisPrismaFields) paisFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range paisOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisFindUnique) Exec(ctx context.Context) (
+	*PaisModel,
+	error,
+) {
+	var v *PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r paisFindUnique) ExecInner(ctx context.Context) (
+	*InnerPais,
+	error,
+) {
+	var v *InnerPais
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r paisFindUnique) Update(params ...PaisSetParam) paisUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Pais"
+
+	var v paisUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type paisUpdateUnique struct {
+	query builder.Query
+}
+
+func (r paisUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisUpdateUnique) paisModel() {}
+
+func (r paisUpdateUnique) Exec(ctx context.Context) (*PaisModel, error) {
+	var v PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisUpdateUnique) Tx() PaisUniqueTxResult {
+	v := newPaisUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r paisFindUnique) Delete() paisDeleteUnique {
+	var v paisDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Pais"
+
+	return v
+}
+
+type paisDeleteUnique struct {
+	query builder.Query
+}
+
+func (r paisDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p paisDeleteUnique) paisModel() {}
+
+func (r paisDeleteUnique) Exec(ctx context.Context) (*PaisModel, error) {
+	var v PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisDeleteUnique) Tx() PaisUniqueTxResult {
+	v := newPaisUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type paisFindFirst struct {
+	query builder.Query
+}
+
+func (r paisFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r paisFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisFindFirst) with()         {}
+func (r paisFindFirst) paisModel()    {}
+func (r paisFindFirst) paisRelation() {}
+
+func (r paisActions) FindFirst(
+	params ...PaisWhereParam,
+) paisFindFirst {
+	var v paisFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "Pais"
+	v.query.Outputs = paisOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r paisFindFirst) With(params ...PaisRelationWith) paisFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r paisFindFirst) Select(params ...paisPrismaFields) paisFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisFindFirst) Omit(params ...paisPrismaFields) paisFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range paisOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisFindFirst) OrderBy(params ...PaisOrderByParam) paisFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r paisFindFirst) Skip(count int) paisFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r paisFindFirst) Take(count int) paisFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r paisFindFirst) Cursor(cursor PaisCursorParam) paisFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r paisFindFirst) Exec(ctx context.Context) (
+	*PaisModel,
+	error,
+) {
+	var v *PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r paisFindFirst) ExecInner(ctx context.Context) (
+	*InnerPais,
+	error,
+) {
+	var v *InnerPais
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type paisFindMany struct {
+	query builder.Query
+}
+
+func (r paisFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r paisFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisFindMany) with()         {}
+func (r paisFindMany) paisModel()    {}
+func (r paisFindMany) paisRelation() {}
+
+func (r paisActions) FindMany(
+	params ...PaisWhereParam,
+) paisFindMany {
+	var v paisFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "Pais"
+	v.query.Outputs = paisOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r paisFindMany) With(params ...PaisRelationWith) paisFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r paisFindMany) Select(params ...paisPrismaFields) paisFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisFindMany) Omit(params ...paisPrismaFields) paisFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range paisOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r paisFindMany) OrderBy(params ...PaisOrderByParam) paisFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r paisFindMany) Skip(count int) paisFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r paisFindMany) Take(count int) paisFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r paisFindMany) Cursor(cursor PaisCursorParam) paisFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r paisFindMany) Exec(ctx context.Context) (
+	[]PaisModel,
+	error,
+) {
+	var v []PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r paisFindMany) ExecInner(ctx context.Context) (
+	[]InnerPais,
+	error,
+) {
+	var v []InnerPais
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r paisFindMany) Update(params ...PaisSetParam) paisUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Pais"
+
+	r.query.Outputs = countOutput
+
+	var v paisUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type paisUpdateMany struct {
+	query builder.Query
+}
+
+func (r paisUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisUpdateMany) paisModel() {}
+
+func (r paisUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisUpdateMany) Tx() PaisManyTxResult {
+	v := newPaisManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r paisFindMany) Delete() paisDeleteMany {
+	var v paisDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Pais"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type paisDeleteMany struct {
+	query builder.Query
+}
+
+func (r paisDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p paisDeleteMany) paisModel() {}
+
+func (r paisDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisDeleteMany) Tx() PaisManyTxResult {
+	v := newPaisManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type ciudadToPaisFindUnique struct {
+	query builder.Query
+}
+
+func (r ciudadToPaisFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadToPaisFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadToPaisFindUnique) with()           {}
+func (r ciudadToPaisFindUnique) ciudadModel()    {}
+func (r ciudadToPaisFindUnique) ciudadRelation() {}
+
+func (r ciudadToPaisFindUnique) With(params ...PaisRelationWith) ciudadToPaisFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r ciudadToPaisFindUnique) Select(params ...ciudadPrismaFields) ciudadToPaisFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadToPaisFindUnique) Omit(params ...ciudadPrismaFields) ciudadToPaisFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range ciudadOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadToPaisFindUnique) Exec(ctx context.Context) (
+	*CiudadModel,
+	error,
+) {
+	var v *CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r ciudadToPaisFindUnique) ExecInner(ctx context.Context) (
+	*InnerCiudad,
+	error,
+) {
+	var v *InnerCiudad
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r ciudadToPaisFindUnique) Update(params ...CiudadSetParam) ciudadToPaisUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Ciudad"
+
+	var v ciudadToPaisUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type ciudadToPaisUpdateUnique struct {
+	query builder.Query
+}
+
+func (r ciudadToPaisUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadToPaisUpdateUnique) ciudadModel() {}
+
+func (r ciudadToPaisUpdateUnique) Exec(ctx context.Context) (*CiudadModel, error) {
+	var v CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadToPaisUpdateUnique) Tx() CiudadUniqueTxResult {
+	v := newCiudadUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r ciudadToPaisFindUnique) Delete() ciudadToPaisDeleteUnique {
+	var v ciudadToPaisDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Ciudad"
+
+	return v
+}
+
+type ciudadToPaisDeleteUnique struct {
+	query builder.Query
+}
+
+func (r ciudadToPaisDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p ciudadToPaisDeleteUnique) ciudadModel() {}
+
+func (r ciudadToPaisDeleteUnique) Exec(ctx context.Context) (*CiudadModel, error) {
+	var v CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadToPaisDeleteUnique) Tx() CiudadUniqueTxResult {
+	v := newCiudadUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type ciudadToPaisFindFirst struct {
+	query builder.Query
+}
+
+func (r ciudadToPaisFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadToPaisFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadToPaisFindFirst) with()           {}
+func (r ciudadToPaisFindFirst) ciudadModel()    {}
+func (r ciudadToPaisFindFirst) ciudadRelation() {}
+
+func (r ciudadToPaisFindFirst) With(params ...PaisRelationWith) ciudadToPaisFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r ciudadToPaisFindFirst) Select(params ...ciudadPrismaFields) ciudadToPaisFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadToPaisFindFirst) Omit(params ...ciudadPrismaFields) ciudadToPaisFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range ciudadOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadToPaisFindFirst) OrderBy(params ...PaisOrderByParam) ciudadToPaisFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r ciudadToPaisFindFirst) Skip(count int) ciudadToPaisFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r ciudadToPaisFindFirst) Take(count int) ciudadToPaisFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r ciudadToPaisFindFirst) Cursor(cursor CiudadCursorParam) ciudadToPaisFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r ciudadToPaisFindFirst) Exec(ctx context.Context) (
+	*CiudadModel,
+	error,
+) {
+	var v *CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r ciudadToPaisFindFirst) ExecInner(ctx context.Context) (
+	*InnerCiudad,
+	error,
+) {
+	var v *InnerCiudad
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type ciudadToPaisFindMany struct {
+	query builder.Query
+}
+
+func (r ciudadToPaisFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadToPaisFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadToPaisFindMany) with()           {}
+func (r ciudadToPaisFindMany) ciudadModel()    {}
+func (r ciudadToPaisFindMany) ciudadRelation() {}
+
+func (r ciudadToPaisFindMany) With(params ...PaisRelationWith) ciudadToPaisFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r ciudadToPaisFindMany) Select(params ...ciudadPrismaFields) ciudadToPaisFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadToPaisFindMany) Omit(params ...ciudadPrismaFields) ciudadToPaisFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range ciudadOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadToPaisFindMany) OrderBy(params ...PaisOrderByParam) ciudadToPaisFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r ciudadToPaisFindMany) Skip(count int) ciudadToPaisFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r ciudadToPaisFindMany) Take(count int) ciudadToPaisFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r ciudadToPaisFindMany) Cursor(cursor CiudadCursorParam) ciudadToPaisFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r ciudadToPaisFindMany) Exec(ctx context.Context) (
+	[]CiudadModel,
+	error,
+) {
+	var v []CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r ciudadToPaisFindMany) ExecInner(ctx context.Context) (
+	[]InnerCiudad,
+	error,
+) {
+	var v []InnerCiudad
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r ciudadToPaisFindMany) Update(params ...CiudadSetParam) ciudadToPaisUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Ciudad"
+
+	r.query.Outputs = countOutput
+
+	var v ciudadToPaisUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type ciudadToPaisUpdateMany struct {
+	query builder.Query
+}
+
+func (r ciudadToPaisUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadToPaisUpdateMany) ciudadModel() {}
+
+func (r ciudadToPaisUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadToPaisUpdateMany) Tx() CiudadManyTxResult {
+	v := newCiudadManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r ciudadToPaisFindMany) Delete() ciudadToPaisDeleteMany {
+	var v ciudadToPaisDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Ciudad"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type ciudadToPaisDeleteMany struct {
+	query builder.Query
+}
+
+func (r ciudadToPaisDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p ciudadToPaisDeleteMany) ciudadModel() {}
+
+func (r ciudadToPaisDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadToPaisDeleteMany) Tx() CiudadManyTxResult {
+	v := newCiudadManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type ciudadFindUnique struct {
+	query builder.Query
+}
+
+func (r ciudadFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadFindUnique) with()           {}
+func (r ciudadFindUnique) ciudadModel()    {}
+func (r ciudadFindUnique) ciudadRelation() {}
+
+func (r ciudadActions) FindUnique(
+	params CiudadEqualsUniqueWhereParam,
+) ciudadFindUnique {
+	var v ciudadFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "Ciudad"
+	v.query.Outputs = ciudadOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r ciudadFindUnique) With(params ...CiudadRelationWith) ciudadFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r ciudadFindUnique) Select(params ...ciudadPrismaFields) ciudadFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadFindUnique) Omit(params ...ciudadPrismaFields) ciudadFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range ciudadOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadFindUnique) Exec(ctx context.Context) (
+	*CiudadModel,
+	error,
+) {
+	var v *CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r ciudadFindUnique) ExecInner(ctx context.Context) (
+	*InnerCiudad,
+	error,
+) {
+	var v *InnerCiudad
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r ciudadFindUnique) Update(params ...CiudadSetParam) ciudadUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Ciudad"
+
+	var v ciudadUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type ciudadUpdateUnique struct {
+	query builder.Query
+}
+
+func (r ciudadUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadUpdateUnique) ciudadModel() {}
+
+func (r ciudadUpdateUnique) Exec(ctx context.Context) (*CiudadModel, error) {
+	var v CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadUpdateUnique) Tx() CiudadUniqueTxResult {
+	v := newCiudadUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r ciudadFindUnique) Delete() ciudadDeleteUnique {
+	var v ciudadDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Ciudad"
+
+	return v
+}
+
+type ciudadDeleteUnique struct {
+	query builder.Query
+}
+
+func (r ciudadDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p ciudadDeleteUnique) ciudadModel() {}
+
+func (r ciudadDeleteUnique) Exec(ctx context.Context) (*CiudadModel, error) {
+	var v CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadDeleteUnique) Tx() CiudadUniqueTxResult {
+	v := newCiudadUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type ciudadFindFirst struct {
+	query builder.Query
+}
+
+func (r ciudadFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadFindFirst) with()           {}
+func (r ciudadFindFirst) ciudadModel()    {}
+func (r ciudadFindFirst) ciudadRelation() {}
+
+func (r ciudadActions) FindFirst(
+	params ...CiudadWhereParam,
+) ciudadFindFirst {
+	var v ciudadFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "Ciudad"
+	v.query.Outputs = ciudadOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r ciudadFindFirst) With(params ...CiudadRelationWith) ciudadFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r ciudadFindFirst) Select(params ...ciudadPrismaFields) ciudadFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadFindFirst) Omit(params ...ciudadPrismaFields) ciudadFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range ciudadOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadFindFirst) OrderBy(params ...CiudadOrderByParam) ciudadFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r ciudadFindFirst) Skip(count int) ciudadFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r ciudadFindFirst) Take(count int) ciudadFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r ciudadFindFirst) Cursor(cursor CiudadCursorParam) ciudadFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r ciudadFindFirst) Exec(ctx context.Context) (
+	*CiudadModel,
+	error,
+) {
+	var v *CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r ciudadFindFirst) ExecInner(ctx context.Context) (
+	*InnerCiudad,
+	error,
+) {
+	var v *InnerCiudad
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type ciudadFindMany struct {
+	query builder.Query
+}
+
+func (r ciudadFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadFindMany) with()           {}
+func (r ciudadFindMany) ciudadModel()    {}
+func (r ciudadFindMany) ciudadRelation() {}
+
+func (r ciudadActions) FindMany(
+	params ...CiudadWhereParam,
+) ciudadFindMany {
+	var v ciudadFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "Ciudad"
+	v.query.Outputs = ciudadOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r ciudadFindMany) With(params ...CiudadRelationWith) ciudadFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r ciudadFindMany) Select(params ...ciudadPrismaFields) ciudadFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadFindMany) Omit(params ...ciudadPrismaFields) ciudadFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range ciudadOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r ciudadFindMany) OrderBy(params ...CiudadOrderByParam) ciudadFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r ciudadFindMany) Skip(count int) ciudadFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r ciudadFindMany) Take(count int) ciudadFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r ciudadFindMany) Cursor(cursor CiudadCursorParam) ciudadFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r ciudadFindMany) Exec(ctx context.Context) (
+	[]CiudadModel,
+	error,
+) {
+	var v []CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r ciudadFindMany) ExecInner(ctx context.Context) (
+	[]InnerCiudad,
+	error,
+) {
+	var v []InnerCiudad
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r ciudadFindMany) Update(params ...CiudadSetParam) ciudadUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Ciudad"
+
+	r.query.Outputs = countOutput
+
+	var v ciudadUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type ciudadUpdateMany struct {
+	query builder.Query
+}
+
+func (r ciudadUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadUpdateMany) ciudadModel() {}
+
+func (r ciudadUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadUpdateMany) Tx() CiudadManyTxResult {
+	v := newCiudadManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r ciudadFindMany) Delete() ciudadDeleteMany {
+	var v ciudadDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Ciudad"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type ciudadDeleteMany struct {
+	query builder.Query
+}
+
+func (r ciudadDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p ciudadDeleteMany) ciudadModel() {}
+
+func (r ciudadDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadDeleteMany) Tx() CiudadManyTxResult {
+	v := newCiudadManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template transaction.gotpl ---
 
 func newUsuarioUniqueTxResult() UsuarioUniqueTxResult {
@@ -28998,6 +35768,102 @@ func (p JobExecutionManyTxResult) ExtractQuery() builder.Query {
 func (p JobExecutionManyTxResult) IsTx() {}
 
 func (r JobExecutionManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newPaisUniqueTxResult() PaisUniqueTxResult {
+	return PaisUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type PaisUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p PaisUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p PaisUniqueTxResult) IsTx() {}
+
+func (r PaisUniqueTxResult) Result() (v *PaisModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newPaisManyTxResult() PaisManyTxResult {
+	return PaisManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type PaisManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p PaisManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p PaisManyTxResult) IsTx() {}
+
+func (r PaisManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newCiudadUniqueTxResult() CiudadUniqueTxResult {
+	return CiudadUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type CiudadUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p CiudadUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p CiudadUniqueTxResult) IsTx() {}
+
+func (r CiudadUniqueTxResult) Result() (v *CiudadModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newCiudadManyTxResult() CiudadManyTxResult {
+	return CiudadManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type CiudadManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p CiudadManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p CiudadManyTxResult) IsTx() {}
+
+func (r CiudadManyTxResult) Result() (v *BatchResult) {
 	if err := r.result.Get(r.query.TxResult, &v); err != nil {
 		panic(err)
 	}
@@ -29888,6 +36754,288 @@ func (r jobExecutionUpsertOne) Tx() JobExecutionUniqueTxResult {
 	return v
 }
 
+type paisUpsertOne struct {
+	query builder.Query
+}
+
+func (r paisUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r paisUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisUpsertOne) with()         {}
+func (r paisUpsertOne) paisModel()    {}
+func (r paisUpsertOne) paisRelation() {}
+
+func (r paisActions) UpsertOne(
+	params PaisEqualsUniqueWhereParam,
+) paisUpsertOne {
+	var v paisUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "Pais"
+	v.query.Outputs = paisOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r paisUpsertOne) Create(
+
+	_nombre PaisWithPrismaNombreSetParam,
+
+	optional ...PaisSetParam,
+) paisUpsertOne {
+	var v paisUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _nombre.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r paisUpsertOne) Update(
+	params ...PaisSetParam,
+) paisUpsertOne {
+	var v paisUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r paisUpsertOne) CreateOrUpdate(
+
+	_nombre PaisWithPrismaNombreSetParam,
+
+	optional ...PaisSetParam,
+) paisUpsertOne {
+	var v paisUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _nombre.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r paisUpsertOne) Exec(ctx context.Context) (*PaisModel, error) {
+	var v PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r paisUpsertOne) Tx() PaisUniqueTxResult {
+	v := newPaisUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type ciudadUpsertOne struct {
+	query builder.Query
+}
+
+func (r ciudadUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadUpsertOne) with()           {}
+func (r ciudadUpsertOne) ciudadModel()    {}
+func (r ciudadUpsertOne) ciudadRelation() {}
+
+func (r ciudadActions) UpsertOne(
+	params CiudadEqualsUniqueWhereParam,
+) ciudadUpsertOne {
+	var v ciudadUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "Ciudad"
+	v.query.Outputs = ciudadOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r ciudadUpsertOne) Create(
+
+	_nombre CiudadWithPrismaNombreSetParam,
+	_pais CiudadWithPrismaPaisSetParam,
+
+	optional ...CiudadSetParam,
+) ciudadUpsertOne {
+	var v ciudadUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _nombre.field())
+	fields = append(fields, _pais.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r ciudadUpsertOne) Update(
+	params ...CiudadSetParam,
+) ciudadUpsertOne {
+	var v ciudadUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r ciudadUpsertOne) CreateOrUpdate(
+
+	_nombre CiudadWithPrismaNombreSetParam,
+	_pais CiudadWithPrismaPaisSetParam,
+
+	optional ...CiudadSetParam,
+) ciudadUpsertOne {
+	var v ciudadUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _nombre.field())
+	fields = append(fields, _pais.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r ciudadUpsertOne) Exec(ctx context.Context) (*CiudadModel, error) {
+	var v CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r ciudadUpsertOne) Tx() CiudadUniqueTxResult {
+	v := newCiudadUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template raw.gotpl ---
 
 type usuarioAggregateRaw struct {
@@ -30370,6 +37518,168 @@ func (r jobExecutionAggregateRaw) Exec(ctx context.Context) ([]JobExecutionModel
 
 func (r jobExecutionAggregateRaw) ExecInner(ctx context.Context) ([]InnerJobExecution, error) {
 	var v []InnerJobExecution
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type paisAggregateRaw struct {
+	query builder.Query
+}
+
+func (r paisAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r paisAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r paisAggregateRaw) with()         {}
+func (r paisAggregateRaw) paisModel()    {}
+func (r paisAggregateRaw) paisRelation() {}
+
+func (r paisActions) FindRaw(filter interface{}, options ...interface{}) paisAggregateRaw {
+	var v paisAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Pais"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r paisActions) AggregateRaw(pipeline []interface{}, options ...interface{}) paisAggregateRaw {
+	var v paisAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Pais"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r paisAggregateRaw) Exec(ctx context.Context) ([]PaisModel, error) {
+	var v []PaisModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r paisAggregateRaw) ExecInner(ctx context.Context) ([]InnerPais, error) {
+	var v []InnerPais
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type ciudadAggregateRaw struct {
+	query builder.Query
+}
+
+func (r ciudadAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r ciudadAggregateRaw) with()           {}
+func (r ciudadAggregateRaw) ciudadModel()    {}
+func (r ciudadAggregateRaw) ciudadRelation() {}
+
+func (r ciudadActions) FindRaw(filter interface{}, options ...interface{}) ciudadAggregateRaw {
+	var v ciudadAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Ciudad"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r ciudadActions) AggregateRaw(pipeline []interface{}, options ...interface{}) ciudadAggregateRaw {
+	var v ciudadAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Ciudad"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r ciudadAggregateRaw) Exec(ctx context.Context) ([]CiudadModel, error) {
+	var v []CiudadModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r ciudadAggregateRaw) ExecInner(ctx context.Context) ([]InnerCiudad, error) {
+	var v []InnerCiudad
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}
