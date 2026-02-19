@@ -57,7 +57,7 @@ export default function Sidebar() {
                         }`
                     }
                 >
-                    Catálogo de eventos
+                    Inscripción a eventos
                 </NavLink>
             </nav>
         </aside>
