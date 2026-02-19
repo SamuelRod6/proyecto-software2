@@ -3,8 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
+	notificationdto "project/backend/internal/notifications/dto"
+	notificationsrv "project/backend/internal/notifications/service"
 	"project/backend/internal/registrations/dto"
 	"project/backend/internal/registrations/repo"
 	"project/backend/prisma/db"
@@ -21,11 +24,15 @@ var (
 )
 
 type Service struct {
-	repo *repo.Repository
+	repo                *repo.Repository
+	notificationService notificationsrv.NotificationService
 }
 
-func New(repository *repo.Repository) *Service {
-	return &Service{repo: repository}
+func New(repository *repo.Repository, notificationService notificationsrv.NotificationService) *Service {
+	return &Service{
+		repo:                repository,
+		notificationService: notificationService,
+	}
 }
 
 func (s *Service) CreateInscripcion(ctx context.Context, req dto.CreateInscripcionRequest, now time.Time) (*db.InscripcionModel, error) {
@@ -65,6 +72,26 @@ func (s *Service) CreateInscripcion(ctx context.Context, req dto.CreateInscripci
 	if err != nil {
 		return nil, ErrDB
 	}
+
+	mensaje := fmt.Sprintf(
+		notificationdto.MsgInscripcionExitosa,
+		evento.Nombre,
+		evento.FechaInicio.Format("02/01/2006"),
+		evento.FechaFin.Format("02/01/2006"),
+	)
+
+	_, notifErr := s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+		UserID:  req.UsuarioID,
+		EventID: &req.EventoID,
+		Type:    notificationdto.NotificationTypeInscripcion,
+		Message: mensaje,
+	})
+	if notifErr != nil {
+		fmt.Println("Error creando notificación:", notifErr)
+	} else {
+		fmt.Println("Notificación creada exitosamente para usuario:", req.UsuarioID)
+	}
+
 	return created, nil
 }
 

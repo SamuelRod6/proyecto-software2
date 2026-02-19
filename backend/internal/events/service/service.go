@@ -3,11 +3,16 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
 	"project/backend/internal/events/dto"
 	"project/backend/internal/events/repo"
+	notificationdto "project/backend/internal/notifications/dto"
+	notificationsrepo "project/backend/internal/notifications/repo"
+	notificationsrv "project/backend/internal/notifications/service"
+	registrationrepo "project/backend/internal/registrations/repo"
 	"project/backend/prisma/db"
 )
 
@@ -23,11 +28,22 @@ var (
 )
 
 type Service struct {
-	repo *repo.Repository
+	repo                *repo.Repository
+	inscripcionRepo     *registrationrepo.Repository
+	notificationService notificationsrv.NotificationService
 }
 
-func New(repository *repo.Repository) *Service {
-	return &Service{repo: repository}
+func New(prismaClient *db.PrismaClient) *Service {
+	eventRepo := repo.New(prismaClient)
+	inscripcionRepo := registrationrepo.New(prismaClient)
+	notificationRepo := notificationsrepo.NewNotificationRepository(prismaClient)
+	notificationService := notificationsrv.NewNotificationService(notificationRepo)
+
+	return &Service{
+		repo:                eventRepo,
+		inscripcionRepo:     inscripcionRepo,
+		notificationService: notificationService,
+	}
 }
 
 func (s *Service) EnsureNombreUnico(ctx context.Context, nombre string) error {
@@ -58,6 +74,10 @@ func (s *Service) CreateEvento(ctx context.Context, req dto.CreateEventoRequest,
 	created, err := s.repo.Create(ctx, req.Nombre, req.Ubicacion, start, end, cierre)
 	if err != nil {
 		return nil, ErrDB
+	}
+	notifErr := s.notificationService.NotificarAperturaInscripciones(ctx, created, s.inscripcionRepo)
+	if notifErr != nil {
+		fmt.Println("[CreateEvento] Error notificando apertura de inscripciones:", notifErr)
 	}
 	return created, nil
 }
@@ -116,21 +136,70 @@ func (s *Service) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest,
 	if err != nil {
 		return nil, ErrDB
 	}
+
+	cambios := []string{}
+
+	if evento.Nombre != req.Nombre {
+		cambios = append(cambios, fmt.Sprintf("nuevo nombre: %s", req.Nombre))
+	}
+	if !evento.FechaInicio.Equal(start) {
+		cambios = append(cambios, fmt.Sprintf("nueva fecha de inicio: %s", start.Format("02/01/2006")))
+	}
+	if !evento.FechaFin.Equal(end) {
+		cambios = append(cambios, fmt.Sprintf("nueva fecha de fin: %s", end.Format("02/01/2006")))
+	}
+	if !evento.FechaCierreInscripcion.Equal(cierre) {
+		cambios = append(cambios, fmt.Sprintf("nueva fecha de cierre de inscripción: %s", cierre.Format("02/01/2006")))
+	}
+	if evento.Ubicacion != req.Ubicacion {
+		cambios = append(cambios, fmt.Sprintf("nueva ubicación: %s", req.Ubicacion))
+	}
+
+	if len(cambios) > 0 {
+		mensaje := fmt.Sprintf(
+			notificationdto.MsgCambioEvento,
+			updated.Nombre,
+			strings.Join(cambios, ", "),
+		)
+
+		// Notificar a los usuarios inscritos
+		inscripciones, err := s.inscripcionRepo.FindByEventoID(ctx, req.ID)
+		if err != nil {
+			fmt.Println("Error obteniendo inscripciones:", err)
+		}
+
+		for _, inscripcion := range inscripciones {
+			_, notifErr := s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+				UserID:  inscripcion.IDUsuario,
+				EventID: &req.ID,
+				Type:    notificationdto.NotificationTypeCambioEvento,
+				Message: mensaje,
+			})
+			if notifErr != nil {
+				fmt.Println("Error creando notificación para usuario", inscripcion.IDUsuario, ":", notifErr)
+			}
+		}
+	}
+
 	return updated, nil
 }
 
 func (s *Service) DeleteEvento(ctx context.Context, id int) error {
-	// Verify that the event exists
-	_, err := s.repo.FindByID(ctx, id)
+	// Verificar que el evento existe
+	evento, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return ErrNotFound
 		}
 		return ErrDB
 	}
-	// Proceed to delete the event if it exists
+	// Soft delete: marcar como cancelado
 	if err := s.repo.DeleteByID(ctx, id); err != nil {
 		return ErrDB
+	}
+	notifErr := s.notificationService.NotificarCancelacionEvento(ctx, evento, s.inscripcionRepo)
+	if notifErr != nil {
+		fmt.Println("[DeleteEvento] Error notificando cancelación de evento:", notifErr)
 	}
 	return nil
 }

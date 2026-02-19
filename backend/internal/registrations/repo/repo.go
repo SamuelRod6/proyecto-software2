@@ -80,3 +80,35 @@ func (r *Repository) UpdatePago(ctx context.Context, inscripcionID int, estadoPa
 func (r *Repository) GetAllEventos(ctx context.Context) ([]db.EventoModel, error) {
 	return r.client.Evento.FindMany().Exec(ctx)
 }
+
+func (r *Repository) FindUsuariosNoInscritosEnEvento(ctx context.Context, eventoID int) ([]db.UsuarioModel, error) {
+	inscritos, err := r.client.Inscripcion.FindMany(
+		db.Inscripcion.IDEvento.Equals(eventoID),
+	).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	inscritosMap := make(map[int]struct{})
+	for _, insc := range inscritos {
+		inscritosMap[insc.IDUsuario] = struct{}{}
+	}
+
+	usuarios, err := r.client.Usuario.FindMany().Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	noInscritos := make([]db.UsuarioModel, 0)
+	for _, u := range usuarios {
+		if _, ok := inscritosMap[u.IDUsuario]; !ok {
+			noInscritos = append(noInscritos, u)
+		}
+	}
+
+	return noInscritos, nil
+}
+
+func (r *Repository) FindAllUsuarios(ctx context.Context) ([]db.UsuarioModel, error) {
+	return r.client.Usuario.FindMany().Exec(ctx)
+}

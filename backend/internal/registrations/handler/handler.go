@@ -15,6 +15,7 @@ import (
 	"project/backend/internal/registrations/validation"
 	"project/backend/internal/shared/httperror"
 	"project/backend/prisma/db"
+	notificationservice "project/backend/internal/notifications/service"
 )
 
 type Handler struct {
@@ -23,7 +24,8 @@ type Handler struct {
 
 func New(client *db.PrismaClient) http.Handler {
 	repository := repo.New(client)
-	return &Handler{svc: service.New(repository)}
+	notificationSvc := notificationservice.NewNotificationServiceFromClient(client)
+	return &Handler{svc: service.New(repository, notificationSvc)}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

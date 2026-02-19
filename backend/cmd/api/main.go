@@ -8,9 +8,14 @@ import (
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
-	"project/backend/internal/roles"
+
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
+
+	notificationcron "project/backend/internal/notifications/cron"
+	notificationhandler "project/backend/internal/notifications/handler"
+
+	"project/backend/internal/roles"
 	"project/backend/prisma/db"
 
 	"github.com/joho/godotenv"
@@ -44,6 +49,8 @@ func main() {
 	eventsHandler := eventhandler.New(prismaClient)
 	fechasOcupadasHandler := eventhandler.GetFechasOcupadasHandler(eventsHandler.(*eventhandler.Handler).Svc())
 	registrationsHandler := registrationhandler.New(prismaClient)
+	notificationHandler := notificationhandler.New(prismaClient)
+	notificationcron.StartCierreInscripcionesScheduler(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 
@@ -60,6 +67,8 @@ func main() {
 	http.Handle("/api/eventos", eventsHandler)
 	http.HandleFunc("/api/eventos/fechas-ocupadas", fechasOcupadasHandler)
 	http.Handle("/api/inscripciones", registrationsHandler)
+	http.Handle("/api/notifications", notificationHandler)
+	http.Handle("/api/notifications/", notificationHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

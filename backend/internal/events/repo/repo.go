@@ -29,7 +29,9 @@ func (r *Repository) FindByID(ctx context.Context, id int) (*db.EventoModel, err
 }
 
 func (r *Repository) FindAll(ctx context.Context) ([]db.EventoModel, error) {
-	return r.client.Evento.FindMany().Exec(ctx)
+	return r.client.Evento.FindMany(
+		db.Evento.Cancelado.Equals(false),
+	).Exec(ctx)
 }
 
 func (r *Repository) Create(ctx context.Context, reqNombre, reqUbicacion string, start, end, cierre time.Time) (*db.EventoModel, error) {
@@ -57,7 +59,9 @@ func (r *Repository) Update(ctx context.Context, id int, reqNombre, reqUbicacion
 func (r *Repository) DeleteByID(ctx context.Context, id int) error {
 	_, err := r.client.Evento.FindUnique(
 		db.Evento.IDEvento.Equals(id),
-	).Delete().Exec(ctx)
+	).Update(
+		db.Evento.Cancelado.Set(true),
+	).Exec(ctx)
 	return err
 }
 
@@ -83,4 +87,26 @@ func (r *Repository) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, 
 		})
 	}
 	return rangos, nil
+}
+
+func (r *Repository) FindEventosCierreManana(ctx context.Context) ([]db.EventoModel, error) {
+	manana := time.Now().AddDate(0, 0, 1)
+	inicio := time.Date(manana.Year(), manana.Month(), manana.Day(), 0, 0, 0, 0, manana.Location())
+	fin := inicio.Add(24 * time.Hour)
+
+	return r.client.Evento.FindMany(
+		db.Evento.FechaCierreInscripcion.Gte(inicio),
+		db.Evento.FechaCierreInscripcion.Lt(fin),
+	).Exec(ctx)
+}
+
+func (r *Repository) FindEventosInicioManana(ctx context.Context) ([]db.EventoModel, error) {
+	manana := time.Now().UTC().AddDate(0, 0, 1)
+	inicio := time.Date(manana.Year(), manana.Month(), manana.Day(), 0, 0, 0, 0, time.UTC)
+	fin := inicio.Add(24 * time.Hour)
+
+	return r.client.Evento.FindMany(
+		db.Evento.FechaInicio.Gte(inicio),
+		db.Evento.FechaInicio.Lt(fin),
+	).Exec(ctx)
 }

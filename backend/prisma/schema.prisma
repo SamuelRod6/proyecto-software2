@@ -17,6 +17,7 @@ model Usuario {
   rol           Roles    @relation(fields: [id_rol], references: [id_rol])
   createdAt     DateTime @default(now())
   inscripciones Inscripcion[]
+  notificaciones Notificacion[] @relation("UsuarioNotificaciones")
 }
 
 model Roles {
@@ -36,7 +37,9 @@ model Evento {
   inscripciones_abiertas_manual Boolean @default(true)
   ubicacion                  String
   createdAt                  DateTime @default(now())
+  cancelado                  Boolean  @default(false)
   inscripciones              Inscripcion[]
+  notificaciones             Notificacion[] @relation("EventoNotificaciones")
 }
 
 model Inscripcion {
@@ -50,4 +53,23 @@ model Inscripcion {
   usuario        Usuario  @relation(fields: [id_usuario], references: [id_usuario])
 
   @@unique([id_evento, id_usuario])
+}
+
+model Notificacion {
+  id_notificacion Int       @id @default(autoincrement())
+  id_usuario      Int
+  id_evento       Int?
+  tipo            String
+  mensaje         String
+  leida           Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  usuario         Usuario   @relation("UsuarioNotificaciones", fields: [id_usuario], references: [id_usuario])
+  evento          Evento?   @relation("EventoNotificaciones", fields: [id_evento], references: [id_evento])
+}
+
+model JobExecution {
+  id        Int      @id @default(autoincrement())
+  job_name  String   @unique
+  last_run  DateTime
 }

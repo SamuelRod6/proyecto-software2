@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"project/backend/internal/events/dto"
-	"project/backend/internal/events/repo"
 	"project/backend/internal/events/service"
 	"project/backend/internal/events/validation"
 	"project/backend/internal/shared/httperror"
@@ -34,8 +33,7 @@ type EventService interface {
 }
 
 func New(client *db.PrismaClient) http.Handler {
-	repository := repo.New(client)
-	return &Handler{svc: service.New(repository)}
+	return &Handler{svc: service.New(client)}
 }
 
 func NewWithService(svc EventService) *Handler {

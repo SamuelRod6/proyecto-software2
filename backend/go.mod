@@ -9,9 +9,9 @@ require (
 	github.com/steebchen/prisma-client-go v0.47.0
 )
 
-require (
-	github.com/steebchen/prisma-client-go v0.47.0
-	golang.org/x/crypto v0.31.0
-	go.mongodb.org/mongo-driver/v2 v2.0.1 // indirect
-)
+require github.com/robfig/cron/v3 v3.0.1 // indirect
 
+require (
+	go.mongodb.org/mongo-driver/v2 v2.0.1 // indirect
+	golang.org/x/crypto v0.31.0
+)
