@@ -126,7 +126,7 @@ export default function EventDetailModal({
                                         Inscripciones abiertas
                                     </span>
                                     <ToggleIconButton 
-                                        open={true} 
+                                        open={false} 
                                         onClick={() => setShowConfirmModal("cerrar")} 
                                         className="p-2" 
                                         title="Cerrar inscripciones"
@@ -139,7 +139,7 @@ export default function EventDetailModal({
                                         Inscripciones cerradas
                                     </span>
                                     <ToggleIconButton 
-                                        open={false} 
+                                        open={true} 
                                         onClick={() => setShowConfirmModal("abrir")} 
                                         className="p-2" 
                                         title="Abrir inscripciones"
