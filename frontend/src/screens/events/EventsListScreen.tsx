@@ -171,10 +171,11 @@ export default function EventsListScreen(): JSX.Element {
 							fecha_cierre_inscripcion={ev.fecha_cierre_inscripcion}
 							inscripciones_abiertas={ev.inscripciones_abiertas}
 							ubicacion={ev.ubicacion}
-							categoria={ev.category}
-							inscritos_actuales={ev.current_enrolled}
-							cupo_maximo={ev.max_enrolled}
-							showActionButton
+							category={ev.category}
+							current_enrolled={ev.current_enrolled}
+							max_enrolled={ev.max_enrolled}
+							is_enrolled={ev.is_enrolled}
+							showEnrolledButton
 							actionLabel="Modificar"
 							actionDisabled={false}
 							onActionClick={() => setSelectedEvent(ev)}
