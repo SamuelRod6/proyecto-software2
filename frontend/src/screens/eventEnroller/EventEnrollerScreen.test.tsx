@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import EventCatalogScreen from "./EventCatalogScreen";
+import EventEnrollerScreen from "./EventEnrollerScreen";
 import { getEvents } from "../../services/eventsServices";
 import { useToast } from "../../contexts/Toast/ToastContext";
 
@@ -84,7 +84,7 @@ const baseEvent = {
 	ubicacion: "Caracas, Venezuela",
 };
 
-describe("EventCatalogScreen", () => {
+describe("EventEnrollerScreen", () => {
 	beforeEach(() => {
 		jest.clearAllMocks();
 		mockedUseToast.mockReturnValue({ showToast: showToastMock });
@@ -99,7 +99,7 @@ describe("EventCatalogScreen", () => {
 			],
 		});
 
-		render(<EventCatalogScreen />);
+		render(<EventEnrollerScreen />);
 
 		expect(await screen.findByText("Evento Futuro")).toBeInTheDocument();
 		expect(screen.queryByText("Evento Pasado")).not.toBeInTheDocument();
@@ -115,7 +115,7 @@ describe("EventCatalogScreen", () => {
 			],
 		});
 
-		render(<EventCatalogScreen />);
+		render(<EventEnrollerScreen />);
 		expect(await screen.findByText("Congreso de Biología")).toBeInTheDocument();
 
 		await user.type(screen.getByLabelText("Buscar evento"), "química");
@@ -132,7 +132,7 @@ describe("EventCatalogScreen", () => {
 			data: { error: "Fallo backend" },
 		});
 
-		render(<EventCatalogScreen />);
+		render(<EventEnrollerScreen />);
 
 		expect(await screen.findByText("Error al cargar los eventos")).toBeInTheDocument();
 		expect(showToastMock).toHaveBeenCalledWith({
@@ -149,7 +149,7 @@ describe("EventCatalogScreen", () => {
 			data: [{ ...baseEvent, id_evento: 99, nombre: "Evento Inscripción", fecha_fin: "2099-01-01" }],
 		});
 
-		render(<EventCatalogScreen />);
+		render(<EventEnrollerScreen />);
 		expect(await screen.findByText("Evento Inscripción")).toBeInTheDocument();
 
 		await user.click(screen.getByRole("button", { name: "Inscribir" }));

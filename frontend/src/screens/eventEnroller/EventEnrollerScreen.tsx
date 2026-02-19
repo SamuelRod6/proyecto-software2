@@ -18,7 +18,7 @@ import {
 	toStartOfLocalDay
 } from "../../utils/dataParsing";
 
-export default function EventCatalogScreen(): JSX.Element {
+export default function EventEnrollerScreen(): JSX.Element {
 	// states
 	const [events, setEvents] = useState<Evento[]>([]);
 	const [error, setError] = useState("");

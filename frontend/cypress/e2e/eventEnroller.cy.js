@@ -1,4 +1,4 @@
-describe("Event Catalog Screen", () => {
+describe("Event Enroller Screen", () => {
 	const eventsMock = [
 		{
 			id_evento: 1001,
@@ -47,7 +47,7 @@ describe("Event Catalog Screen", () => {
 			body: eventsMock,
 		}).as("getEvents");
 
-		cy.visit("/event-catalog", {
+		cy.visit("/event-enroller", {
 			onBeforeLoad(win) {
 				win.localStorage.setItem("auth-token", "fake-token");
 			},

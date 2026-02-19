@@ -48,7 +48,7 @@ export default function Sidebar() {
                     Gestión de roles
                 </NavLink>
                 <NavLink
-                    to={ROUTES.eventCatalog}
+                    to={ROUTES.eventEnroller}
                     className={({ isActive }) =>
                         `rounded-lg px-3 py-2 font-medium transition-colors ${
                         isActive

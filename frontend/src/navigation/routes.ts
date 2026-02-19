@@ -6,5 +6,5 @@ export const ROUTES = {
     eventDetail: (eventId: string = ":eventId"): string => `/events/${eventId}`,
     eventCreate: "/events/new",
     roleManagement: "/roleManagement",
-    eventCatalog: "/event-catalog",
+    eventEnroller: "/event-enroller",
 };

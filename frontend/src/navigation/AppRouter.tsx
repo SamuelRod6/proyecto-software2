@@ -6,9 +6,9 @@ import { authRoutes } from "./AuthRoutes";
 import ProtectedRoute from "./ProtectedRoute";
 import { eventRoutes } from "./EventRoutes";
 import { roleManagementRoutes } from "./RoleManagement";
-import { eventCatalogRoutes } from "./EventCatalogRoutes";
 // screens
 import HomeScreen from "../screens/HomeScreen";
+import EventEnrollerScreen from "../screens/eventEnroller/EventEnrollerScreen";
 // contexts
 import { AuthProvider } from "../contexts/Auth/Authcontext";
 
@@ -33,7 +33,7 @@ export default function AppRouter(): JSX.Element {
 						/>
 						{eventRoutes}
 						{roleManagementRoutes}
-						{eventCatalogRoutes}
+						<Route path="event-enroller" element={<EventEnrollerScreen />} />
 					</Route>
 					<Route 
 						path="*" 
