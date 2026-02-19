@@ -10,18 +10,18 @@ interface EventItemProps {
 	fecha_cierre_inscripcion: string;
 	inscripciones_abiertas: boolean;
 	ubicacion: string;
-	categoria?: string;
-	inscritos_actuales?: number;
-	cupo_maximo?: number;
-	inscrito?: boolean;
-	showInscribirmeButton?: boolean;
+	category?: string;
+	current_enrolled?: number;
+	max_enrolled?: number;
+	is_enrolled?: boolean;
+	showEnrolledButton?: boolean;
 	isLastRow?: boolean;
 	showActionButton?: boolean;
 	actionLabel?: string;
 	actionDisabled?: boolean;
 	onActionClick?: (idEvento: number) => void;
 	onClick?: () => void;
-	onInscribirmeClick?: (idEvento: number) => void;
+	onEnrollClick?: (idEvento: number) => void;
 }
 
 function formatDate(value: string): string {
@@ -44,34 +44,34 @@ export default function EventItem(props: EventItemProps) {
     fecha_cierre_inscripcion,
     inscripciones_abiertas,
     ubicacion,
-	categoria,
-	inscritos_actuales,
-	cupo_maximo,
-	inscrito,
-	showInscribirmeButton = false,
+	category,
+	current_enrolled,
+	max_enrolled,
+	is_enrolled,
+	showEnrolledButton = false,
 	isLastRow = false,
 	showActionButton,
 	actionLabel,
 	actionDisabled,
 	onActionClick,
     onClick,
-	onInscribirmeClick,
+	onEnrollClick,
   } = props;
 
 	const isClickable = typeof onClick === "function";
-	const canEnroll = showInscribirmeButton && inscripciones_abiertas && !inscrito;
+	const canEnroll = showEnrolledButton && inscripciones_abiertas && !is_enrolled;
 	const shouldShowActionButton =
 		typeof showActionButton === "boolean"
 			? showActionButton
-			: showInscribirmeButton;
+			: showEnrolledButton;
 	const resolvedActionLabel = actionLabel ?? (canEnroll ? "Inscribir" : "Agotado");
 	const resolvedActionDisabled =
 		typeof actionDisabled === "boolean" ? actionDisabled : !canEnroll;
-	const resolvedActionHandler = onActionClick ?? onInscribirmeClick;
-	const inscritosActuales = typeof inscritos_actuales === "number" ? inscritos_actuales : 0;
-	const cupoMaximo = typeof cupo_maximo === "number" ? cupo_maximo : 0;
-	const enrollmentRatio = `${inscritosActuales} / ${cupoMaximo}`;
-	const progressPercent = cupoMaximo > 0 ? Math.min((inscritosActuales / cupoMaximo) * 100, 100) : 0;
+	const resolvedActionHandler = onActionClick ?? onEnrollClick;
+	const currentEnrolled = typeof current_enrolled === "number" ? current_enrolled : 0;
+	const maxEnrolled = typeof max_enrolled === "number" ? max_enrolled : 0;
+	const enrollmentRatio = `${currentEnrolled} / ${maxEnrolled}`;
+	const progressPercent = maxEnrolled > 0 ? Math.min((currentEnrolled / maxEnrolled) * 100, 100) : 0;
 
 	return (
 		<div
@@ -88,7 +88,7 @@ export default function EventItem(props: EventItemProps) {
 				<p className="font-semibold text-slate-100">{nombre}</p>
 				<p className="text-xs text-slate-300">{ubicacion}</p>
 				<span className="inline-flex items-center rounded-full bg-slate-700 px-2 py-0.5 text-[11px] font-medium text-slate-200">
-					{categoria || "Científico"}
+					{category || "Científico"}
 				</span>
 			</div>
 
