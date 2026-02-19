@@ -25,7 +25,7 @@ backend/*.dylib
 backend/*.test
 backend/*.out
 backend/coverage.out
-backend/.env
+backend/.env*
 backend/.env.local
 backend/.env.development
 backend/.env.*.local
