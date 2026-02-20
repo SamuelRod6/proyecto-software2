@@ -74,7 +74,9 @@ func (r *Repository) SetInscripciones(ctx context.Context, id int, abiertas bool
 }
 
 func (r *Repository) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error) {
-	eventos, err := r.client.Evento.FindMany().Exec(ctx)
+	       eventos, err := r.client.Evento.FindMany(
+		       db.Evento.Cancelado.Equals(false),
+	       ).Exec(ctx)
 	if err != nil {
 		return nil, err
 	}
