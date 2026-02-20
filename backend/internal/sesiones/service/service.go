@@ -132,6 +132,10 @@ func (s *Service) UpdateSesion(ctx context.Context, sesionID int, req dto.Update
 	if err != nil || evento == nil {
 		return nil, errors.New("Evento no encontrado")
 	}
+	ahora := time.Now()
+	if evento.FechaInicio.Before(ahora) {
+		return nil, errors.New("No se pueden modificar sesiones de eventos ya iniciados")
+	}
 	if err := validation.ValidarEventoNoIniciado(evento); err != nil {
 		return nil, err
 	}
