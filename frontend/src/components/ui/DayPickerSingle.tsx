@@ -9,12 +9,12 @@ interface DayPickerSingleProps {
 	disabled?: (date: Date) => boolean;
 	className?: string;
 }
-export default function DayPickerSingle({ 
-	selected, 
-	onSelect, 
+export default function DayPickerSingle({
+	selected,
+	onSelect,
 	maxDate,
-	disabled, 
-	className = "" 
+	disabled,
+	className = ""
 }: DayPickerSingleProps) {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);

@@ -40,14 +40,14 @@ describe('Prueba de Gestión de Eventos - Admin', () => {
         cy.contains('Caracas').click({ force: true });
 
         // Fechas del evento (Futuras)
-        cy.get('button, span, .day').contains('20').click({ force: true });
+        cy.get('button, span, .day').contains('25').click({ force: true });
         cy.get('button, span, .day').contains('28').click({ force: true });
 
         cy.contains('button', 'Siguiente').click({ force: true });
 
         // 5. PASO 2: CIERRE DE INSCRIPCIÓN
         cy.contains('Fecha de cierre').should('be.visible');
-        cy.get('button, span, .day').contains('19').click({ force: true });
+        cy.get('button, span, .day').contains('24').click({ force: true });
 
         // 6. BOTÓN FINAL (El amarillo a la izquierda de Cancelar)
         // Buscamos el botón cancelar y luego el botón que está justo antes (prev) que es el de Crear
