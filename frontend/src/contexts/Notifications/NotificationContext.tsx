@@ -3,6 +3,7 @@ import { useAuth } from '../Auth/Authcontext';
 import { useToast } from '../Toast/ToastContext';
 import { notificationReducer, initialState, NotificationState, Notification } from './reducer';
 import { fetchNotifications, refreshNotifications as refreshNotificationsAction, markAsRead as markAsReadAction } from './actions';
+import { markNotificationAsReadApi } from '../../services/notificationsServices';
 
 interface NotificationContextType {
 	notifications: Notification[];
@@ -57,16 +58,17 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 		}
 	}, [user, showToast]);
 
-	// Fetch notifications on mount and set up polling every 10 seconds
+	// Fetch notifications on mount and set up polling every 5 minutos
 	useEffect(() => {
 		refreshNotifications();
-		const interval = setInterval(refreshNotifications, 10000); // 10s
+		const interval = setInterval(refreshNotifications, 10000); // 10 s
 		return () => clearInterval(interval);
 	}, [refreshNotifications]);
 
 	// Function to mark a notification as read
-	const markAsRead = (id: number) => {
-		dispatch(markAsReadAction(id));
+	const markAsRead = async (id: number) => {
+		await markNotificationAsReadApi(id);
+		await refreshNotifications();
 	};
 
 	const unreadCount = state.notifications.filter((n) => !n.read).length;

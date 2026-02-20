@@ -56,6 +56,15 @@ func (s *notificationService) NotificarCierreInscripciones(ctx context.Context, 
 		}
 
 		for _, usuario := range usuarios {
+			// Verificar si ya existe notificación hoy
+			exists, err := s.repo.ExistsCierreInscripcionToday(ctx, usuario.IDUsuario, evento.IDEvento)
+			if err != nil {
+				fmt.Println("Error verificando notificación existente para usuario", usuario.IDUsuario, ":", err)
+				continue
+			}
+			if exists {
+				continue
+			}
 			mensaje := fmt.Sprintf(
 				dto.MsgCierreInscripciones,
 				evento.Nombre,
@@ -87,6 +96,14 @@ func (s *notificationService) NotificarRecordatorioEvento(ctx context.Context, e
 			continue
 		}
 		for _, inscripcion := range inscripciones {
+			exists, err := s.repo.ExistsNotificationToday(ctx, inscripcion.IDUsuario, evento.IDEvento, dto.NotificationTypeRecordatorioEvento)
+			if err != nil {
+				fmt.Println("Error verificando notificación existente de recordatorio para usuario", inscripcion.IDUsuario, ":", err)
+				continue
+			}
+			if exists {
+				continue
+			}
 			mensaje := fmt.Sprintf(
 				dto.MsgRecordatorioEvento,
 				evento.Nombre,
@@ -124,6 +141,14 @@ func (s *notificationService) NotificarPagoPendiente(ctx context.Context, evento
 			}
 			diasRestantes := evento.FechaInicio.Sub(now).Hours() / 24
 			if diasRestantes <= 5 && diasRestantes >= 0 {
+				exists, err := s.repo.ExistsNotificationToday(ctx, insc.IDUsuario, evento.IDEvento, dto.NotificationTypeRecordatorioPago)
+				if err != nil {
+					fmt.Println("Error verificando notificación existente de pago pendiente para usuario", insc.IDUsuario, ":", err)
+					continue
+				}
+				if exists {
+					continue
+				}
 				mensaje := fmt.Sprintf(dto.MsgRecordatorioPago, evento.Nombre, evento.FechaInicio.Format("02/01/2006"))
 				_, notifErr := s.CreateNotification(ctx, dto.CreateNotificationRequest{
 					UserID:  insc.IDUsuario,
@@ -152,6 +177,14 @@ func (s *notificationService) NotificarAperturaInscripciones(ctx context.Context
 	}
 	count := 0
 	for _, usuario := range usuarios {
+		exists, err := s.repo.ExistsNotificationToday(ctx, usuario.IDUsuario, evento.IDEvento, dto.NotificationTypeAperturaInscripciones)
+		if err != nil {
+			fmt.Println("Error verificando notificación existente de apertura inscripciones para usuario", usuario.IDUsuario, ":", err)
+			continue
+		}
+		if exists {
+			continue
+		}
 		mensaje := fmt.Sprintf(dto.MsgAperturaInscripciones, evento.Nombre, evento.FechaCierreInscripcion.Format("02/01/2006"))
 		_, notifErr := s.CreateNotification(ctx, dto.CreateNotificationRequest{
 			UserID:  usuario.IDUsuario,
@@ -176,7 +209,15 @@ func (s *notificationService) NotificarCancelacionEvento(ctx context.Context, ev
 		return err
 	}
 	for _, inscripcion := range inscripciones {
-		_, err := s.CreateNotification(ctx, dto.CreateNotificationRequest{
+		exists, err := s.repo.ExistsNotificationToday(ctx, inscripcion.IDUsuario, evento.IDEvento, dto.NotificationTypeCancelacionEvento)
+		if err != nil {
+			fmt.Println("Error verificando notificación existente de cancelación evento para usuario", inscripcion.IDUsuario, ":", err)
+			continue
+		}
+		if exists {
+			continue
+		}
+		_, err = s.CreateNotification(ctx, dto.CreateNotificationRequest{
 			UserID:  inscripcion.IDUsuario,
 			EventID: &evento.IDEvento,
 			Type:    dto.NotificationTypeCancelacionEvento,

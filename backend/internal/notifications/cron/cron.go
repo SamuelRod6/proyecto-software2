@@ -21,49 +21,41 @@ func StartCierreInscripcionesScheduler(prismaClient *db.PrismaClient) {
 	jobExecutionRepo := notificationsrepo.NewJobExecutionRepository(prismaClient)
 	jobName := "notificaciones_diarias"
 	ctx := context.Background()
-	lastExec, err := jobExecutionRepo.GetLastRun(ctx, jobName)
-	now := time.Now().UTC()
-	today8am := time.Date(now.Year(), now.Month(), now.Day(), 8, 0, 0, 0, time.UTC)
-	if err == nil && lastExec != nil {
-		if lastExec.LastRun.Before(today8am) && now.After(today8am) {
-			log.Println("[Catch-up] Ejecutando notificaciones diarias atrasadas...")
-			runNotifications(ctx, notificationService, eventRepo, inscripcionRepo)
-			log.Println("[Catch-up] Actualizando marca de tiempo...")
-			_ = jobExecutionRepo.UpsertLastRun(ctx, jobName, now)
-		} else {
-			log.Println("[Catch-up] No es necesario ejecutar catch-up (ya ejecutado hoy o antes de la hora)")
-		}
-	} else if lastExec == nil && now.After(today8am) {
-		log.Println("[Catch-up] Ejecutando notificaciones diarias por primera vez...")
-		runNotifications(ctx, notificationService, eventRepo, inscripcionRepo)
+	// Ejecutar catch-up siempre al iniciar el backend
+	log.Println("[Catch-up] Ejecutando notificaciones pendientes al iniciar backend...")
+	err := runNotifications(ctx, notificationService, eventRepo, inscripcionRepo)
+	if err == nil {
 		log.Println("[Catch-up] Actualizando marca de tiempo...")
-		_ = jobExecutionRepo.UpsertLastRun(ctx, jobName, now)
+		_ = jobExecutionRepo.UpsertLastRun(ctx, jobName, time.Now().UTC())
 	} else {
-		log.Println("[Catch-up] No se ejecuta (antes de la hora o error inesperado)")
+		log.Println("[Catch-up] Error al ejecutar notificaciones al iniciar backend:", err)
 	}
 
 	c := cron.New()
-	c.AddFunc("0 8 * * *", func() {
+	c.AddFunc("@every 5m", func() {
 		ctx := context.Background()
-		runNotifications(ctx, notificationService, eventRepo, inscripcionRepo)
-		_ = jobExecutionRepo.UpsertLastRun(ctx, jobName, time.Now().UTC())
+		err := runNotifications(ctx, notificationService, eventRepo, inscripcionRepo)
+		if err == nil {
+			_ = jobExecutionRepo.UpsertLastRun(ctx, jobName, time.Now().UTC())
+		} else {
+			log.Println("[Catch-up] Error al ejecutar notificaciones en cron:", err)
+		}
 	})
 	c.Start()
 }
 
-func runNotifications(ctx context.Context, notificationService notificationsrv.NotificationService, eventRepo *eventrepo.Repository, inscripcionRepo *registrationrepo.Repository) {
-	err := notificationService.NotificarCierreInscripciones(ctx, eventRepo, inscripcionRepo)
-	if err != nil {
+func runNotifications(ctx context.Context, notificationService notificationsrv.NotificationService, eventRepo *eventrepo.Repository, inscripcionRepo *registrationrepo.Repository) error {
+	if err := notificationService.NotificarCierreInscripciones(ctx, eventRepo, inscripcionRepo); err != nil {
 		log.Println("Error en notificación de cierre de inscripciones:", err)
+		return err
 	}
-
-	err = notificationService.NotificarRecordatorioEvento(ctx, eventRepo, inscripcionRepo)
-	if err != nil {
+	if err := notificationService.NotificarRecordatorioEvento(ctx, eventRepo, inscripcionRepo); err != nil {
 		log.Println("Error en notificación de recordatorio de evento:", err)
+		return err
 	}
-
-	err = notificationService.NotificarPagoPendiente(ctx, eventRepo, inscripcionRepo)
-	if err != nil {
+	if err := notificationService.NotificarPagoPendiente(ctx, eventRepo, inscripcionRepo); err != nil {
 		log.Println("Error en notificación de pago pendiente:", err)
+		return err
 	}
+	return nil
 }

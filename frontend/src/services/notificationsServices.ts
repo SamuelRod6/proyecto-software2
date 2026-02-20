@@ -12,7 +12,7 @@ export interface NotificationApi {
 
 export async function fetchNotificationsApi(userId: number): Promise<{ status: number; data: NotificationApi[] | any }> {
   try {
-    const response = await axios.get<NotificationApi[]>(`/api/notificaciones?userId=${userId}`);
+    const response = await axios.get<NotificationApi[]>(`/api/notifications/user/${userId}`);
     return { status: response.status, data: response.data };
   } catch (error: any) {
     if (error.response) {
@@ -24,7 +24,7 @@ export async function fetchNotificationsApi(userId: number): Promise<{ status: n
 
 export async function markNotificationAsReadApi(notificationId: number): Promise<{ status: number; data: any }> {
   try {
-    const response = await axios.patch(`/api/notificaciones/${notificationId}/leida`);
+    const response = await axios.patch(`/api/notifications/${notificationId}/leida`, { leida: true });
     return { status: response.status, data: response.data };
   } catch (error: any) {
     if (error.response) {

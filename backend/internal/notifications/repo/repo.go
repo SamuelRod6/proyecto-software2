@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"project/backend/internal/notifications/dto"
 	"project/backend/prisma/db"
+	"time"
 )
 
 type NotificationRepository interface {
 	Create(ctx context.Context, req dto.CreateNotificationRequest) (*db.NotificacionModel, error)
 	ListByUser(ctx context.Context, idUsuario int) ([]db.NotificacionModel, error)
 	MarkAsRead(ctx context.Context, idNotificacion int, leida bool) error
+	ExistsCierreInscripcionToday(ctx context.Context, userID int, eventID int) (bool, error)
+	ExistsNotificationToday(ctx context.Context, userID int, eventID int, tipo string) (bool, error)
 }
 
 type notificationRepository struct {
@@ -62,4 +65,38 @@ func (r *notificationRepository) MarkAsRead(ctx context.Context, idNotificacion 
 		db.Notificacion.Leida.Set(leida),
 	).Exec(ctx)
 	return err
+}
+
+func (r *notificationRepository) ExistsCierreInscripcionToday(ctx context.Context, userID int, eventID int) (bool, error) {
+	now := time.Now().UTC()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	endOfDay := startOfDay.Add(24 * time.Hour)
+	notif, err := r.client.Notificacion.FindFirst(
+		db.Notificacion.IDUsuario.Equals(userID),
+		db.Notificacion.IDEvento.Equals(eventID),
+		db.Notificacion.Tipo.Equals("cierre_inscripciones"),
+		db.Notificacion.CreatedAt.Gte(startOfDay),
+		db.Notificacion.CreatedAt.Lt(endOfDay),
+	).Exec(ctx)
+	if err != nil && err.Error() != "ErrNotFound" {
+		return false, err
+	}
+	return notif != nil, nil
+}
+
+func (r *notificationRepository) ExistsNotificationToday(ctx context.Context, userID int, eventID int, tipo string) (bool, error) {
+	now := time.Now().UTC()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	endOfDay := startOfDay.Add(24 * time.Hour)
+	notif, err := r.client.Notificacion.FindFirst(
+		db.Notificacion.IDUsuario.Equals(userID),
+		db.Notificacion.IDEvento.Equals(eventID),
+		db.Notificacion.Tipo.Equals(tipo),
+		db.Notificacion.CreatedAt.Gte(startOfDay),
+		db.Notificacion.CreatedAt.Lt(endOfDay),
+	).Exec(ctx)
+	if err != nil && err.Error() != "ErrNotFound" {
+		return false, err
+	}
+	return notif != nil, nil
 }
