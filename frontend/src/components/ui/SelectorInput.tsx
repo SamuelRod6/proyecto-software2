@@ -15,6 +15,7 @@ interface SelectInputProps {
     className?: string;
     allowCustom?: boolean;
     customPlaceholder?: string;
+    isClearable?: boolean;
 }
 
 const SelectInput: React.FC<SelectInputProps> = ({
@@ -26,6 +27,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
     className = "",
     allowCustom = false,
     customPlaceholder = "Escribe...",
+    isClearable = false
 }) => {
     const [customValue, setCustomValue] = useState("");
     const isOther = allowCustom && value === "otro";
@@ -56,6 +58,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
                 placeholder={placeholder}
                 classNamePrefix="react-select"
                 isSearchable
+                isClearable={isClearable}
                 styles={customStyles}
             />
             {isOther && (

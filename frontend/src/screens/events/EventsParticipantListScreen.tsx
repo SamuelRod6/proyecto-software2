@@ -12,6 +12,7 @@ import ParticipantEventsCalendar from "../../components/events/ParticipantEvents
 import ParticipantEventsList from "../../components/events/ParticipantEventsList";
 import AvailableEventsList from "../../components/events/AvailableEventsList";
 import EventInscriptionModal from "../../components/events/EventInscriptionModal";
+import EventFilters from "../../components/events/EventFilters";
 // assets
 import emptyAnimation from "../../assets/animations/empty-animation.json";
 
@@ -32,6 +33,12 @@ const EventsParticipantListScreen: React.FC = () => {
     const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
     const [inscribirEventoModal, setInscribirEventoModal] = useState<{ open: boolean, evento: Evento | null }>({ open: false, evento: null });
     const [inscribirLoading, setInscribirLoading] = useState(false);
+    // filtros
+    const [searchTerm, setSearchTerm] = useState("");
+    const [countryTerm, setCountryTerm] = useState("");
+    const [cityTerm, setCityTerm] = useState("");
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
     // contexts
     const { user } = useAuth();
     const { showToast } = useToast();
@@ -177,6 +184,19 @@ const EventsParticipantListScreen: React.FC = () => {
                     </div>
                 </div>
             )}
+            {/* Filtros de eventos */}
+            <EventFilters
+                searchTerm={searchTerm}
+                countryTerm={countryTerm}
+                cityTerm={cityTerm}
+                fromDate={fromDate}
+                toDate={toDate}
+                onSearchTermChange={setSearchTerm}
+                onCountryTermChange={setCountryTerm}
+                onCityTermChange={setCityTerm}
+                onFromDateChange={setFromDate}
+                onToDateChange={setToDate}
+            />
             <div>
                 {loading ? (
                     <div className="flex justify-center items-center min-h-[200px] bg-slate-800 rounded-xl">
