@@ -7,7 +7,7 @@ import BackArrow from "../ui/BackArrow";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
 // APIs
-import { Evento } from "../../services/eventsServices";
+import { Evento, updateCloseDate } from "../../services/eventsServices";
 
 interface UpdateCloseDateModalProps {
     open: boolean;
@@ -52,32 +52,32 @@ export default function UpdateCloseDateModal({ open, onClose, event }: UpdateClo
             return;
         }
         setLoading(true);
-        // try {
-        //     const { status, data } = await ;
-        //     if (status === 200) {
-        //         showToast({
-        //             title: "Fecha actualizada",
-        //             message: "La fecha de cierre de inscripciones fue actualizada exitosamente.",
-        //             status: "success",
-        //         });
-        //         onClose();
-        //         window.location.href = "/events";
-        //     } else {
-        //         showToast({
-        //             title: "Error al actualizar",
-        //             message: data?.error || "No se pudo actualizar la fecha.",
-        //             status: "error",
-        //         });
-        //     }
-        // } catch (err: any) {
-        //     showToast({
-        //         title: "Error inesperado",
-        //         message: err.message || "Ocurrió un error inesperado.",
-        //         status: "error",
-        //     });
-        // } finally {
-        //     setLoading(false);
-        // }
+        try {
+            const { status, data } = await updateCloseDate(event.id_evento, formatDate(closeDate));
+            if (status === 200) {
+                showToast({
+                    title: "Fecha actualizada",
+                    message: "La fecha de cierre de inscripciones fue actualizada exitosamente.",
+                    status: "success",
+                });
+                onClose();
+                window.location.reload();
+            } else {
+                showToast({
+                    title: "Error al actualizar",
+                    message: data?.error || "No se pudo actualizar la fecha.",
+                    status: "error",
+                });
+            }
+        } catch (err: any) {
+            showToast({
+                title: "Error inesperado",
+                message: err.message || "Ocurrió un error inesperado.",
+                status: "error",
+            });
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Only enable change if date is different from original
@@ -85,8 +85,8 @@ export default function UpdateCloseDateModal({ open, onClose, event }: UpdateClo
 
     return (
         <Modal open={open} onClose={onClose} title="Actualiza la fecha de cierre de tus inscripciones" className="max-w-screen-lg w-full">
-            <form 
-                onSubmit={handleSubmit} 
+            <form
+                onSubmit={handleSubmit}
                 className="rounded-xl border border-slate-700 bg-slate-800/90 p-10 max-w-[900px] w-full mx-auto shadow-lg flex flex-col md:flex-row gap-8 md:gap-10"
             >
                 <div className="flex-1 flex flex-col justify-center items-center">
@@ -104,7 +104,7 @@ export default function UpdateCloseDateModal({ open, onClose, event }: UpdateClo
                 </div>
                 <div className="flex-1 flex flex-col gap-6 justify-center relative">
                     <div className="absolute left-0 top-0">
-                        <BackArrow onClick={onClose}/>
+                        <BackArrow onClick={onClose} />
                     </div>
                     <div className="flex flex-col justify-center h-full">
                         <p className="text-slate-300 text-lg mb-4">
@@ -112,17 +112,17 @@ export default function UpdateCloseDateModal({ open, onClose, event }: UpdateClo
                         </p>
                     </div>
                     <div className="flex gap-4 mt-8">
-                        <Button 
-                            type="submit" 
-                            className="w-full" 
+                        <Button
+                            type="submit"
+                            className="w-full"
                             disabled={!isChangeEnabled}
                         >
                             Cambiar
                         </Button>
-                        <Button 
-                            type="button" 
-                            variant="ghost" 
-                            className="w-full border border-slate-600" 
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full border border-slate-600"
                             onClick={onClose}
                         >
                             Cancelar

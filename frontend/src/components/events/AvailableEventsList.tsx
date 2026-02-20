@@ -9,6 +9,8 @@ interface Evento {
     fecha_inicio: string;
     fecha_fin: string;
     ubicacion: string;
+    fecha_cierre_inscripcion: string;
+    inscripciones_abiertas: boolean;
 }
 
 interface Props {
@@ -42,15 +44,43 @@ const AvailableEventsList: React.FC<Props> = ({ eventos, onInscribir }) => {
                                     {evento.ubicacion}
                                 </div>
                             </div>
-                            <Button
-                                className="mt-2 md:mt-0 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition"
-                                onClick={e => {
-                                    e.stopPropagation();
-                                    onInscribir && onInscribir(evento);
-                                }}
-                            >
-                                Inscribirme
-                            </Button>
+                            {(() => {
+                                const [day, month, year] = evento.fecha_cierre_inscripcion.split("/").map(Number);
+                                const closeDate = new Date(year, month - 1, day);
+                                const now = new Date();
+                                // Reset hours to compare only dates or include time if needed. 
+                                // Assuming closing date is until end of day, we might compare timestamps.
+                                // For now, simple comparison.
+                                const isClosed = now > closeDate;
+
+                                if (isClosed) {
+                                    return (
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-red-400 font-semibold mb-1 text-sm">
+                                                Inscripciones cerradas
+                                            </span>
+                                            <Button
+                                                className="bg-slate-600 text-slate-400 font-semibold px-4 py-2 rounded-lg cursor-not-allowed"
+                                                disabled
+                                            >
+                                                Cerrado
+                                            </Button>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <Button
+                                        className="mt-2 md:mt-0 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition"
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            onInscribir && onInscribir(evento);
+                                        }}
+                                    >
+                                        Inscribirme
+                                    </Button>
+                                );
+                            })()}
                         </li>
                     ))}
                 </ul>

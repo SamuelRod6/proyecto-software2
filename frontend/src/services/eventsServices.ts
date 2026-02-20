@@ -82,4 +82,16 @@ export async function fetchFechasOcupadas(): Promise<{ status: number; data: Ran
     }
 }
 
+export async function updateCloseDate(id_evento: number, newDate: string): Promise<{ status: number; data: any }> {
+    try {
+        const response = await axios.patch(`/api/eventos/${id_evento}/fecha-cierre`, { fecha_cierre_inscripcion: newDate });
+        return { status: response.status, data: response.data };
+    } catch (error: any) {
+        if (error.response) {
+            return { status: error.response.status, data: error.response.data };
+        }
+        return { status: 500, data: { error: "Error de red o desconocido" } };
+    }
+}
+
 

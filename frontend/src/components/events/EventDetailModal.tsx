@@ -26,17 +26,17 @@ interface EventDetailModalProps {
     onInscribir?: () => void;
 }
 
-export default function EventDetailModal({ 
-    open, 
-    onClose, 
-    event, 
+export default function EventDetailModal({
+    open,
+    onClose,
+    event,
     onUpdate,
     showInscribirButton,
     onInscribir
 }: EventDetailModalProps): JSX.Element | null {
     // states
     const [showCloseDateModal, setShowCloseDateModal] = useState(false);
-    const [showConfirmModal, setShowConfirmModal] = useState<"abrir"|"cerrar"|null>(null);
+    const [showConfirmModal, setShowConfirmModal] = useState<"abrir" | "cerrar" | null>(null);
     const [loadingConfirm, setLoadingConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -121,7 +121,7 @@ export default function EventDetailModal({
                         <div className="w-full bg-[#e3e8f0] rounded-xl p-5 flex items-center justify-center">
                             <DateRangePicker
                                 value={dateRange}
-                                onChange={() => {}}
+                                onChange={() => { }}
                                 fromLabel="Inicio"
                                 toLabel="Fin"
                                 className="bg-[#e3e8f0] rounded p-2"
@@ -140,10 +140,10 @@ export default function EventDetailModal({
                                         <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
                                             Inscripciones abiertas
                                         </span>
-                                        <ToggleIconButton 
-                                            open={!event.inscripciones_abiertas} 
-                                            onClick={() => setShowConfirmModal("cerrar")} 
-                                            className="p-2" 
+                                        <ToggleIconButton
+                                            open={!event.inscripciones_abiertas}
+                                            onClick={() => setShowConfirmModal("cerrar")}
+                                            className="p-2"
                                             title="Cerrar inscripciones"
                                             iconSize={22}
                                         />
@@ -153,10 +153,10 @@ export default function EventDetailModal({
                                         <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
                                             Inscripciones cerradas
                                         </span>
-                                        <ToggleIconButton 
-                                            open={!event.inscripciones_abiertas} 
-                                            onClick={() => setShowConfirmModal("abrir")} 
-                                            className="p-2" 
+                                        <ToggleIconButton
+                                            open={!event.inscripciones_abiertas}
+                                            onClick={() => setShowConfirmModal("abrir")}
+                                            className="p-2"
                                             title="Abrir inscripciones"
                                             iconSize={22}
                                         />
@@ -183,26 +183,48 @@ export default function EventDetailModal({
                                         Fecha de cierre de inscripciones
                                     </label>
                                     {!isParticipant && (
-                                        <EditIconButton 
+                                        <EditIconButton
                                             aria-label="Editar fecha de cierre"
                                             onClick={() => setShowCloseDateModal(true)}
                                             color="#94a3b8"
                                         />
                                     )}
-                                    <Input 
-                                        value={event.fecha_cierre_inscripcion} 
-                                        disabled 
-                                        className="w-full" 
+                                    <Input
+                                        value={event.fecha_cierre_inscripcion}
+                                        disabled
+                                        className="w-full"
                                     />
                                 </div>
-                                {showInscribirButton && (
-                                    <Button
-                                        className="mt-4 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
-                                        onClick={onInscribir}
-                                    >
-                                        Inscribirme
-                                    </Button>
-                                )}
+                                {showInscribirButton && (() => {
+                                    const [day, month, year] = event.fecha_cierre_inscripcion.split("/").map(Number);
+                                    const closeDate = new Date(year, month - 1, day);
+                                    const isClosed = new Date() > closeDate;
+
+                                    if (isClosed) {
+                                        return (
+                                            <div className="mt-4 flex flex-col items-center">
+                                                <span className="text-red-400 font-semibold mb-1 text-sm">
+                                                    Inscripciones cerradas
+                                                </span>
+                                                <Button
+                                                    className="bg-slate-600 text-slate-400 font-semibold px-4 py-2 rounded-lg cursor-not-allowed w-full"
+                                                    disabled
+                                                >
+                                                    Cerrado
+                                                </Button>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <Button
+                                            className="mt-4 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
+                                            onClick={onInscribir}
+                                        >
+                                            Inscribirme
+                                        </Button>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -214,10 +236,10 @@ export default function EventDetailModal({
                 )}
             </Modal>
             {showCloseDateModal && (
-                <UpdateCloseDateModal 
-                    open={showCloseDateModal} 
-                    onClose={() => setShowCloseDateModal(false)} 
-                    event={event} 
+                <UpdateCloseDateModal
+                    open={showCloseDateModal}
+                    onClose={() => setShowCloseDateModal(false)}
+                    event={event}
                 />
             )}
             <ConfirmModal
