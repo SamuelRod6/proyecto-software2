@@ -12,20 +12,26 @@ export default function Header() {
     const { logout, user } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const { unreadCount } = React.useContext(NotificationContext);
 
+    // Handler to log out
     const handleLogout = () => {
         logout();
         navigate(ROUTES.login, { replace: true });
     };
 
-    // Obtener unreadCount real del contexto
-    const { unreadCount } = React.useContext(NotificationContext);
-
+    // Handler to toggle notifications page
     const handleNotifications = () => {
         if (location.pathname === '/notifications') {
-            navigate('/', { replace: true });
+            // If there's a "from" path in state, navigate there; otherwise, go back in history
+            const state = location.state as { from?: string } | null;
+            if (state && state.from) {
+                navigate(state.from, { replace: true });
+            } else {
+                navigate(-1);
+            }
         } else {
-            navigate('/notifications');
+            navigate('/notifications', { state: { from: location.pathname } });
         }
     };
     return (

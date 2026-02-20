@@ -9,3 +9,20 @@ const (
 	MsgAperturaInscripciones = "¡Ya puedes inscribirte al evento '%s'! Las inscripciones están abiertas hasta el %s."
 	MsgCancelacionEvento     = "Lamentamos informarte que el evento '%s' ha sido cancelado. Si ya te habías inscrito, recibirás un reembolso completo. Disculpa las molestias."
 )
+
+var NotificationTitles = map[string]string{
+	NotificationTypeInscripcion:           "Inscripción exitosa",
+	NotificationTypeCambioEvento:          "Cambio en evento",
+	NotificationTypeCierreInscripciones:   "Cierre de inscripciones",
+	NotificationTypeRecordatorioEvento:    "Recordatorio de evento",
+	NotificationTypeRecordatorioPago:      "Recordatorio de pago",
+	NotificationTypeAperturaInscripciones: "Apertura de inscripciones",
+	NotificationTypeCancelacionEvento:     "Cancelación de evento",
+}
+
+func GetNotificationTitle(tipo string) string {
+	if t, ok := NotificationTitles[tipo]; ok {
+		return t
+	}
+	return tipo
+}

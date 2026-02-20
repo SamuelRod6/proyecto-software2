@@ -11,6 +11,7 @@ export interface Notification {
   newDates?: { date: string; label: string }[];
   eventId?: number;
   content?: string;
+  createdAt?: string;
 }
 
 export interface NotificationState {

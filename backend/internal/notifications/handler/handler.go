@@ -69,8 +69,27 @@ func (h *Handler) listNotificationsByUser(w http.ResponseWriter, r *http.Request
 		httperror.WriteJSON(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	var responses []dto.NotificationResponse
+	for _, n := range notifications {
+		responses = append(responses, dto.NotificationResponse{
+			ID:     n.IDNotificacion,
+			UserID: n.IDUsuario,
+			EventID: func() *int {
+				if val, ok := n.IDEvento(); ok {
+					v := int(val)
+					return &v
+				}
+				return nil
+			}(),
+			Type:      n.Tipo,
+			Title:     dto.GetNotificationTitle(n.Tipo),
+			Message:   n.Mensaje,
+			Read:      n.Leida,
+			CreatedAt: n.CreatedAt,
+		})
+	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(notifications)
+	_ = json.NewEncoder(w).Encode(responses)
 }
 
 func (h *Handler) markNotificationAsRead(w http.ResponseWriter, r *http.Request) {

@@ -80,16 +80,24 @@ func (s *Service) CreateInscripcion(ctx context.Context, req dto.CreateInscripci
 		evento.FechaFin.Format("02/01/2006"),
 	)
 
-	_, notifErr := s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
-		UserID:  req.UsuarioID,
-		EventID: &req.EventoID,
-		Type:    notificationdto.NotificationTypeInscripcion,
-		Message: mensaje,
-	})
+	var notifErr error
+	for i := 1; i <= 3; i++ {
+		_, notifErr = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+			UserID:  req.UsuarioID,
+			EventID: &req.EventoID,
+			Type:    notificationdto.NotificationTypeInscripcion,
+			Message: mensaje,
+		})
+		if notifErr == nil {
+			fmt.Printf("[LOG] Notificación creada exitosamente para usuario: %d (intento %d)\n", req.UsuarioID, i)
+			break
+		} else {
+			fmt.Printf("[ERROR] Error creando notificación (intento %d): %v\n", i, notifErr)
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
 	if notifErr != nil {
-		fmt.Println("Error creando notificación:", notifErr)
-	} else {
-		fmt.Println("Notificación creada exitosamente para usuario:", req.UsuarioID)
+		fmt.Println("[ERROR] No se pudo crear la notificación después de 3 intentos.")
 	}
 
 	return created, nil

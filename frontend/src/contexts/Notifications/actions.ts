@@ -17,16 +17,15 @@ export const fetchNotifications = async (userId: number) => {
     const apiNotifications = await fetchNotificationsApi(userId);
     if (apiNotifications.status === 200 && Array.isArray(apiNotifications.data)) {
         return apiNotifications.data.map((n: any) => ({
-            id: n.id_notificacion,
-            type: n.tipo,
-            title: n.tipo,
-            read: n.leida,
-            eventId: n.id_evento,
-            content: n.mensaje,
-            createdAt: n.createdAt,
+            id: n.id,
+            type: n.type,
+            title: n.title,
+            read: n.read,
+            eventId: n.event_id,
+            content: n.message,
+            createdAt: n.created_at,
         }));
     } else {
-        // Aquí podrías lanzar un error o retornar [] según lo que prefieras
         return [];
     }
 };
