@@ -24,6 +24,7 @@ type UserRepository interface {
 	FindRoleByID(ctx context.Context, roleID int) (*db.RolesModel, error)
 	CreateUser(ctx context.Context, name, email, passwordHash string, roleID int) (*db.UsuarioModel, error)
 	FindUserByEmail(ctx context.Context, email string) (*db.UsuarioModel, error)
+	FindPrimaryRoleByUserID(ctx context.Context, userID int) (*db.RolesModel, error)
 	UpdatePassword(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error)
 }
 
@@ -122,7 +123,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role, err := h.Repo.FindRoleByID(ctx, user.IDRol)
+	role, err := h.Repo.FindPrimaryRoleByUserID(ctx, user.IDUsuario)
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, response.ErrRoleInvalid)
 		return

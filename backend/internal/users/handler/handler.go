@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"project/backend/internal/roles"
+	roles "project/backend/internal/roles/service"
 	"project/backend/internal/shared/response"
 	"project/backend/internal/users/repo"
 	"project/backend/internal/users/service"
@@ -100,8 +100,11 @@ func (h *Handler) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 	items := make([]userRoleItem, 0, len(users))
 	for _, user := range users {
 		roleName := ""
-		if user.RelationsUsuario.Rol != nil {
-			roleName = user.RelationsUsuario.Rol.NombreRol
+		for _, userRole := range user.RelationsUsuario.UsuarioRoles {
+			if userRole.RelationsUsuarioRoles.Rol != nil {
+				roleName = userRole.RelationsUsuarioRoles.Rol.NombreRol
+				break
+			}
 		}
 		items = append(items, userRoleItem{
 			ID:   user.IDUsuario,

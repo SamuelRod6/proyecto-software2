@@ -7,7 +7,7 @@ import (
 
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
-	"project/backend/internal/roles"
+	roles "project/backend/internal/roles/service"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
 	"project/backend/prisma/db"

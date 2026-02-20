@@ -18,6 +18,7 @@ type mockAuthRepo struct {
 	findRoleByID    func(ctx context.Context, roleID int) (*db.RolesModel, error)
 	createUser      func(ctx context.Context, name, email, passwordHash string, roleID int) (*db.UsuarioModel, error)
 	findUserByEmail func(ctx context.Context, email string) (*db.UsuarioModel, error)
+	findPrimaryRole func(ctx context.Context, userID int) (*db.RolesModel, error)
 	updatePassword  func(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error)
 }
 
@@ -40,6 +41,13 @@ func (m mockAuthRepo) FindUserByEmail(ctx context.Context, email string) (*db.Us
 		return nil, errors.New("not implemented")
 	}
 	return m.findUserByEmail(ctx, email)
+}
+
+func (m mockAuthRepo) FindPrimaryRoleByUserID(ctx context.Context, userID int) (*db.RolesModel, error) {
+	if m.findPrimaryRole == nil {
+		return nil, errors.New("not implemented")
+	}
+	return m.findPrimaryRole(ctx, userID)
 }
 
 func (m mockAuthRepo) UpdatePassword(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error) {
@@ -76,7 +84,7 @@ func TestRegisterHandler(t *testing.T) {
 				return &db.RolesModel{InnerRoles: db.InnerRoles{IDRol: 1, NombreRol: "ADMIN"}}, nil
 			},
 			createUser: func(_ context.Context, name, email, _ string, roleID int) (*db.UsuarioModel, error) {
-				return &db.UsuarioModel{InnerUsuario: db.InnerUsuario{IDUsuario: 10, Nombre: name, Email: email, IDRol: roleID}}, nil
+				return &db.UsuarioModel{InnerUsuario: db.InnerUsuario{IDUsuario: 10, Nombre: name, Email: email}}, nil
 			},
 		}
 
@@ -122,9 +130,9 @@ func TestLoginHandler(t *testing.T) {
 
 		repo := mockAuthRepo{
 			findUserByEmail: func(_ context.Context, _ string) (*db.UsuarioModel, error) {
-				return &db.UsuarioModel{InnerUsuario: db.InnerUsuario{IDUsuario: 2, Email: "user@example.com", PasswordHash: passwordHash, IDRol: 1}}, nil
+				return &db.UsuarioModel{InnerUsuario: db.InnerUsuario{IDUsuario: 2, Email: "user@example.com", PasswordHash: passwordHash}}, nil
 			},
-			findRoleByID: func(_ context.Context, _ int) (*db.RolesModel, error) {
+			findPrimaryRole: func(_ context.Context, _ int) (*db.RolesModel, error) {
 				return &db.RolesModel{InnerRoles: db.InnerRoles{IDRol: 1, NombreRol: "ADMIN"}}, nil
 			},
 		}

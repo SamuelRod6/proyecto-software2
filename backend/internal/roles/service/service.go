@@ -1,9 +1,9 @@
 package roles
 
 import (
-    "context"
+	"context"
 
-    "project/backend/prisma/db"
+	"project/backend/prisma/db"
 )
 
 type UserRoleService interface {
@@ -16,7 +16,7 @@ type prismaUserRoleService struct {
 }
 
 func NewUserRoleService(client *db.PrismaClient) UserRoleService {
-    return prismaUserRoleService{client: client}
+    return &prismaUserRoleService{client: client}
 }
 
 func (s prismaUserRoleService) GetRoleIDByName(ctx context.Context, name string) (int, error) {
@@ -28,9 +28,17 @@ func (s prismaUserRoleService) GetRoleIDByName(ctx context.Context, name string)
 }
 
 func (s prismaUserRoleService) UpdateUserRole(ctx context.Context, userID int, roleID int) error {
-    _, err := s.client.Usuario.
-        FindUnique(db.Usuario.IDUsuario.Equals(userID)).
-        Update(db.Usuario.Rol.Link(db.Roles.IDRol.Equals(roleID))).
+    _, err := s.client.UsuarioRoles.
+        FindMany(db.UsuarioRoles.IDUsuario.Equals(userID)).
+        Delete().
         Exec(ctx)
+    if err != nil {
+        return err
+    }
+
+    _, err = s.client.UsuarioRoles.CreateOne(
+        db.UsuarioRoles.IDUsuario.Set(userID),
+        db.UsuarioRoles.IDRol.Set(roleID),
+    ).Exec(ctx)
     return err
 }
