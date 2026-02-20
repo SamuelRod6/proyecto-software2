@@ -73,3 +73,19 @@ model JobExecution {
   job_name  String   @unique
   last_run  DateTime
 }
+model Pais {
+  id_pais   Int      @id @default(autoincrement())
+  nombre    String   @unique
+  createdAt DateTime @default(now())
+  ciudades  Ciudad[]
+}
+
+model Ciudad {
+  id_ciudad Int      @id @default(autoincrement())
+  nombre    String
+  id_pais   Int
+  pais      Pais     @relation(fields: [id_pais], references: [id_pais])
+  createdAt DateTime @default(now())
+
+  @@unique([nombre, id_pais])
+}
