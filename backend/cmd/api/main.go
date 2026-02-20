@@ -9,6 +9,7 @@ import (
 	eventhandler "project/backend/internal/events/handler"
 	paishandler "project/backend/internal/pais/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
+	sesioneshandler "project/backend/internal/sesiones/handler"
 
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
@@ -53,6 +54,7 @@ func main() {
 	registrationsHandler := registrationhandler.New(prismaClient)
 	notificationHandler := notificationhandler.New(prismaClient)
 	notificationcron.StartCierreInscripcionesScheduler(prismaClient)
+	sesionesHandler := sesioneshandler.New(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 
@@ -72,6 +74,9 @@ func main() {
 	http.Handle("/api/notifications", notificationHandler)
 	http.Handle("/api/notifications/", notificationHandler)
 	http.Handle("/api/paises", paisesHandler)
+	http.Handle("/api/sesiones", sesionesHandler)
+	http.Handle("/api/sesiones/", sesionesHandler)
+
 	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
 		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)
 	}

@@ -84,15 +84,16 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario     Int            @id @default(autoincrement())
-  nombre         String         @unique
-  email          String         @unique
-  password_hash  String
-  id_rol         Int
-  rol            Roles          @relation(fields: [id_rol], references: [id_rol])
-  createdAt      DateTime       @default(now())
-  inscripciones  Inscripcion[]
-  notificaciones Notificacion[] @relation("UsuarioNotificaciones")
+  id_usuario      Int             @id @default(autoincrement())
+  nombre          String          @unique
+  email           String          @unique
+  password_hash   String
+  id_rol          Int
+  rol             Roles           @relation(fields: [id_rol], references: [id_rol])
+  createdAt       DateTime        @default(now())
+  inscripciones   Inscripcion[]
+  notificaciones  Notificacion[]  @relation("UsuarioNotificaciones")
+  sesionesPonente SesionPonente[]
 }
 
 model Roles {
@@ -115,6 +116,7 @@ model Evento {
   cancelado                     Boolean        @default(false)
   inscripciones                 Inscripcion[]
   notificaciones                Notificacion[] @relation("EventoNotificaciones")
+  sesiones                      Sesion[]
 }
 
 model Inscripcion {
@@ -164,6 +166,30 @@ model Ciudad {
   createdAt DateTime @default(now())
 
   @@unique([nombre, id_pais])
+}
+
+model Sesion {
+  id_sesion    Int             @id @default(autoincrement())
+  titulo       String
+  descripcion  String
+  fecha_inicio DateTime
+  fecha_fin    DateTime
+  ubicacion    String
+  id_evento    Int
+  evento       Evento          @relation(fields: [id_evento], references: [id_evento])
+  createdAt    DateTime        @default(now())
+  cancelado    Boolean         @default(false)
+  ponentes     SesionPonente[]
+}
+
+model SesionPonente {
+  id_sesion_ponente Int     @id @default(autoincrement())
+  id_sesion         Int
+  id_usuario        Int
+  sesion            Sesion  @relation(fields: [id_sesion], references: [id_sesion])
+  usuario           Usuario @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@unique([id_sesion, id_usuario])
 }
 `
 const schemaDatasourceURL = ""
@@ -244,6 +270,8 @@ func newClient() *PrismaClient {
 	c.JobExecution = jobExecutionActions{client: c}
 	c.Pais = paisActions{client: c}
 	c.Ciudad = ciudadActions{client: c}
+	c.Sesion = sesionActions{client: c}
+	c.SesionPonente = sesionPonenteActions{client: c}
 
 	c.Prisma = &PrismaActions{
 		Raw: &raw.Raw{Engine: c},
@@ -284,6 +312,10 @@ type PrismaClient struct {
 	Pais paisActions
 	// Ciudad provides access to CRUD methods.
 	Ciudad ciudadActions
+	// Sesion provides access to CRUD methods.
+	Sesion sesionActions
+	// SesionPonente provides access to CRUD methods.
+	SesionPonente sesionPonenteActions
 }
 
 // --- template enums.gotpl ---
@@ -379,6 +411,28 @@ const (
 	CiudadScalarFieldEnumCreatedAt CiudadScalarFieldEnum = "createdAt"
 )
 
+type SesionScalarFieldEnum string
+
+const (
+	SesionScalarFieldEnumIDSesion    SesionScalarFieldEnum = "id_sesion"
+	SesionScalarFieldEnumTitulo      SesionScalarFieldEnum = "titulo"
+	SesionScalarFieldEnumDescripcion SesionScalarFieldEnum = "descripcion"
+	SesionScalarFieldEnumFechaInicio SesionScalarFieldEnum = "fecha_inicio"
+	SesionScalarFieldEnumFechaFin    SesionScalarFieldEnum = "fecha_fin"
+	SesionScalarFieldEnumUbicacion   SesionScalarFieldEnum = "ubicacion"
+	SesionScalarFieldEnumIDEvento    SesionScalarFieldEnum = "id_evento"
+	SesionScalarFieldEnumCreatedAt   SesionScalarFieldEnum = "createdAt"
+	SesionScalarFieldEnumCancelado   SesionScalarFieldEnum = "cancelado"
+)
+
+type SesionPonenteScalarFieldEnum string
+
+const (
+	SesionPonenteScalarFieldEnumIDSesionPonente SesionPonenteScalarFieldEnum = "id_sesion_ponente"
+	SesionPonenteScalarFieldEnumIDSesion        SesionPonenteScalarFieldEnum = "id_sesion"
+	SesionPonenteScalarFieldEnumIDUsuario       SesionPonenteScalarFieldEnum = "id_usuario"
+)
+
 type SortOrder string
 
 const (
@@ -451,6 +505,8 @@ const usuarioFieldInscripciones usuarioPrismaFields = "inscripciones"
 
 const usuarioFieldNotificaciones usuarioPrismaFields = "notificaciones"
 
+const usuarioFieldSesionesPonente usuarioPrismaFields = "sesionesPonente"
+
 type rolesPrismaFields = prismaFields
 
 const rolesFieldIDRol rolesPrismaFields = "id_rol"
@@ -486,6 +542,8 @@ const eventoFieldCancelado eventoPrismaFields = "cancelado"
 const eventoFieldInscripciones eventoPrismaFields = "inscripciones"
 
 const eventoFieldNotificaciones eventoPrismaFields = "notificaciones"
+
+const eventoFieldSesiones eventoPrismaFields = "sesiones"
 
 type inscripcionPrismaFields = prismaFields
 
@@ -555,6 +613,42 @@ const ciudadFieldPais ciudadPrismaFields = "pais"
 
 const ciudadFieldCreatedAt ciudadPrismaFields = "createdAt"
 
+type sesionPrismaFields = prismaFields
+
+const sesionFieldIDSesion sesionPrismaFields = "id_sesion"
+
+const sesionFieldTitulo sesionPrismaFields = "titulo"
+
+const sesionFieldDescripcion sesionPrismaFields = "descripcion"
+
+const sesionFieldFechaInicio sesionPrismaFields = "fecha_inicio"
+
+const sesionFieldFechaFin sesionPrismaFields = "fecha_fin"
+
+const sesionFieldUbicacion sesionPrismaFields = "ubicacion"
+
+const sesionFieldIDEvento sesionPrismaFields = "id_evento"
+
+const sesionFieldEvento sesionPrismaFields = "evento"
+
+const sesionFieldCreatedAt sesionPrismaFields = "createdAt"
+
+const sesionFieldCancelado sesionPrismaFields = "cancelado"
+
+const sesionFieldPonentes sesionPrismaFields = "ponentes"
+
+type sesionPonentePrismaFields = prismaFields
+
+const sesionPonenteFieldIDSesionPonente sesionPonentePrismaFields = "id_sesion_ponente"
+
+const sesionPonenteFieldIDSesion sesionPonentePrismaFields = "id_sesion"
+
+const sesionPonenteFieldIDUsuario sesionPonentePrismaFields = "id_usuario"
+
+const sesionPonenteFieldSesion sesionPonentePrismaFields = "sesion"
+
+const sesionPonenteFieldUsuario sesionPonentePrismaFields = "usuario"
+
 // --- template mock.gotpl ---
 func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 	expectations := new([]mock.Expectation)
@@ -597,6 +691,14 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.Sesion = sesionMock{
+		mock: m,
+	}
+
+	m.SesionPonente = sesionPonenteMock{
+		mock: m,
+	}
+
 	return pc, m, m.Ensure
 }
 
@@ -618,6 +720,10 @@ type Mock struct {
 	Pais paisMock
 
 	Ciudad ciudadMock
+
+	Sesion sesionMock
+
+	SesionPonente sesionPonenteMock
 }
 
 type usuarioMock struct {
@@ -956,6 +1062,90 @@ func (m *ciudadMockExec) Errors(err error) {
 	})
 }
 
+type sesionMock struct {
+	mock *Mock
+}
+
+type SesionMockExpectParam interface {
+	ExtractQuery() builder.Query
+	sesionModel()
+}
+
+func (m *sesionMock) Expect(query SesionMockExpectParam) *sesionMockExec {
+	return &sesionMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type sesionMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *sesionMockExec) Returns(v SesionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *sesionMockExec) ReturnsMany(v []SesionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *sesionMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type sesionPonenteMock struct {
+	mock *Mock
+}
+
+type SesionPonenteMockExpectParam interface {
+	ExtractQuery() builder.Query
+	sesionPonenteModel()
+}
+
+func (m *sesionPonenteMock) Expect(query SesionPonenteMockExpectParam) *sesionPonenteMockExec {
+	return &sesionPonenteMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type sesionPonenteMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *sesionPonenteMockExec) Returns(v SesionPonenteModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *sesionPonenteMockExec) ReturnsMany(v []SesionPonenteModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *sesionPonenteMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
 // --- template models.gotpl ---
 
 // UsuarioModel represents the Usuario model and is a wrapper for accessing fields and methods
@@ -986,9 +1176,10 @@ type RawUsuarioModel struct {
 
 // RelationsUsuario holds the relation data separately
 type RelationsUsuario struct {
-	Rol            *RolesModel         `json:"rol,omitempty"`
-	Inscripciones  []InscripcionModel  `json:"inscripciones,omitempty"`
-	Notificaciones []NotificacionModel `json:"notificaciones,omitempty"`
+	Rol             *RolesModel          `json:"rol,omitempty"`
+	Inscripciones   []InscripcionModel   `json:"inscripciones,omitempty"`
+	Notificaciones  []NotificacionModel  `json:"notificaciones,omitempty"`
+	SesionesPonente []SesionPonenteModel `json:"sesionesPonente,omitempty"`
 }
 
 func (r UsuarioModel) Rol() (value *RolesModel) {
@@ -1010,6 +1201,13 @@ func (r UsuarioModel) Notificaciones() (value []NotificacionModel) {
 		panic("attempted to access notificaciones but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsUsuario.Notificaciones
+}
+
+func (r UsuarioModel) SesionesPonente() (value []SesionPonenteModel) {
+	if r.RelationsUsuario.SesionesPonente == nil {
+		panic("attempted to access sesionesPonente but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.SesionesPonente
 }
 
 // RolesModel represents the Roles model and is a wrapper for accessing fields and methods
@@ -1082,6 +1280,7 @@ type RawEventoModel struct {
 type RelationsEvento struct {
 	Inscripciones  []InscripcionModel  `json:"inscripciones,omitempty"`
 	Notificaciones []NotificacionModel `json:"notificaciones,omitempty"`
+	Sesiones       []SesionModel       `json:"sesiones,omitempty"`
 }
 
 func (r EventoModel) Inscripciones() (value []InscripcionModel) {
@@ -1096,6 +1295,13 @@ func (r EventoModel) Notificaciones() (value []NotificacionModel) {
 		panic("attempted to access notificaciones but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsEvento.Notificaciones
+}
+
+func (r EventoModel) Sesiones() (value []SesionModel) {
+	if r.RelationsEvento.Sesiones == nil {
+		panic("attempted to access sesiones but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsEvento.Sesiones
 }
 
 // InscripcionModel represents the Inscripcion model and is a wrapper for accessing fields and methods
@@ -1289,6 +1495,98 @@ func (r CiudadModel) Pais() (value *PaisModel) {
 	return r.RelationsCiudad.Pais
 }
 
+// SesionModel represents the Sesion model and is a wrapper for accessing fields and methods
+type SesionModel struct {
+	InnerSesion
+	RelationsSesion
+}
+
+// InnerSesion holds the actual data
+type InnerSesion struct {
+	IDSesion    int      `json:"id_sesion"`
+	Titulo      string   `json:"titulo"`
+	Descripcion string   `json:"descripcion"`
+	FechaInicio DateTime `json:"fecha_inicio"`
+	FechaFin    DateTime `json:"fecha_fin"`
+	Ubicacion   string   `json:"ubicacion"`
+	IDEvento    int      `json:"id_evento"`
+	CreatedAt   DateTime `json:"createdAt"`
+	Cancelado   bool     `json:"cancelado"`
+}
+
+// RawSesionModel is a struct for Sesion when used in raw queries
+type RawSesionModel struct {
+	IDSesion    RawInt      `json:"id_sesion"`
+	Titulo      RawString   `json:"titulo"`
+	Descripcion RawString   `json:"descripcion"`
+	FechaInicio RawDateTime `json:"fecha_inicio"`
+	FechaFin    RawDateTime `json:"fecha_fin"`
+	Ubicacion   RawString   `json:"ubicacion"`
+	IDEvento    RawInt      `json:"id_evento"`
+	CreatedAt   RawDateTime `json:"createdAt"`
+	Cancelado   RawBoolean  `json:"cancelado"`
+}
+
+// RelationsSesion holds the relation data separately
+type RelationsSesion struct {
+	Evento   *EventoModel         `json:"evento,omitempty"`
+	Ponentes []SesionPonenteModel `json:"ponentes,omitempty"`
+}
+
+func (r SesionModel) Evento() (value *EventoModel) {
+	if r.RelationsSesion.Evento == nil {
+		panic("attempted to access evento but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsSesion.Evento
+}
+
+func (r SesionModel) Ponentes() (value []SesionPonenteModel) {
+	if r.RelationsSesion.Ponentes == nil {
+		panic("attempted to access ponentes but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsSesion.Ponentes
+}
+
+// SesionPonenteModel represents the SesionPonente model and is a wrapper for accessing fields and methods
+type SesionPonenteModel struct {
+	InnerSesionPonente
+	RelationsSesionPonente
+}
+
+// InnerSesionPonente holds the actual data
+type InnerSesionPonente struct {
+	IDSesionPonente int `json:"id_sesion_ponente"`
+	IDSesion        int `json:"id_sesion"`
+	IDUsuario       int `json:"id_usuario"`
+}
+
+// RawSesionPonenteModel is a struct for SesionPonente when used in raw queries
+type RawSesionPonenteModel struct {
+	IDSesionPonente RawInt `json:"id_sesion_ponente"`
+	IDSesion        RawInt `json:"id_sesion"`
+	IDUsuario       RawInt `json:"id_usuario"`
+}
+
+// RelationsSesionPonente holds the relation data separately
+type RelationsSesionPonente struct {
+	Sesion  *SesionModel  `json:"sesion,omitempty"`
+	Usuario *UsuarioModel `json:"usuario,omitempty"`
+}
+
+func (r SesionPonenteModel) Sesion() (value *SesionModel) {
+	if r.RelationsSesionPonente.Sesion == nil {
+		panic("attempted to access sesion but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsSesionPonente.Sesion
+}
+
+func (r SesionPonenteModel) Usuario() (value *UsuarioModel) {
+	if r.RelationsSesionPonente.Usuario == nil {
+		panic("attempted to access usuario but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsSesionPonente.Usuario
+}
+
 // --- template query.gotpl ---
 
 // Usuario acts as a namespaces to access query methods for the Usuario model
@@ -1334,6 +1632,8 @@ type usuarioQuery struct {
 	Inscripciones usuarioQueryInscripcionesRelations
 
 	Notificaciones usuarioQueryNotificacionesRelations
+
+	SesionesPonente usuarioQuerySesionesPonenteRelations
 }
 
 func (usuarioQuery) Not(params ...UsuarioWhereParam) usuarioDefaultParam {
@@ -3969,6 +4269,178 @@ func (r usuarioQueryNotificacionesNotificacion) Field() usuarioPrismaFields {
 	return usuarioFieldNotificaciones
 }
 
+// base struct
+type usuarioQuerySesionesPonenteSesionPonente struct{}
+
+type usuarioQuerySesionesPonenteRelations struct{}
+
+// Usuario -> SesionesPonente
+//
+// @relation
+// @required
+func (usuarioQuerySesionesPonenteRelations) Some(
+	params ...SesionPonenteWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "sesionesPonente",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> SesionesPonente
+//
+// @relation
+// @required
+func (usuarioQuerySesionesPonenteRelations) Every(
+	params ...SesionPonenteWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "sesionesPonente",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> SesionesPonente
+//
+// @relation
+// @required
+func (usuarioQuerySesionesPonenteRelations) None(
+	params ...SesionPonenteWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "sesionesPonente",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQuerySesionesPonenteRelations) Fetch(
+
+	params ...SesionPonenteWhereParam,
+
+) usuarioToSesionesPonenteFindMany {
+	var v usuarioToSesionesPonenteFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "sesionesPonente"
+	v.query.Outputs = sesionPonenteOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQuerySesionesPonenteRelations) Link(
+	params ...SesionPonenteWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "sesionesPonente",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQuerySesionesPonenteRelations) Unlink(
+	params ...SesionPonenteWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "sesionesPonente",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQuerySesionesPonenteSesionPonente) Field() usuarioPrismaFields {
+	return usuarioFieldSesionesPonente
+}
+
 // Roles acts as a namespaces to access query methods for the Roles model
 var Roles = rolesQuery{}
 
@@ -5680,6 +6152,8 @@ type eventoQuery struct {
 	Inscripciones eventoQueryInscripcionesRelations
 
 	Notificaciones eventoQueryNotificacionesRelations
+
+	Sesiones eventoQuerySesionesRelations
 }
 
 func (eventoQuery) Not(params ...EventoWhereParam) eventoDefaultParam {
@@ -8548,6 +9022,178 @@ func (r eventoQueryNotificacionesRelations) Unlink(
 
 func (r eventoQueryNotificacionesNotificacion) Field() eventoPrismaFields {
 	return eventoFieldNotificaciones
+}
+
+// base struct
+type eventoQuerySesionesSesion struct{}
+
+type eventoQuerySesionesRelations struct{}
+
+// Evento -> Sesiones
+//
+// @relation
+// @required
+func (eventoQuerySesionesRelations) Some(
+	params ...SesionWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "sesiones",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Evento -> Sesiones
+//
+// @relation
+// @required
+func (eventoQuerySesionesRelations) Every(
+	params ...SesionWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "sesiones",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Evento -> Sesiones
+//
+// @relation
+// @required
+func (eventoQuerySesionesRelations) None(
+	params ...SesionWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "sesiones",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (eventoQuerySesionesRelations) Fetch(
+
+	params ...SesionWhereParam,
+
+) eventoToSesionesFindMany {
+	var v eventoToSesionesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "sesiones"
+	v.query.Outputs = sesionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r eventoQuerySesionesRelations) Link(
+	params ...SesionWhereParam,
+) eventoSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoSetParam{
+		data: builder.Field{
+			Name: "sesiones",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQuerySesionesRelations) Unlink(
+	params ...SesionWhereParam,
+) eventoSetParam {
+	var v eventoSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = eventoSetParam{
+		data: builder.Field{
+			Name: "sesiones",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r eventoQuerySesionesSesion) Field() eventoPrismaFields {
+	return eventoFieldSesiones
 }
 
 // Inscripcion acts as a namespaces to access query methods for the Inscripcion model
@@ -17425,6 +18071,4681 @@ func (r ciudadQueryCreatedAtDateTime) Field() ciudadPrismaFields {
 	return ciudadFieldCreatedAt
 }
 
+// Sesion acts as a namespaces to access query methods for the Sesion model
+var Sesion = sesionQuery{}
+
+// sesionQuery exposes query functions for the sesion model
+type sesionQuery struct {
+
+	// IDSesion
+	//
+	// @required
+	IDSesion sesionQueryIDSesionInt
+
+	// Titulo
+	//
+	// @required
+	Titulo sesionQueryTituloString
+
+	// Descripcion
+	//
+	// @required
+	Descripcion sesionQueryDescripcionString
+
+	// FechaInicio
+	//
+	// @required
+	FechaInicio sesionQueryFechaInicioDateTime
+
+	// FechaFin
+	//
+	// @required
+	FechaFin sesionQueryFechaFinDateTime
+
+	// Ubicacion
+	//
+	// @required
+	Ubicacion sesionQueryUbicacionString
+
+	// IDEvento
+	//
+	// @required
+	IDEvento sesionQueryIDEventoInt
+
+	Evento sesionQueryEventoRelations
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt sesionQueryCreatedAtDateTime
+
+	// Cancelado
+	//
+	// @required
+	Cancelado sesionQueryCanceladoBoolean
+
+	Ponentes sesionQueryPonentesRelations
+}
+
+func (sesionQuery) Not(params ...SesionWhereParam) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (sesionQuery) Or(params ...SesionWhereParam) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (sesionQuery) And(params ...SesionWhereParam) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type sesionQueryIDSesionInt struct{}
+
+// Set the required value of IDSesion
+func (r sesionQueryIDSesionInt) Set(value int) sesionSetParam {
+
+	return sesionSetParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDSesion dynamically
+func (r sesionQueryIDSesionInt) SetIfPresent(value *Int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDSesion
+func (r sesionQueryIDSesionInt) Increment(value int) sesionSetParam {
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) IncrementIfPresent(value *int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDSesion
+func (r sesionQueryIDSesionInt) Decrement(value int) sesionSetParam {
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) DecrementIfPresent(value *int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDSesion
+func (r sesionQueryIDSesionInt) Multiply(value int) sesionSetParam {
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) MultiplyIfPresent(value *int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDSesion
+func (r sesionQueryIDSesionInt) Divide(value int) sesionSetParam {
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) DivideIfPresent(value *int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r sesionQueryIDSesionInt) Equals(value int) sesionWithPrismaIDSesionEqualsUniqueParam {
+
+	return sesionWithPrismaIDSesionEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) EqualsIfPresent(value *int) sesionWithPrismaIDSesionEqualsUniqueParam {
+	if value == nil {
+		return sesionWithPrismaIDSesionEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryIDSesionInt) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) Cursor(cursor int) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) In(value []int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) InIfPresent(value []int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r sesionQueryIDSesionInt) NotIn(value []int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) NotInIfPresent(value []int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionQueryIDSesionInt) Lt(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) LtIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionQueryIDSesionInt) Lte(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) LteIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionQueryIDSesionInt) Gt(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) GtIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionQueryIDSesionInt) Gte(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) GteIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionQueryIDSesionInt) Not(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDSesionInt) NotIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionQueryIDSesionInt) LT(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionQueryIDSesionInt) LTIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionQueryIDSesionInt) LTE(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionQueryIDSesionInt) LTEIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionQueryIDSesionInt) GT(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionQueryIDSesionInt) GTIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionQueryIDSesionInt) GTE(value int) sesionParamUnique {
+	return sesionParamUnique{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionQueryIDSesionInt) GTEIfPresent(value *int) sesionParamUnique {
+	if value == nil {
+		return sesionParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r sesionQueryIDSesionInt) Field() sesionPrismaFields {
+	return sesionFieldIDSesion
+}
+
+// base struct
+type sesionQueryTituloString struct{}
+
+// Set the required value of Titulo
+func (r sesionQueryTituloString) Set(value string) sesionWithPrismaTituloSetParam {
+
+	return sesionWithPrismaTituloSetParam{
+		data: builder.Field{
+			Name:  "titulo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Titulo dynamically
+func (r sesionQueryTituloString) SetIfPresent(value *String) sesionWithPrismaTituloSetParam {
+	if value == nil {
+		return sesionWithPrismaTituloSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionQueryTituloString) Equals(value string) sesionWithPrismaTituloEqualsParam {
+
+	return sesionWithPrismaTituloEqualsParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) EqualsIfPresent(value *string) sesionWithPrismaTituloEqualsParam {
+	if value == nil {
+		return sesionWithPrismaTituloEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryTituloString) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "titulo",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryTituloString) Cursor(cursor string) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "titulo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryTituloString) In(value []string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) InIfPresent(value []string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionQueryTituloString) NotIn(value []string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) NotInIfPresent(value []string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionQueryTituloString) Lt(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) LtIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionQueryTituloString) Lte(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) LteIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionQueryTituloString) Gt(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) GtIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionQueryTituloString) Gte(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) GteIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionQueryTituloString) Contains(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) ContainsIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r sesionQueryTituloString) StartsWith(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) StartsWithIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r sesionQueryTituloString) EndsWith(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) EndsWithIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r sesionQueryTituloString) Mode(value QueryMode) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) ModeIfPresent(value *QueryMode) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r sesionQueryTituloString) Not(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryTituloString) NotIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r sesionQueryTituloString) HasPrefix(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r sesionQueryTituloString) HasPrefixIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r sesionQueryTituloString) HasSuffix(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r sesionQueryTituloString) HasSuffixIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r sesionQueryTituloString) Field() sesionPrismaFields {
+	return sesionFieldTitulo
+}
+
+// base struct
+type sesionQueryDescripcionString struct{}
+
+// Set the required value of Descripcion
+func (r sesionQueryDescripcionString) Set(value string) sesionWithPrismaDescripcionSetParam {
+
+	return sesionWithPrismaDescripcionSetParam{
+		data: builder.Field{
+			Name:  "descripcion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Descripcion dynamically
+func (r sesionQueryDescripcionString) SetIfPresent(value *String) sesionWithPrismaDescripcionSetParam {
+	if value == nil {
+		return sesionWithPrismaDescripcionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionQueryDescripcionString) Equals(value string) sesionWithPrismaDescripcionEqualsParam {
+
+	return sesionWithPrismaDescripcionEqualsParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) EqualsIfPresent(value *string) sesionWithPrismaDescripcionEqualsParam {
+	if value == nil {
+		return sesionWithPrismaDescripcionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryDescripcionString) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "descripcion",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) Cursor(cursor string) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "descripcion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) In(value []string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) InIfPresent(value []string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionQueryDescripcionString) NotIn(value []string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) NotInIfPresent(value []string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionQueryDescripcionString) Lt(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) LtIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionQueryDescripcionString) Lte(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) LteIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionQueryDescripcionString) Gt(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) GtIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionQueryDescripcionString) Gte(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) GteIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionQueryDescripcionString) Contains(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) ContainsIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r sesionQueryDescripcionString) StartsWith(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) StartsWithIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r sesionQueryDescripcionString) EndsWith(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) EndsWithIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r sesionQueryDescripcionString) Mode(value QueryMode) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) ModeIfPresent(value *QueryMode) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r sesionQueryDescripcionString) Not(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryDescripcionString) NotIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r sesionQueryDescripcionString) HasPrefix(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r sesionQueryDescripcionString) HasPrefixIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r sesionQueryDescripcionString) HasSuffix(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r sesionQueryDescripcionString) HasSuffixIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r sesionQueryDescripcionString) Field() sesionPrismaFields {
+	return sesionFieldDescripcion
+}
+
+// base struct
+type sesionQueryFechaInicioDateTime struct{}
+
+// Set the required value of FechaInicio
+func (r sesionQueryFechaInicioDateTime) Set(value DateTime) sesionWithPrismaFechaInicioSetParam {
+
+	return sesionWithPrismaFechaInicioSetParam{
+		data: builder.Field{
+			Name:  "fecha_inicio",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaInicio dynamically
+func (r sesionQueryFechaInicioDateTime) SetIfPresent(value *DateTime) sesionWithPrismaFechaInicioSetParam {
+	if value == nil {
+		return sesionWithPrismaFechaInicioSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionQueryFechaInicioDateTime) Equals(value DateTime) sesionWithPrismaFechaInicioEqualsParam {
+
+	return sesionWithPrismaFechaInicioEqualsParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) EqualsIfPresent(value *DateTime) sesionWithPrismaFechaInicioEqualsParam {
+	if value == nil {
+		return sesionWithPrismaFechaInicioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryFechaInicioDateTime) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_inicio",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) Cursor(cursor DateTime) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "fecha_inicio",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) In(value []DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) InIfPresent(value []DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionQueryFechaInicioDateTime) NotIn(value []DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) NotInIfPresent(value []DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionQueryFechaInicioDateTime) Lt(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) LtIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionQueryFechaInicioDateTime) Lte(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) LteIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionQueryFechaInicioDateTime) Gt(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) GtIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionQueryFechaInicioDateTime) Gte(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) GteIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionQueryFechaInicioDateTime) Not(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaInicioDateTime) NotIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionQueryFechaInicioDateTime) Before(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionQueryFechaInicioDateTime) BeforeIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionQueryFechaInicioDateTime) After(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionQueryFechaInicioDateTime) AfterIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionQueryFechaInicioDateTime) BeforeEquals(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionQueryFechaInicioDateTime) BeforeEqualsIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionQueryFechaInicioDateTime) AfterEquals(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_inicio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionQueryFechaInicioDateTime) AfterEqualsIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r sesionQueryFechaInicioDateTime) Field() sesionPrismaFields {
+	return sesionFieldFechaInicio
+}
+
+// base struct
+type sesionQueryFechaFinDateTime struct{}
+
+// Set the required value of FechaFin
+func (r sesionQueryFechaFinDateTime) Set(value DateTime) sesionWithPrismaFechaFinSetParam {
+
+	return sesionWithPrismaFechaFinSetParam{
+		data: builder.Field{
+			Name:  "fecha_fin",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaFin dynamically
+func (r sesionQueryFechaFinDateTime) SetIfPresent(value *DateTime) sesionWithPrismaFechaFinSetParam {
+	if value == nil {
+		return sesionWithPrismaFechaFinSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionQueryFechaFinDateTime) Equals(value DateTime) sesionWithPrismaFechaFinEqualsParam {
+
+	return sesionWithPrismaFechaFinEqualsParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) EqualsIfPresent(value *DateTime) sesionWithPrismaFechaFinEqualsParam {
+	if value == nil {
+		return sesionWithPrismaFechaFinEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryFechaFinDateTime) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_fin",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) Cursor(cursor DateTime) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "fecha_fin",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) In(value []DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) InIfPresent(value []DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionQueryFechaFinDateTime) NotIn(value []DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) NotInIfPresent(value []DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionQueryFechaFinDateTime) Lt(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) LtIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionQueryFechaFinDateTime) Lte(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) LteIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionQueryFechaFinDateTime) Gt(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) GtIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionQueryFechaFinDateTime) Gte(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) GteIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionQueryFechaFinDateTime) Not(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryFechaFinDateTime) NotIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionQueryFechaFinDateTime) Before(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionQueryFechaFinDateTime) BeforeIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionQueryFechaFinDateTime) After(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionQueryFechaFinDateTime) AfterIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionQueryFechaFinDateTime) BeforeEquals(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionQueryFechaFinDateTime) BeforeEqualsIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionQueryFechaFinDateTime) AfterEquals(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_fin",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionQueryFechaFinDateTime) AfterEqualsIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r sesionQueryFechaFinDateTime) Field() sesionPrismaFields {
+	return sesionFieldFechaFin
+}
+
+// base struct
+type sesionQueryUbicacionString struct{}
+
+// Set the required value of Ubicacion
+func (r sesionQueryUbicacionString) Set(value string) sesionWithPrismaUbicacionSetParam {
+
+	return sesionWithPrismaUbicacionSetParam{
+		data: builder.Field{
+			Name:  "ubicacion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Ubicacion dynamically
+func (r sesionQueryUbicacionString) SetIfPresent(value *String) sesionWithPrismaUbicacionSetParam {
+	if value == nil {
+		return sesionWithPrismaUbicacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionQueryUbicacionString) Equals(value string) sesionWithPrismaUbicacionEqualsParam {
+
+	return sesionWithPrismaUbicacionEqualsParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) EqualsIfPresent(value *string) sesionWithPrismaUbicacionEqualsParam {
+	if value == nil {
+		return sesionWithPrismaUbicacionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryUbicacionString) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "ubicacion",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) Cursor(cursor string) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "ubicacion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) In(value []string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) InIfPresent(value []string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionQueryUbicacionString) NotIn(value []string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) NotInIfPresent(value []string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionQueryUbicacionString) Lt(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) LtIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionQueryUbicacionString) Lte(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) LteIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionQueryUbicacionString) Gt(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) GtIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionQueryUbicacionString) Gte(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) GteIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionQueryUbicacionString) Contains(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) ContainsIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r sesionQueryUbicacionString) StartsWith(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) StartsWithIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r sesionQueryUbicacionString) EndsWith(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) EndsWithIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r sesionQueryUbicacionString) Mode(value QueryMode) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) ModeIfPresent(value *QueryMode) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r sesionQueryUbicacionString) Not(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryUbicacionString) NotIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r sesionQueryUbicacionString) HasPrefix(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r sesionQueryUbicacionString) HasPrefixIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r sesionQueryUbicacionString) HasSuffix(value string) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ubicacion",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r sesionQueryUbicacionString) HasSuffixIfPresent(value *string) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r sesionQueryUbicacionString) Field() sesionPrismaFields {
+	return sesionFieldUbicacion
+}
+
+// base struct
+type sesionQueryIDEventoInt struct{}
+
+// Set the required value of IDEvento
+func (r sesionQueryIDEventoInt) Set(value int) sesionSetParam {
+
+	return sesionSetParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDEvento dynamically
+func (r sesionQueryIDEventoInt) SetIfPresent(value *Int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDEvento
+func (r sesionQueryIDEventoInt) Increment(value int) sesionSetParam {
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) IncrementIfPresent(value *int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDEvento
+func (r sesionQueryIDEventoInt) Decrement(value int) sesionSetParam {
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) DecrementIfPresent(value *int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDEvento
+func (r sesionQueryIDEventoInt) Multiply(value int) sesionSetParam {
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) MultiplyIfPresent(value *int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDEvento
+func (r sesionQueryIDEventoInt) Divide(value int) sesionSetParam {
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) DivideIfPresent(value *int) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r sesionQueryIDEventoInt) Equals(value int) sesionWithPrismaIDEventoEqualsParam {
+
+	return sesionWithPrismaIDEventoEqualsParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) EqualsIfPresent(value *int) sesionWithPrismaIDEventoEqualsParam {
+	if value == nil {
+		return sesionWithPrismaIDEventoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryIDEventoInt) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) Cursor(cursor int) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) In(value []int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) InIfPresent(value []int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionQueryIDEventoInt) NotIn(value []int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) NotInIfPresent(value []int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionQueryIDEventoInt) Lt(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) LtIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionQueryIDEventoInt) Lte(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) LteIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionQueryIDEventoInt) Gt(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) GtIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionQueryIDEventoInt) Gte(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) GteIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionQueryIDEventoInt) Not(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryIDEventoInt) NotIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionQueryIDEventoInt) LT(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionQueryIDEventoInt) LTIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionQueryIDEventoInt) LTE(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionQueryIDEventoInt) LTEIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionQueryIDEventoInt) GT(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionQueryIDEventoInt) GTIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionQueryIDEventoInt) GTE(value int) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionQueryIDEventoInt) GTEIfPresent(value *int) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r sesionQueryIDEventoInt) Field() sesionPrismaFields {
+	return sesionFieldIDEvento
+}
+
+// base struct
+type sesionQueryEventoEvento struct{}
+
+type sesionQueryEventoRelations struct{}
+
+// Sesion -> Evento
+//
+// @relation
+// @required
+func (sesionQueryEventoRelations) Where(
+	params ...EventoWhereParam,
+) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (sesionQueryEventoRelations) Fetch() sesionToEventoFindUnique {
+	var v sesionToEventoFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "evento"
+	v.query.Outputs = eventoOutput
+
+	return v
+}
+
+func (r sesionQueryEventoRelations) Link(
+	params EventoWhereParam,
+) sesionWithPrismaEventoSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return sesionWithPrismaEventoSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return sesionWithPrismaEventoSetParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryEventoRelations) Unlink() sesionWithPrismaEventoSetParam {
+	var v sesionWithPrismaEventoSetParam
+
+	v = sesionWithPrismaEventoSetParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r sesionQueryEventoEvento) Field() sesionPrismaFields {
+	return sesionFieldEvento
+}
+
+// base struct
+type sesionQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r sesionQueryCreatedAtDateTime) Set(value DateTime) sesionSetParam {
+
+	return sesionSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r sesionQueryCreatedAtDateTime) SetIfPresent(value *DateTime) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionQueryCreatedAtDateTime) Equals(value DateTime) sesionWithPrismaCreatedAtEqualsParam {
+
+	return sesionWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) sesionWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return sesionWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryCreatedAtDateTime) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) Cursor(cursor DateTime) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) In(value []DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) InIfPresent(value []DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionQueryCreatedAtDateTime) NotIn(value []DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionQueryCreatedAtDateTime) Lt(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) LtIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionQueryCreatedAtDateTime) Lte(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) LteIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionQueryCreatedAtDateTime) Gt(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) GtIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionQueryCreatedAtDateTime) Gte(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) GteIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionQueryCreatedAtDateTime) Not(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCreatedAtDateTime) NotIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionQueryCreatedAtDateTime) Before(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionQueryCreatedAtDateTime) After(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionQueryCreatedAtDateTime) BeforeEquals(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionQueryCreatedAtDateTime) AfterEquals(value DateTime) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) sesionDefaultParam {
+	if value == nil {
+		return sesionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r sesionQueryCreatedAtDateTime) Field() sesionPrismaFields {
+	return sesionFieldCreatedAt
+}
+
+// base struct
+type sesionQueryCanceladoBoolean struct{}
+
+// Set the required value of Cancelado
+func (r sesionQueryCanceladoBoolean) Set(value bool) sesionSetParam {
+
+	return sesionSetParam{
+		data: builder.Field{
+			Name:  "cancelado",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Cancelado dynamically
+func (r sesionQueryCanceladoBoolean) SetIfPresent(value *Boolean) sesionSetParam {
+	if value == nil {
+		return sesionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionQueryCanceladoBoolean) Equals(value bool) sesionWithPrismaCanceladoEqualsParam {
+
+	return sesionWithPrismaCanceladoEqualsParam{
+		data: builder.Field{
+			Name: "cancelado",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryCanceladoBoolean) EqualsIfPresent(value *bool) sesionWithPrismaCanceladoEqualsParam {
+	if value == nil {
+		return sesionWithPrismaCanceladoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionQueryCanceladoBoolean) Order(direction SortOrder) sesionDefaultParam {
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name:  "cancelado",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionQueryCanceladoBoolean) Cursor(cursor bool) sesionCursorParam {
+	return sesionCursorParam{
+		data: builder.Field{
+			Name:  "cancelado",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionQueryCanceladoBoolean) Field() sesionPrismaFields {
+	return sesionFieldCancelado
+}
+
+// base struct
+type sesionQueryPonentesSesionPonente struct{}
+
+type sesionQueryPonentesRelations struct{}
+
+// Sesion -> Ponentes
+//
+// @relation
+// @required
+func (sesionQueryPonentesRelations) Some(
+	params ...SesionPonenteWhereParam,
+) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ponentes",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Sesion -> Ponentes
+//
+// @relation
+// @required
+func (sesionQueryPonentesRelations) Every(
+	params ...SesionPonenteWhereParam,
+) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ponentes",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Sesion -> Ponentes
+//
+// @relation
+// @required
+func (sesionQueryPonentesRelations) None(
+	params ...SesionPonenteWhereParam,
+) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "ponentes",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (sesionQueryPonentesRelations) Fetch(
+
+	params ...SesionPonenteWhereParam,
+
+) sesionToPonentesFindMany {
+	var v sesionToPonentesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "ponentes"
+	v.query.Outputs = sesionPonenteOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r sesionQueryPonentesRelations) Link(
+	params ...SesionPonenteWhereParam,
+) sesionSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "ponentes",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryPonentesRelations) Unlink(
+	params ...SesionPonenteWhereParam,
+) sesionSetParam {
+	var v sesionSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = sesionSetParam{
+		data: builder.Field{
+			Name: "ponentes",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r sesionQueryPonentesSesionPonente) Field() sesionPrismaFields {
+	return sesionFieldPonentes
+}
+
+// SesionPonente acts as a namespaces to access query methods for the SesionPonente model
+var SesionPonente = sesionPonenteQuery{}
+
+// sesionPonenteQuery exposes query functions for the sesionPonente model
+type sesionPonenteQuery struct {
+
+	// IDSesionPonente
+	//
+	// @required
+	IDSesionPonente sesionPonenteQueryIDSesionPonenteInt
+
+	// IDSesion
+	//
+	// @required
+	IDSesion sesionPonenteQueryIDSesionInt
+
+	// IDUsuario
+	//
+	// @required
+	IDUsuario sesionPonenteQueryIDUsuarioInt
+
+	Sesion sesionPonenteQuerySesionRelations
+
+	Usuario sesionPonenteQueryUsuarioRelations
+}
+
+func (sesionPonenteQuery) Not(params ...SesionPonenteWhereParam) sesionPonenteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (sesionPonenteQuery) Or(params ...SesionPonenteWhereParam) sesionPonenteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (sesionPonenteQuery) And(params ...SesionPonenteWhereParam) sesionPonenteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (sesionPonenteQuery) IDSesionIDUsuario(
+	_idSesion SesionPonenteWithPrismaIDSesionWhereParam,
+
+	_idUsuario SesionPonenteWithPrismaIDUsuarioWhereParam,
+) SesionPonenteEqualsUniqueWhereParam {
+	var fields []builder.Field
+
+	fields = append(fields, _idSesion.field())
+	fields = append(fields, _idUsuario.field())
+
+	return sesionPonenteEqualsUniqueParam{
+		data: builder.Field{
+			Name:   "id_sesion_id_usuario",
+			Fields: builder.TransformEquals(fields),
+		},
+	}
+}
+
+// base struct
+type sesionPonenteQueryIDSesionPonenteInt struct{}
+
+// Set the required value of IDSesionPonente
+func (r sesionPonenteQueryIDSesionPonenteInt) Set(value int) sesionPonenteSetParam {
+
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name:  "id_sesion_ponente",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDSesionPonente dynamically
+func (r sesionPonenteQueryIDSesionPonenteInt) SetIfPresent(value *Int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDSesionPonente
+func (r sesionPonenteQueryIDSesionPonenteInt) Increment(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) IncrementIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDSesionPonente
+func (r sesionPonenteQueryIDSesionPonenteInt) Decrement(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) DecrementIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDSesionPonente
+func (r sesionPonenteQueryIDSesionPonenteInt) Multiply(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) MultiplyIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDSesionPonente
+func (r sesionPonenteQueryIDSesionPonenteInt) Divide(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) DivideIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Equals(value int) sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam {
+
+	return sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) EqualsIfPresent(value *int) sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam {
+	if value == nil {
+		return sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Order(direction SortOrder) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name:  "id_sesion_ponente",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Cursor(cursor int) sesionPonenteCursorParam {
+	return sesionPonenteCursorParam{
+		data: builder.Field{
+			Name:  "id_sesion_ponente",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) In(value []int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) InIfPresent(value []int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) NotIn(value []int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) NotInIfPresent(value []int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Lt(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) LtIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Lte(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) LteIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Gt(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) GtIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Gte(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) GteIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Not(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) NotIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionPonenteQueryIDSesionPonenteInt) LT(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionPonenteQueryIDSesionPonenteInt) LTIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionPonenteQueryIDSesionPonenteInt) LTE(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionPonenteQueryIDSesionPonenteInt) LTEIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionPonenteQueryIDSesionPonenteInt) GT(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionPonenteQueryIDSesionPonenteInt) GTIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionPonenteQueryIDSesionPonenteInt) GTE(value int) sesionPonenteParamUnique {
+	return sesionPonenteParamUnique{
+		data: builder.Field{
+			Name: "id_sesion_ponente",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionPonenteQueryIDSesionPonenteInt) GTEIfPresent(value *int) sesionPonenteParamUnique {
+	if value == nil {
+		return sesionPonenteParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r sesionPonenteQueryIDSesionPonenteInt) Field() sesionPonentePrismaFields {
+	return sesionPonenteFieldIDSesionPonente
+}
+
+// base struct
+type sesionPonenteQueryIDSesionInt struct{}
+
+// Set the required value of IDSesion
+func (r sesionPonenteQueryIDSesionInt) Set(value int) sesionPonenteSetParam {
+
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDSesion dynamically
+func (r sesionPonenteQueryIDSesionInt) SetIfPresent(value *Int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDSesion
+func (r sesionPonenteQueryIDSesionInt) Increment(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) IncrementIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDSesion
+func (r sesionPonenteQueryIDSesionInt) Decrement(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) DecrementIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDSesion
+func (r sesionPonenteQueryIDSesionInt) Multiply(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) MultiplyIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDSesion
+func (r sesionPonenteQueryIDSesionInt) Divide(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) DivideIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) Equals(value int) sesionPonenteWithPrismaIDSesionEqualsParam {
+
+	return sesionPonenteWithPrismaIDSesionEqualsParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) EqualsIfPresent(value *int) sesionPonenteWithPrismaIDSesionEqualsParam {
+	if value == nil {
+		return sesionPonenteWithPrismaIDSesionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) Order(direction SortOrder) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) Cursor(cursor int) sesionPonenteCursorParam {
+	return sesionPonenteCursorParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) In(value []int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) InIfPresent(value []int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) NotIn(value []int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) NotInIfPresent(value []int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) Lt(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) LtIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) Lte(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) LteIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) Gt(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) GtIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) Gte(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) GteIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) Not(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDSesionInt) NotIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionPonenteQueryIDSesionInt) LT(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionPonenteQueryIDSesionInt) LTIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionPonenteQueryIDSesionInt) LTE(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionPonenteQueryIDSesionInt) LTEIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionPonenteQueryIDSesionInt) GT(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionPonenteQueryIDSesionInt) GTIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionPonenteQueryIDSesionInt) GTE(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionPonenteQueryIDSesionInt) GTEIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r sesionPonenteQueryIDSesionInt) Field() sesionPonentePrismaFields {
+	return sesionPonenteFieldIDSesion
+}
+
+// base struct
+type sesionPonenteQueryIDUsuarioInt struct{}
+
+// Set the required value of IDUsuario
+func (r sesionPonenteQueryIDUsuarioInt) Set(value int) sesionPonenteSetParam {
+
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDUsuario dynamically
+func (r sesionPonenteQueryIDUsuarioInt) SetIfPresent(value *Int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDUsuario
+func (r sesionPonenteQueryIDUsuarioInt) Increment(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) IncrementIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDUsuario
+func (r sesionPonenteQueryIDUsuarioInt) Decrement(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) DecrementIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDUsuario
+func (r sesionPonenteQueryIDUsuarioInt) Multiply(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) MultiplyIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDUsuario
+func (r sesionPonenteQueryIDUsuarioInt) Divide(value int) sesionPonenteSetParam {
+	return sesionPonenteSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) DivideIfPresent(value *int) sesionPonenteSetParam {
+	if value == nil {
+		return sesionPonenteSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Equals(value int) sesionPonenteWithPrismaIDUsuarioEqualsParam {
+
+	return sesionPonenteWithPrismaIDUsuarioEqualsParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) EqualsIfPresent(value *int) sesionPonenteWithPrismaIDUsuarioEqualsParam {
+	if value == nil {
+		return sesionPonenteWithPrismaIDUsuarioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Order(direction SortOrder) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Cursor(cursor int) sesionPonenteCursorParam {
+	return sesionPonenteCursorParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) In(value []int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) InIfPresent(value []int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) NotIn(value []int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) NotInIfPresent(value []int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Lt(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) LtIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Lte(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) LteIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Gt(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) GtIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Gte(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) GteIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Not(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) NotIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionPonenteQueryIDUsuarioInt) LT(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionPonenteQueryIDUsuarioInt) LTIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionPonenteQueryIDUsuarioInt) LTE(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionPonenteQueryIDUsuarioInt) LTEIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionPonenteQueryIDUsuarioInt) GT(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionPonenteQueryIDUsuarioInt) GTIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionPonenteQueryIDUsuarioInt) GTE(value int) sesionPonenteDefaultParam {
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionPonenteQueryIDUsuarioInt) GTEIfPresent(value *int) sesionPonenteDefaultParam {
+	if value == nil {
+		return sesionPonenteDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r sesionPonenteQueryIDUsuarioInt) Field() sesionPonentePrismaFields {
+	return sesionPonenteFieldIDUsuario
+}
+
+// base struct
+type sesionPonenteQuerySesionSesion struct{}
+
+type sesionPonenteQuerySesionRelations struct{}
+
+// SesionPonente -> Sesion
+//
+// @relation
+// @required
+func (sesionPonenteQuerySesionRelations) Where(
+	params ...SesionWhereParam,
+) sesionPonenteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "sesion",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (sesionPonenteQuerySesionRelations) Fetch() sesionPonenteToSesionFindUnique {
+	var v sesionPonenteToSesionFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "sesion"
+	v.query.Outputs = sesionOutput
+
+	return v
+}
+
+func (r sesionPonenteQuerySesionRelations) Link(
+	params SesionWhereParam,
+) sesionPonenteWithPrismaSesionSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return sesionPonenteWithPrismaSesionSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return sesionPonenteWithPrismaSesionSetParam{
+		data: builder.Field{
+			Name: "sesion",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQuerySesionRelations) Unlink() sesionPonenteWithPrismaSesionSetParam {
+	var v sesionPonenteWithPrismaSesionSetParam
+
+	v = sesionPonenteWithPrismaSesionSetParam{
+		data: builder.Field{
+			Name: "sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r sesionPonenteQuerySesionSesion) Field() sesionPonentePrismaFields {
+	return sesionPonenteFieldSesion
+}
+
+// base struct
+type sesionPonenteQueryUsuarioUsuario struct{}
+
+type sesionPonenteQueryUsuarioRelations struct{}
+
+// SesionPonente -> Usuario
+//
+// @relation
+// @required
+func (sesionPonenteQueryUsuarioRelations) Where(
+	params ...UsuarioWhereParam,
+) sesionPonenteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionPonenteDefaultParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (sesionPonenteQueryUsuarioRelations) Fetch() sesionPonenteToUsuarioFindUnique {
+	var v sesionPonenteToUsuarioFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "usuario"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r sesionPonenteQueryUsuarioRelations) Link(
+	params UsuarioWhereParam,
+) sesionPonenteWithPrismaUsuarioSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return sesionPonenteWithPrismaUsuarioSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return sesionPonenteWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r sesionPonenteQueryUsuarioRelations) Unlink() sesionPonenteWithPrismaUsuarioSetParam {
+	var v sesionPonenteWithPrismaUsuarioSetParam
+
+	v = sesionPonenteWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r sesionPonenteQueryUsuarioUsuario) Field() sesionPonentePrismaFields {
+	return sesionPonenteFieldUsuario
+}
+
 // --- template actions.gotpl ---
 var countOutput = []builder.Output{
 	{Name: "count"},
@@ -18309,6 +23630,84 @@ func (p usuarioWithPrismaNotificacionesEqualsUniqueParam) notificacionesField() 
 
 func (usuarioWithPrismaNotificacionesEqualsUniqueParam) unique() {}
 func (usuarioWithPrismaNotificacionesEqualsUniqueParam) equals() {}
+
+type UsuarioWithPrismaSesionesPonenteEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	sesionesPonenteField()
+}
+
+type UsuarioWithPrismaSesionesPonenteSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	sesionesPonenteField()
+}
+
+type usuarioWithPrismaSesionesPonenteSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaSesionesPonenteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaSesionesPonenteSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaSesionesPonenteSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaSesionesPonenteSetParam) sesionesPonenteField() {}
+
+type UsuarioWithPrismaSesionesPonenteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	sesionesPonenteField()
+}
+
+type usuarioWithPrismaSesionesPonenteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaSesionesPonenteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaSesionesPonenteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaSesionesPonenteEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaSesionesPonenteEqualsParam) sesionesPonenteField() {}
+
+func (usuarioWithPrismaSesionesPonenteSetParam) settable()  {}
+func (usuarioWithPrismaSesionesPonenteEqualsParam) equals() {}
+
+type usuarioWithPrismaSesionesPonenteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaSesionesPonenteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaSesionesPonenteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaSesionesPonenteEqualsUniqueParam) usuarioModel()         {}
+func (p usuarioWithPrismaSesionesPonenteEqualsUniqueParam) sesionesPonenteField() {}
+
+func (usuarioWithPrismaSesionesPonenteEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaSesionesPonenteEqualsUniqueParam) equals() {}
 
 type rolesActions struct {
 	// client holds the prisma client
@@ -19915,6 +25314,84 @@ func (p eventoWithPrismaNotificacionesEqualsUniqueParam) notificacionesField() {
 
 func (eventoWithPrismaNotificacionesEqualsUniqueParam) unique() {}
 func (eventoWithPrismaNotificacionesEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaSesionesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	sesionesField()
+}
+
+type EventoWithPrismaSesionesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	sesionesField()
+}
+
+type eventoWithPrismaSesionesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaSesionesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaSesionesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaSesionesSetParam) eventoModel() {}
+
+func (p eventoWithPrismaSesionesSetParam) sesionesField() {}
+
+type EventoWithPrismaSesionesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	sesionesField()
+}
+
+type eventoWithPrismaSesionesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaSesionesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaSesionesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaSesionesEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaSesionesEqualsParam) sesionesField() {}
+
+func (eventoWithPrismaSesionesSetParam) settable()  {}
+func (eventoWithPrismaSesionesEqualsParam) equals() {}
+
+type eventoWithPrismaSesionesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaSesionesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaSesionesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaSesionesEqualsUniqueParam) eventoModel()   {}
+func (p eventoWithPrismaSesionesEqualsUniqueParam) sesionesField() {}
+
+func (eventoWithPrismaSesionesEqualsUniqueParam) unique() {}
+func (eventoWithPrismaSesionesEqualsUniqueParam) equals() {}
 
 type inscripcionActions struct {
 	// client holds the prisma client
@@ -23061,6 +28538,1610 @@ func (p ciudadWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
 func (ciudadWithPrismaCreatedAtEqualsUniqueParam) unique() {}
 func (ciudadWithPrismaCreatedAtEqualsUniqueParam) equals() {}
 
+type sesionActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var sesionOutput = []builder.Output{
+	{Name: "id_sesion"},
+	{Name: "titulo"},
+	{Name: "descripcion"},
+	{Name: "fecha_inicio"},
+	{Name: "fecha_fin"},
+	{Name: "ubicacion"},
+	{Name: "id_evento"},
+	{Name: "createdAt"},
+	{Name: "cancelado"},
+}
+
+type SesionRelationWith interface {
+	getQuery() builder.Query
+	with()
+	sesionRelation()
+}
+
+type SesionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+}
+
+type sesionDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionDefaultParam) sesionModel() {}
+
+type SesionOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+}
+
+type sesionOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionOrderByParam) sesionModel() {}
+
+type SesionCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	isCursor()
+}
+
+type sesionCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionCursorParam) isCursor() {}
+
+func (p sesionCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionCursorParam) sesionModel() {}
+
+type SesionParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	sesionModel()
+}
+
+type sesionParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionParamUnique) sesionModel() {}
+
+func (sesionParamUnique) unique() {}
+
+func (p sesionParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p sesionParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+}
+
+type sesionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionEqualsParam) sesionModel() {}
+
+func (sesionEqualsParam) equals() {}
+
+func (p sesionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	sesionModel()
+}
+
+type sesionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionEqualsUniqueParam) sesionModel() {}
+
+func (sesionEqualsUniqueParam) unique() {}
+func (sesionEqualsUniqueParam) equals() {}
+
+func (p sesionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionSetParam interface {
+	field() builder.Field
+	settable()
+	sesionModel()
+}
+
+type sesionSetParam struct {
+	data builder.Field
+}
+
+func (sesionSetParam) settable() {}
+
+func (p sesionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionSetParam) sesionModel() {}
+
+type SesionWithPrismaIDSesionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	idSesionField()
+}
+
+type SesionWithPrismaIDSesionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	idSesionField()
+}
+
+type sesionWithPrismaIDSesionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaIDSesionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaIDSesionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaIDSesionSetParam) sesionModel() {}
+
+func (p sesionWithPrismaIDSesionSetParam) idSesionField() {}
+
+type SesionWithPrismaIDSesionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	idSesionField()
+}
+
+type sesionWithPrismaIDSesionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaIDSesionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaIDSesionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaIDSesionEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaIDSesionEqualsParam) idSesionField() {}
+
+func (sesionWithPrismaIDSesionSetParam) settable()  {}
+func (sesionWithPrismaIDSesionEqualsParam) equals() {}
+
+type sesionWithPrismaIDSesionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaIDSesionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaIDSesionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaIDSesionEqualsUniqueParam) sesionModel()   {}
+func (p sesionWithPrismaIDSesionEqualsUniqueParam) idSesionField() {}
+
+func (sesionWithPrismaIDSesionEqualsUniqueParam) unique() {}
+func (sesionWithPrismaIDSesionEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaTituloEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	tituloField()
+}
+
+type SesionWithPrismaTituloSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	tituloField()
+}
+
+type sesionWithPrismaTituloSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaTituloSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaTituloSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaTituloSetParam) sesionModel() {}
+
+func (p sesionWithPrismaTituloSetParam) tituloField() {}
+
+type SesionWithPrismaTituloWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	tituloField()
+}
+
+type sesionWithPrismaTituloEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaTituloEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaTituloEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaTituloEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaTituloEqualsParam) tituloField() {}
+
+func (sesionWithPrismaTituloSetParam) settable()  {}
+func (sesionWithPrismaTituloEqualsParam) equals() {}
+
+type sesionWithPrismaTituloEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaTituloEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaTituloEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaTituloEqualsUniqueParam) sesionModel() {}
+func (p sesionWithPrismaTituloEqualsUniqueParam) tituloField() {}
+
+func (sesionWithPrismaTituloEqualsUniqueParam) unique() {}
+func (sesionWithPrismaTituloEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaDescripcionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	descripcionField()
+}
+
+type SesionWithPrismaDescripcionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	descripcionField()
+}
+
+type sesionWithPrismaDescripcionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaDescripcionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaDescripcionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaDescripcionSetParam) sesionModel() {}
+
+func (p sesionWithPrismaDescripcionSetParam) descripcionField() {}
+
+type SesionWithPrismaDescripcionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	descripcionField()
+}
+
+type sesionWithPrismaDescripcionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaDescripcionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaDescripcionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaDescripcionEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaDescripcionEqualsParam) descripcionField() {}
+
+func (sesionWithPrismaDescripcionSetParam) settable()  {}
+func (sesionWithPrismaDescripcionEqualsParam) equals() {}
+
+type sesionWithPrismaDescripcionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaDescripcionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaDescripcionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaDescripcionEqualsUniqueParam) sesionModel()      {}
+func (p sesionWithPrismaDescripcionEqualsUniqueParam) descripcionField() {}
+
+func (sesionWithPrismaDescripcionEqualsUniqueParam) unique() {}
+func (sesionWithPrismaDescripcionEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaFechaInicioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	fechaInicioField()
+}
+
+type SesionWithPrismaFechaInicioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	fechaInicioField()
+}
+
+type sesionWithPrismaFechaInicioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaFechaInicioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaFechaInicioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaFechaInicioSetParam) sesionModel() {}
+
+func (p sesionWithPrismaFechaInicioSetParam) fechaInicioField() {}
+
+type SesionWithPrismaFechaInicioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	fechaInicioField()
+}
+
+type sesionWithPrismaFechaInicioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaFechaInicioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaFechaInicioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaFechaInicioEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaFechaInicioEqualsParam) fechaInicioField() {}
+
+func (sesionWithPrismaFechaInicioSetParam) settable()  {}
+func (sesionWithPrismaFechaInicioEqualsParam) equals() {}
+
+type sesionWithPrismaFechaInicioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaFechaInicioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaFechaInicioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaFechaInicioEqualsUniqueParam) sesionModel()      {}
+func (p sesionWithPrismaFechaInicioEqualsUniqueParam) fechaInicioField() {}
+
+func (sesionWithPrismaFechaInicioEqualsUniqueParam) unique() {}
+func (sesionWithPrismaFechaInicioEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaFechaFinEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	fechaFinField()
+}
+
+type SesionWithPrismaFechaFinSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	fechaFinField()
+}
+
+type sesionWithPrismaFechaFinSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaFechaFinSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaFechaFinSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaFechaFinSetParam) sesionModel() {}
+
+func (p sesionWithPrismaFechaFinSetParam) fechaFinField() {}
+
+type SesionWithPrismaFechaFinWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	fechaFinField()
+}
+
+type sesionWithPrismaFechaFinEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaFechaFinEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaFechaFinEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaFechaFinEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaFechaFinEqualsParam) fechaFinField() {}
+
+func (sesionWithPrismaFechaFinSetParam) settable()  {}
+func (sesionWithPrismaFechaFinEqualsParam) equals() {}
+
+type sesionWithPrismaFechaFinEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaFechaFinEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaFechaFinEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaFechaFinEqualsUniqueParam) sesionModel()   {}
+func (p sesionWithPrismaFechaFinEqualsUniqueParam) fechaFinField() {}
+
+func (sesionWithPrismaFechaFinEqualsUniqueParam) unique() {}
+func (sesionWithPrismaFechaFinEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaUbicacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	ubicacionField()
+}
+
+type SesionWithPrismaUbicacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	ubicacionField()
+}
+
+type sesionWithPrismaUbicacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaUbicacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaUbicacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaUbicacionSetParam) sesionModel() {}
+
+func (p sesionWithPrismaUbicacionSetParam) ubicacionField() {}
+
+type SesionWithPrismaUbicacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	ubicacionField()
+}
+
+type sesionWithPrismaUbicacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaUbicacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaUbicacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaUbicacionEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaUbicacionEqualsParam) ubicacionField() {}
+
+func (sesionWithPrismaUbicacionSetParam) settable()  {}
+func (sesionWithPrismaUbicacionEqualsParam) equals() {}
+
+type sesionWithPrismaUbicacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaUbicacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaUbicacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaUbicacionEqualsUniqueParam) sesionModel()    {}
+func (p sesionWithPrismaUbicacionEqualsUniqueParam) ubicacionField() {}
+
+func (sesionWithPrismaUbicacionEqualsUniqueParam) unique() {}
+func (sesionWithPrismaUbicacionEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaIDEventoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	idEventoField()
+}
+
+type SesionWithPrismaIDEventoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	idEventoField()
+}
+
+type sesionWithPrismaIDEventoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaIDEventoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaIDEventoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaIDEventoSetParam) sesionModel() {}
+
+func (p sesionWithPrismaIDEventoSetParam) idEventoField() {}
+
+type SesionWithPrismaIDEventoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	idEventoField()
+}
+
+type sesionWithPrismaIDEventoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaIDEventoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaIDEventoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaIDEventoEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaIDEventoEqualsParam) idEventoField() {}
+
+func (sesionWithPrismaIDEventoSetParam) settable()  {}
+func (sesionWithPrismaIDEventoEqualsParam) equals() {}
+
+type sesionWithPrismaIDEventoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaIDEventoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaIDEventoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaIDEventoEqualsUniqueParam) sesionModel()   {}
+func (p sesionWithPrismaIDEventoEqualsUniqueParam) idEventoField() {}
+
+func (sesionWithPrismaIDEventoEqualsUniqueParam) unique() {}
+func (sesionWithPrismaIDEventoEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaEventoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	eventoField()
+}
+
+type SesionWithPrismaEventoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	eventoField()
+}
+
+type sesionWithPrismaEventoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaEventoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaEventoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaEventoSetParam) sesionModel() {}
+
+func (p sesionWithPrismaEventoSetParam) eventoField() {}
+
+type SesionWithPrismaEventoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	eventoField()
+}
+
+type sesionWithPrismaEventoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaEventoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaEventoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaEventoEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaEventoEqualsParam) eventoField() {}
+
+func (sesionWithPrismaEventoSetParam) settable()  {}
+func (sesionWithPrismaEventoEqualsParam) equals() {}
+
+type sesionWithPrismaEventoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaEventoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaEventoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaEventoEqualsUniqueParam) sesionModel() {}
+func (p sesionWithPrismaEventoEqualsUniqueParam) eventoField() {}
+
+func (sesionWithPrismaEventoEqualsUniqueParam) unique() {}
+func (sesionWithPrismaEventoEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	createdAtField()
+}
+
+type SesionWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	createdAtField()
+}
+
+type sesionWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaCreatedAtSetParam) sesionModel() {}
+
+func (p sesionWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type SesionWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	createdAtField()
+}
+
+type sesionWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaCreatedAtEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (sesionWithPrismaCreatedAtSetParam) settable()  {}
+func (sesionWithPrismaCreatedAtEqualsParam) equals() {}
+
+type sesionWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaCreatedAtEqualsUniqueParam) sesionModel()    {}
+func (p sesionWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
+
+func (sesionWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (sesionWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaCanceladoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	canceladoField()
+}
+
+type SesionWithPrismaCanceladoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	canceladoField()
+}
+
+type sesionWithPrismaCanceladoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaCanceladoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaCanceladoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaCanceladoSetParam) sesionModel() {}
+
+func (p sesionWithPrismaCanceladoSetParam) canceladoField() {}
+
+type SesionWithPrismaCanceladoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	canceladoField()
+}
+
+type sesionWithPrismaCanceladoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaCanceladoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaCanceladoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaCanceladoEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaCanceladoEqualsParam) canceladoField() {}
+
+func (sesionWithPrismaCanceladoSetParam) settable()  {}
+func (sesionWithPrismaCanceladoEqualsParam) equals() {}
+
+type sesionWithPrismaCanceladoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaCanceladoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaCanceladoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaCanceladoEqualsUniqueParam) sesionModel()    {}
+func (p sesionWithPrismaCanceladoEqualsUniqueParam) canceladoField() {}
+
+func (sesionWithPrismaCanceladoEqualsUniqueParam) unique() {}
+func (sesionWithPrismaCanceladoEqualsUniqueParam) equals() {}
+
+type SesionWithPrismaPonentesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	ponentesField()
+}
+
+type SesionWithPrismaPonentesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	ponentesField()
+}
+
+type sesionWithPrismaPonentesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaPonentesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaPonentesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaPonentesSetParam) sesionModel() {}
+
+func (p sesionWithPrismaPonentesSetParam) ponentesField() {}
+
+type SesionWithPrismaPonentesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	ponentesField()
+}
+
+type sesionWithPrismaPonentesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaPonentesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaPonentesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaPonentesEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaPonentesEqualsParam) ponentesField() {}
+
+func (sesionWithPrismaPonentesSetParam) settable()  {}
+func (sesionWithPrismaPonentesEqualsParam) equals() {}
+
+type sesionWithPrismaPonentesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaPonentesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaPonentesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaPonentesEqualsUniqueParam) sesionModel()   {}
+func (p sesionWithPrismaPonentesEqualsUniqueParam) ponentesField() {}
+
+func (sesionWithPrismaPonentesEqualsUniqueParam) unique() {}
+func (sesionWithPrismaPonentesEqualsUniqueParam) equals() {}
+
+type sesionPonenteActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var sesionPonenteOutput = []builder.Output{
+	{Name: "id_sesion_ponente"},
+	{Name: "id_sesion"},
+	{Name: "id_usuario"},
+}
+
+type SesionPonenteRelationWith interface {
+	getQuery() builder.Query
+	with()
+	sesionPonenteRelation()
+}
+
+type SesionPonenteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+}
+
+type sesionPonenteDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteDefaultParam) sesionPonenteModel() {}
+
+type SesionPonenteOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+}
+
+type sesionPonenteOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteOrderByParam) sesionPonenteModel() {}
+
+type SesionPonenteCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	isCursor()
+}
+
+type sesionPonenteCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteCursorParam) isCursor() {}
+
+func (p sesionPonenteCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteCursorParam) sesionPonenteModel() {}
+
+type SesionPonenteParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	sesionPonenteModel()
+}
+
+type sesionPonenteParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteParamUnique) sesionPonenteModel() {}
+
+func (sesionPonenteParamUnique) unique() {}
+
+func (p sesionPonenteParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionPonenteEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionPonenteModel()
+}
+
+type sesionPonenteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteEqualsParam) sesionPonenteModel() {}
+
+func (sesionPonenteEqualsParam) equals() {}
+
+func (p sesionPonenteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionPonenteEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	sesionPonenteModel()
+}
+
+type sesionPonenteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteEqualsUniqueParam) sesionPonenteModel() {}
+
+func (sesionPonenteEqualsUniqueParam) unique() {}
+func (sesionPonenteEqualsUniqueParam) equals() {}
+
+func (p sesionPonenteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionPonenteSetParam interface {
+	field() builder.Field
+	settable()
+	sesionPonenteModel()
+}
+
+type sesionPonenteSetParam struct {
+	data builder.Field
+}
+
+func (sesionPonenteSetParam) settable() {}
+
+func (p sesionPonenteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteSetParam) sesionPonenteModel() {}
+
+type SesionPonenteWithPrismaIDSesionPonenteEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionPonenteModel()
+	idSesionPonenteField()
+}
+
+type SesionPonenteWithPrismaIDSesionPonenteSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	idSesionPonenteField()
+}
+
+type sesionPonenteWithPrismaIDSesionPonenteSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteSetParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteSetParam) idSesionPonenteField() {}
+
+type SesionPonenteWithPrismaIDSesionPonenteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	idSesionPonenteField()
+}
+
+type sesionPonenteWithPrismaIDSesionPonenteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteEqualsParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteEqualsParam) idSesionPonenteField() {}
+
+func (sesionPonenteWithPrismaIDSesionPonenteSetParam) settable()  {}
+func (sesionPonenteWithPrismaIDSesionPonenteEqualsParam) equals() {}
+
+type sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam) sesionPonenteModel()   {}
+func (p sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam) idSesionPonenteField() {}
+
+func (sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam) unique() {}
+func (sesionPonenteWithPrismaIDSesionPonenteEqualsUniqueParam) equals() {}
+
+type SesionPonenteWithPrismaIDSesionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionPonenteModel()
+	idSesionField()
+}
+
+type SesionPonenteWithPrismaIDSesionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	idSesionField()
+}
+
+type sesionPonenteWithPrismaIDSesionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDSesionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDSesionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDSesionSetParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaIDSesionSetParam) idSesionField() {}
+
+type SesionPonenteWithPrismaIDSesionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	idSesionField()
+}
+
+type sesionPonenteWithPrismaIDSesionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDSesionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDSesionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDSesionEqualsParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaIDSesionEqualsParam) idSesionField() {}
+
+func (sesionPonenteWithPrismaIDSesionSetParam) settable()  {}
+func (sesionPonenteWithPrismaIDSesionEqualsParam) equals() {}
+
+type sesionPonenteWithPrismaIDSesionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDSesionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDSesionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDSesionEqualsUniqueParam) sesionPonenteModel() {}
+func (p sesionPonenteWithPrismaIDSesionEqualsUniqueParam) idSesionField()      {}
+
+func (sesionPonenteWithPrismaIDSesionEqualsUniqueParam) unique() {}
+func (sesionPonenteWithPrismaIDSesionEqualsUniqueParam) equals() {}
+
+type SesionPonenteWithPrismaIDUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionPonenteModel()
+	idUsuarioField()
+}
+
+type SesionPonenteWithPrismaIDUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	idUsuarioField()
+}
+
+type sesionPonenteWithPrismaIDUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioSetParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaIDUsuarioSetParam) idUsuarioField() {}
+
+type SesionPonenteWithPrismaIDUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	idUsuarioField()
+}
+
+type sesionPonenteWithPrismaIDUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioEqualsParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaIDUsuarioEqualsParam) idUsuarioField() {}
+
+func (sesionPonenteWithPrismaIDUsuarioSetParam) settable()  {}
+func (sesionPonenteWithPrismaIDUsuarioEqualsParam) equals() {}
+
+type sesionPonenteWithPrismaIDUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaIDUsuarioEqualsUniqueParam) sesionPonenteModel() {}
+func (p sesionPonenteWithPrismaIDUsuarioEqualsUniqueParam) idUsuarioField()     {}
+
+func (sesionPonenteWithPrismaIDUsuarioEqualsUniqueParam) unique() {}
+func (sesionPonenteWithPrismaIDUsuarioEqualsUniqueParam) equals() {}
+
+type SesionPonenteWithPrismaSesionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionPonenteModel()
+	sesionField()
+}
+
+type SesionPonenteWithPrismaSesionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	sesionField()
+}
+
+type sesionPonenteWithPrismaSesionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaSesionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaSesionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaSesionSetParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaSesionSetParam) sesionField() {}
+
+type SesionPonenteWithPrismaSesionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	sesionField()
+}
+
+type sesionPonenteWithPrismaSesionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaSesionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaSesionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaSesionEqualsParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaSesionEqualsParam) sesionField() {}
+
+func (sesionPonenteWithPrismaSesionSetParam) settable()  {}
+func (sesionPonenteWithPrismaSesionEqualsParam) equals() {}
+
+type sesionPonenteWithPrismaSesionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaSesionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaSesionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaSesionEqualsUniqueParam) sesionPonenteModel() {}
+func (p sesionPonenteWithPrismaSesionEqualsUniqueParam) sesionField()        {}
+
+func (sesionPonenteWithPrismaSesionEqualsUniqueParam) unique() {}
+func (sesionPonenteWithPrismaSesionEqualsUniqueParam) equals() {}
+
+type SesionPonenteWithPrismaUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionPonenteModel()
+	usuarioField()
+}
+
+type SesionPonenteWithPrismaUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	usuarioField()
+}
+
+type sesionPonenteWithPrismaUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaUsuarioSetParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaUsuarioSetParam) usuarioField() {}
+
+type SesionPonenteWithPrismaUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionPonenteModel()
+	usuarioField()
+}
+
+type sesionPonenteWithPrismaUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaUsuarioEqualsParam) sesionPonenteModel() {}
+
+func (p sesionPonenteWithPrismaUsuarioEqualsParam) usuarioField() {}
+
+func (sesionPonenteWithPrismaUsuarioSetParam) settable()  {}
+func (sesionPonenteWithPrismaUsuarioEqualsParam) equals() {}
+
+type sesionPonenteWithPrismaUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionPonenteWithPrismaUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionPonenteWithPrismaUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteWithPrismaUsuarioEqualsUniqueParam) sesionPonenteModel() {}
+func (p sesionPonenteWithPrismaUsuarioEqualsUniqueParam) usuarioField()       {}
+
+func (sesionPonenteWithPrismaUsuarioEqualsUniqueParam) unique() {}
+func (sesionPonenteWithPrismaUsuarioEqualsUniqueParam) equals() {}
+
 // --- template create.gotpl ---
 
 // Creates a single usuario.
@@ -23628,6 +30709,154 @@ func (r ciudadCreateOne) Exec(ctx context.Context) (*CiudadModel, error) {
 
 func (r ciudadCreateOne) Tx() CiudadUniqueTxResult {
 	v := newCiudadUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single sesion.
+func (r sesionActions) CreateOne(
+	_titulo SesionWithPrismaTituloSetParam,
+	_descripcion SesionWithPrismaDescripcionSetParam,
+	_fechaInicio SesionWithPrismaFechaInicioSetParam,
+	_fechaFin SesionWithPrismaFechaFinSetParam,
+	_ubicacion SesionWithPrismaUbicacionSetParam,
+	_evento SesionWithPrismaEventoSetParam,
+
+	optional ...SesionSetParam,
+) sesionCreateOne {
+	var v sesionCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "Sesion"
+	v.query.Outputs = sesionOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _titulo.field())
+	fields = append(fields, _descripcion.field())
+	fields = append(fields, _fechaInicio.field())
+	fields = append(fields, _fechaFin.field())
+	fields = append(fields, _ubicacion.field())
+	fields = append(fields, _evento.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r sesionCreateOne) With(params ...SesionRelationWith) sesionCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type sesionCreateOne struct {
+	query builder.Query
+}
+
+func (p sesionCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionCreateOne) sesionModel() {}
+
+func (r sesionCreateOne) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionCreateOne) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single sesionPonente.
+func (r sesionPonenteActions) CreateOne(
+	_sesion SesionPonenteWithPrismaSesionSetParam,
+	_usuario SesionPonenteWithPrismaUsuarioSetParam,
+
+	optional ...SesionPonenteSetParam,
+) sesionPonenteCreateOne {
+	var v sesionPonenteCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "SesionPonente"
+	v.query.Outputs = sesionPonenteOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _sesion.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r sesionPonenteCreateOne) With(params ...SesionPonenteRelationWith) sesionPonenteCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type sesionPonenteCreateOne struct {
+	query builder.Query
+}
+
+func (p sesionPonenteCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionPonenteCreateOne) sesionPonenteModel() {}
+
+func (r sesionPonenteCreateOne) Exec(ctx context.Context) (*SesionPonenteModel, error) {
+	var v SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteCreateOne) Tx() SesionPonenteUniqueTxResult {
+	v := newSesionPonenteUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -25291,6 +32520,560 @@ func (r usuarioToNotificacionesDeleteMany) Exec(ctx context.Context) (*BatchResu
 }
 
 func (r usuarioToNotificacionesDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToSesionesPonenteFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToSesionesPonenteFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToSesionesPonenteFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToSesionesPonenteFindUnique) with()            {}
+func (r usuarioToSesionesPonenteFindUnique) usuarioModel()    {}
+func (r usuarioToSesionesPonenteFindUnique) usuarioRelation() {}
+
+func (r usuarioToSesionesPonenteFindUnique) With(params ...SesionPonenteRelationWith) usuarioToSesionesPonenteFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindUnique) Select(params ...usuarioPrismaFields) usuarioToSesionesPonenteFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindUnique) Omit(params ...usuarioPrismaFields) usuarioToSesionesPonenteFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToSesionesPonenteFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToSesionesPonenteFindUnique) Update(params ...UsuarioSetParam) usuarioToSesionesPonenteUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToSesionesPonenteUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToSesionesPonenteUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToSesionesPonenteUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToSesionesPonenteUpdateUnique) usuarioModel() {}
+
+func (r usuarioToSesionesPonenteUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToSesionesPonenteUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToSesionesPonenteFindUnique) Delete() usuarioToSesionesPonenteDeleteUnique {
+	var v usuarioToSesionesPonenteDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToSesionesPonenteDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToSesionesPonenteDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToSesionesPonenteDeleteUnique) usuarioModel() {}
+
+func (r usuarioToSesionesPonenteDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToSesionesPonenteDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToSesionesPonenteFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToSesionesPonenteFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToSesionesPonenteFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToSesionesPonenteFindFirst) with()            {}
+func (r usuarioToSesionesPonenteFindFirst) usuarioModel()    {}
+func (r usuarioToSesionesPonenteFindFirst) usuarioRelation() {}
+
+func (r usuarioToSesionesPonenteFindFirst) With(params ...SesionPonenteRelationWith) usuarioToSesionesPonenteFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindFirst) Select(params ...usuarioPrismaFields) usuarioToSesionesPonenteFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindFirst) Omit(params ...usuarioPrismaFields) usuarioToSesionesPonenteFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindFirst) OrderBy(params ...SesionPonenteOrderByParam) usuarioToSesionesPonenteFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindFirst) Skip(count int) usuarioToSesionesPonenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindFirst) Take(count int) usuarioToSesionesPonenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToSesionesPonenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToSesionesPonenteFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToSesionesPonenteFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToSesionesPonenteFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToSesionesPonenteFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToSesionesPonenteFindMany) with()            {}
+func (r usuarioToSesionesPonenteFindMany) usuarioModel()    {}
+func (r usuarioToSesionesPonenteFindMany) usuarioRelation() {}
+
+func (r usuarioToSesionesPonenteFindMany) With(params ...SesionPonenteRelationWith) usuarioToSesionesPonenteFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindMany) Select(params ...usuarioPrismaFields) usuarioToSesionesPonenteFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindMany) Omit(params ...usuarioPrismaFields) usuarioToSesionesPonenteFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindMany) OrderBy(params ...SesionPonenteOrderByParam) usuarioToSesionesPonenteFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindMany) Skip(count int) usuarioToSesionesPonenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindMany) Take(count int) usuarioToSesionesPonenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindMany) Cursor(cursor UsuarioCursorParam) usuarioToSesionesPonenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToSesionesPonenteFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToSesionesPonenteFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToSesionesPonenteFindMany) Update(params ...UsuarioSetParam) usuarioToSesionesPonenteUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToSesionesPonenteUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToSesionesPonenteUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToSesionesPonenteUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToSesionesPonenteUpdateMany) usuarioModel() {}
+
+func (r usuarioToSesionesPonenteUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToSesionesPonenteUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToSesionesPonenteFindMany) Delete() usuarioToSesionesPonenteDeleteMany {
+	var v usuarioToSesionesPonenteDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToSesionesPonenteDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToSesionesPonenteDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToSesionesPonenteDeleteMany) usuarioModel() {}
+
+func (r usuarioToSesionesPonenteDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToSesionesPonenteDeleteMany) Tx() UsuarioManyTxResult {
 	v := newUsuarioManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -28253,6 +36036,560 @@ func (r eventoToNotificacionesDeleteMany) Exec(ctx context.Context) (*BatchResul
 }
 
 func (r eventoToNotificacionesDeleteMany) Tx() EventoManyTxResult {
+	v := newEventoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type eventoToSesionesFindUnique struct {
+	query builder.Query
+}
+
+func (r eventoToSesionesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToSesionesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToSesionesFindUnique) with()           {}
+func (r eventoToSesionesFindUnique) eventoModel()    {}
+func (r eventoToSesionesFindUnique) eventoRelation() {}
+
+func (r eventoToSesionesFindUnique) With(params ...SesionRelationWith) eventoToSesionesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToSesionesFindUnique) Select(params ...eventoPrismaFields) eventoToSesionesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToSesionesFindUnique) Omit(params ...eventoPrismaFields) eventoToSesionesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToSesionesFindUnique) Exec(ctx context.Context) (
+	*EventoModel,
+	error,
+) {
+	var v *EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToSesionesFindUnique) ExecInner(ctx context.Context) (
+	*InnerEvento,
+	error,
+) {
+	var v *InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToSesionesFindUnique) Update(params ...EventoSetParam) eventoToSesionesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Evento"
+
+	var v eventoToSesionesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type eventoToSesionesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r eventoToSesionesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToSesionesUpdateUnique) eventoModel() {}
+
+func (r eventoToSesionesUpdateUnique) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToSesionesUpdateUnique) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r eventoToSesionesFindUnique) Delete() eventoToSesionesDeleteUnique {
+	var v eventoToSesionesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Evento"
+
+	return v
+}
+
+type eventoToSesionesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r eventoToSesionesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p eventoToSesionesDeleteUnique) eventoModel() {}
+
+func (r eventoToSesionesDeleteUnique) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToSesionesDeleteUnique) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type eventoToSesionesFindFirst struct {
+	query builder.Query
+}
+
+func (r eventoToSesionesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToSesionesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToSesionesFindFirst) with()           {}
+func (r eventoToSesionesFindFirst) eventoModel()    {}
+func (r eventoToSesionesFindFirst) eventoRelation() {}
+
+func (r eventoToSesionesFindFirst) With(params ...SesionRelationWith) eventoToSesionesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToSesionesFindFirst) Select(params ...eventoPrismaFields) eventoToSesionesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToSesionesFindFirst) Omit(params ...eventoPrismaFields) eventoToSesionesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToSesionesFindFirst) OrderBy(params ...SesionOrderByParam) eventoToSesionesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r eventoToSesionesFindFirst) Skip(count int) eventoToSesionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToSesionesFindFirst) Take(count int) eventoToSesionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToSesionesFindFirst) Cursor(cursor EventoCursorParam) eventoToSesionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r eventoToSesionesFindFirst) Exec(ctx context.Context) (
+	*EventoModel,
+	error,
+) {
+	var v *EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToSesionesFindFirst) ExecInner(ctx context.Context) (
+	*InnerEvento,
+	error,
+) {
+	var v *InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type eventoToSesionesFindMany struct {
+	query builder.Query
+}
+
+func (r eventoToSesionesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToSesionesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToSesionesFindMany) with()           {}
+func (r eventoToSesionesFindMany) eventoModel()    {}
+func (r eventoToSesionesFindMany) eventoRelation() {}
+
+func (r eventoToSesionesFindMany) With(params ...SesionRelationWith) eventoToSesionesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToSesionesFindMany) Select(params ...eventoPrismaFields) eventoToSesionesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToSesionesFindMany) Omit(params ...eventoPrismaFields) eventoToSesionesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToSesionesFindMany) OrderBy(params ...SesionOrderByParam) eventoToSesionesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r eventoToSesionesFindMany) Skip(count int) eventoToSesionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToSesionesFindMany) Take(count int) eventoToSesionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToSesionesFindMany) Cursor(cursor EventoCursorParam) eventoToSesionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r eventoToSesionesFindMany) Exec(ctx context.Context) (
+	[]EventoModel,
+	error,
+) {
+	var v []EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r eventoToSesionesFindMany) ExecInner(ctx context.Context) (
+	[]InnerEvento,
+	error,
+) {
+	var v []InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r eventoToSesionesFindMany) Update(params ...EventoSetParam) eventoToSesionesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Evento"
+
+	r.query.Outputs = countOutput
+
+	var v eventoToSesionesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type eventoToSesionesUpdateMany struct {
+	query builder.Query
+}
+
+func (r eventoToSesionesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToSesionesUpdateMany) eventoModel() {}
+
+func (r eventoToSesionesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToSesionesUpdateMany) Tx() EventoManyTxResult {
+	v := newEventoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r eventoToSesionesFindMany) Delete() eventoToSesionesDeleteMany {
+	var v eventoToSesionesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Evento"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type eventoToSesionesDeleteMany struct {
+	query builder.Query
+}
+
+func (r eventoToSesionesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p eventoToSesionesDeleteMany) eventoModel() {}
+
+func (r eventoToSesionesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToSesionesDeleteMany) Tx() EventoManyTxResult {
 	v := newEventoManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -35483,6 +43820,3522 @@ func (r ciudadDeleteMany) Tx() CiudadManyTxResult {
 	return v
 }
 
+type sesionToEventoFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionToEventoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToEventoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToEventoFindUnique) with()           {}
+func (r sesionToEventoFindUnique) sesionModel()    {}
+func (r sesionToEventoFindUnique) sesionRelation() {}
+
+func (r sesionToEventoFindUnique) With(params ...EventoRelationWith) sesionToEventoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToEventoFindUnique) Select(params ...sesionPrismaFields) sesionToEventoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToEventoFindUnique) Omit(params ...sesionPrismaFields) sesionToEventoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToEventoFindUnique) Exec(ctx context.Context) (
+	*SesionModel,
+	error,
+) {
+	var v *SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToEventoFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesion,
+	error,
+) {
+	var v *InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToEventoFindUnique) Update(params ...SesionSetParam) sesionToEventoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Sesion"
+
+	var v sesionToEventoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionToEventoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionToEventoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToEventoUpdateUnique) sesionModel() {}
+
+func (r sesionToEventoUpdateUnique) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToEventoUpdateUnique) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionToEventoFindUnique) Delete() sesionToEventoDeleteUnique {
+	var v sesionToEventoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Sesion"
+
+	return v
+}
+
+type sesionToEventoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionToEventoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionToEventoDeleteUnique) sesionModel() {}
+
+func (r sesionToEventoDeleteUnique) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToEventoDeleteUnique) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionToEventoFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionToEventoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToEventoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToEventoFindFirst) with()           {}
+func (r sesionToEventoFindFirst) sesionModel()    {}
+func (r sesionToEventoFindFirst) sesionRelation() {}
+
+func (r sesionToEventoFindFirst) With(params ...EventoRelationWith) sesionToEventoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToEventoFindFirst) Select(params ...sesionPrismaFields) sesionToEventoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToEventoFindFirst) Omit(params ...sesionPrismaFields) sesionToEventoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToEventoFindFirst) OrderBy(params ...EventoOrderByParam) sesionToEventoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionToEventoFindFirst) Skip(count int) sesionToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToEventoFindFirst) Take(count int) sesionToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToEventoFindFirst) Cursor(cursor SesionCursorParam) sesionToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionToEventoFindFirst) Exec(ctx context.Context) (
+	*SesionModel,
+	error,
+) {
+	var v *SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToEventoFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesion,
+	error,
+) {
+	var v *InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionToEventoFindMany struct {
+	query builder.Query
+}
+
+func (r sesionToEventoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToEventoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToEventoFindMany) with()           {}
+func (r sesionToEventoFindMany) sesionModel()    {}
+func (r sesionToEventoFindMany) sesionRelation() {}
+
+func (r sesionToEventoFindMany) With(params ...EventoRelationWith) sesionToEventoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToEventoFindMany) Select(params ...sesionPrismaFields) sesionToEventoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToEventoFindMany) Omit(params ...sesionPrismaFields) sesionToEventoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToEventoFindMany) OrderBy(params ...EventoOrderByParam) sesionToEventoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionToEventoFindMany) Skip(count int) sesionToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToEventoFindMany) Take(count int) sesionToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToEventoFindMany) Cursor(cursor SesionCursorParam) sesionToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionToEventoFindMany) Exec(ctx context.Context) (
+	[]SesionModel,
+	error,
+) {
+	var v []SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionToEventoFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesion,
+	error,
+) {
+	var v []InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionToEventoFindMany) Update(params ...SesionSetParam) sesionToEventoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Sesion"
+
+	r.query.Outputs = countOutput
+
+	var v sesionToEventoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionToEventoUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionToEventoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToEventoUpdateMany) sesionModel() {}
+
+func (r sesionToEventoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToEventoUpdateMany) Tx() SesionManyTxResult {
+	v := newSesionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionToEventoFindMany) Delete() sesionToEventoDeleteMany {
+	var v sesionToEventoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Sesion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionToEventoDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionToEventoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionToEventoDeleteMany) sesionModel() {}
+
+func (r sesionToEventoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToEventoDeleteMany) Tx() SesionManyTxResult {
+	v := newSesionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionToPonentesFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionToPonentesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToPonentesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToPonentesFindUnique) with()           {}
+func (r sesionToPonentesFindUnique) sesionModel()    {}
+func (r sesionToPonentesFindUnique) sesionRelation() {}
+
+func (r sesionToPonentesFindUnique) With(params ...SesionPonenteRelationWith) sesionToPonentesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToPonentesFindUnique) Select(params ...sesionPrismaFields) sesionToPonentesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToPonentesFindUnique) Omit(params ...sesionPrismaFields) sesionToPonentesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToPonentesFindUnique) Exec(ctx context.Context) (
+	*SesionModel,
+	error,
+) {
+	var v *SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToPonentesFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesion,
+	error,
+) {
+	var v *InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToPonentesFindUnique) Update(params ...SesionSetParam) sesionToPonentesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Sesion"
+
+	var v sesionToPonentesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionToPonentesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionToPonentesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToPonentesUpdateUnique) sesionModel() {}
+
+func (r sesionToPonentesUpdateUnique) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToPonentesUpdateUnique) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionToPonentesFindUnique) Delete() sesionToPonentesDeleteUnique {
+	var v sesionToPonentesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Sesion"
+
+	return v
+}
+
+type sesionToPonentesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionToPonentesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionToPonentesDeleteUnique) sesionModel() {}
+
+func (r sesionToPonentesDeleteUnique) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToPonentesDeleteUnique) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionToPonentesFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionToPonentesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToPonentesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToPonentesFindFirst) with()           {}
+func (r sesionToPonentesFindFirst) sesionModel()    {}
+func (r sesionToPonentesFindFirst) sesionRelation() {}
+
+func (r sesionToPonentesFindFirst) With(params ...SesionPonenteRelationWith) sesionToPonentesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToPonentesFindFirst) Select(params ...sesionPrismaFields) sesionToPonentesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToPonentesFindFirst) Omit(params ...sesionPrismaFields) sesionToPonentesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToPonentesFindFirst) OrderBy(params ...SesionPonenteOrderByParam) sesionToPonentesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionToPonentesFindFirst) Skip(count int) sesionToPonentesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToPonentesFindFirst) Take(count int) sesionToPonentesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToPonentesFindFirst) Cursor(cursor SesionCursorParam) sesionToPonentesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionToPonentesFindFirst) Exec(ctx context.Context) (
+	*SesionModel,
+	error,
+) {
+	var v *SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToPonentesFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesion,
+	error,
+) {
+	var v *InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionToPonentesFindMany struct {
+	query builder.Query
+}
+
+func (r sesionToPonentesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToPonentesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToPonentesFindMany) with()           {}
+func (r sesionToPonentesFindMany) sesionModel()    {}
+func (r sesionToPonentesFindMany) sesionRelation() {}
+
+func (r sesionToPonentesFindMany) With(params ...SesionPonenteRelationWith) sesionToPonentesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToPonentesFindMany) Select(params ...sesionPrismaFields) sesionToPonentesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToPonentesFindMany) Omit(params ...sesionPrismaFields) sesionToPonentesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToPonentesFindMany) OrderBy(params ...SesionPonenteOrderByParam) sesionToPonentesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionToPonentesFindMany) Skip(count int) sesionToPonentesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToPonentesFindMany) Take(count int) sesionToPonentesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToPonentesFindMany) Cursor(cursor SesionCursorParam) sesionToPonentesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionToPonentesFindMany) Exec(ctx context.Context) (
+	[]SesionModel,
+	error,
+) {
+	var v []SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionToPonentesFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesion,
+	error,
+) {
+	var v []InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionToPonentesFindMany) Update(params ...SesionSetParam) sesionToPonentesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Sesion"
+
+	r.query.Outputs = countOutput
+
+	var v sesionToPonentesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionToPonentesUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionToPonentesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToPonentesUpdateMany) sesionModel() {}
+
+func (r sesionToPonentesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToPonentesUpdateMany) Tx() SesionManyTxResult {
+	v := newSesionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionToPonentesFindMany) Delete() sesionToPonentesDeleteMany {
+	var v sesionToPonentesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Sesion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionToPonentesDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionToPonentesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionToPonentesDeleteMany) sesionModel() {}
+
+func (r sesionToPonentesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToPonentesDeleteMany) Tx() SesionManyTxResult {
+	v := newSesionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionFindUnique) with()           {}
+func (r sesionFindUnique) sesionModel()    {}
+func (r sesionFindUnique) sesionRelation() {}
+
+func (r sesionActions) FindUnique(
+	params SesionEqualsUniqueWhereParam,
+) sesionFindUnique {
+	var v sesionFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "Sesion"
+	v.query.Outputs = sesionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r sesionFindUnique) With(params ...SesionRelationWith) sesionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionFindUnique) Select(params ...sesionPrismaFields) sesionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionFindUnique) Omit(params ...sesionPrismaFields) sesionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionFindUnique) Exec(ctx context.Context) (
+	*SesionModel,
+	error,
+) {
+	var v *SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesion,
+	error,
+) {
+	var v *InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionFindUnique) Update(params ...SesionSetParam) sesionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Sesion"
+
+	var v sesionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionUpdateUnique) sesionModel() {}
+
+func (r sesionUpdateUnique) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionUpdateUnique) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionFindUnique) Delete() sesionDeleteUnique {
+	var v sesionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Sesion"
+
+	return v
+}
+
+type sesionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionDeleteUnique) sesionModel() {}
+
+func (r sesionDeleteUnique) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionDeleteUnique) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionFindFirst) with()           {}
+func (r sesionFindFirst) sesionModel()    {}
+func (r sesionFindFirst) sesionRelation() {}
+
+func (r sesionActions) FindFirst(
+	params ...SesionWhereParam,
+) sesionFindFirst {
+	var v sesionFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "Sesion"
+	v.query.Outputs = sesionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r sesionFindFirst) With(params ...SesionRelationWith) sesionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionFindFirst) Select(params ...sesionPrismaFields) sesionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionFindFirst) Omit(params ...sesionPrismaFields) sesionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionFindFirst) OrderBy(params ...SesionOrderByParam) sesionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionFindFirst) Skip(count int) sesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionFindFirst) Take(count int) sesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionFindFirst) Cursor(cursor SesionCursorParam) sesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionFindFirst) Exec(ctx context.Context) (
+	*SesionModel,
+	error,
+) {
+	var v *SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesion,
+	error,
+) {
+	var v *InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionFindMany struct {
+	query builder.Query
+}
+
+func (r sesionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionFindMany) with()           {}
+func (r sesionFindMany) sesionModel()    {}
+func (r sesionFindMany) sesionRelation() {}
+
+func (r sesionActions) FindMany(
+	params ...SesionWhereParam,
+) sesionFindMany {
+	var v sesionFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "Sesion"
+	v.query.Outputs = sesionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r sesionFindMany) With(params ...SesionRelationWith) sesionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionFindMany) Select(params ...sesionPrismaFields) sesionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionFindMany) Omit(params ...sesionPrismaFields) sesionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionFindMany) OrderBy(params ...SesionOrderByParam) sesionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionFindMany) Skip(count int) sesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionFindMany) Take(count int) sesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionFindMany) Cursor(cursor SesionCursorParam) sesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionFindMany) Exec(ctx context.Context) (
+	[]SesionModel,
+	error,
+) {
+	var v []SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesion,
+	error,
+) {
+	var v []InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionFindMany) Update(params ...SesionSetParam) sesionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Sesion"
+
+	r.query.Outputs = countOutput
+
+	var v sesionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionUpdateMany) sesionModel() {}
+
+func (r sesionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionUpdateMany) Tx() SesionManyTxResult {
+	v := newSesionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionFindMany) Delete() sesionDeleteMany {
+	var v sesionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Sesion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionDeleteMany) sesionModel() {}
+
+func (r sesionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionDeleteMany) Tx() SesionManyTxResult {
+	v := newSesionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionPonenteToSesionFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToSesionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToSesionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToSesionFindUnique) with()                  {}
+func (r sesionPonenteToSesionFindUnique) sesionPonenteModel()    {}
+func (r sesionPonenteToSesionFindUnique) sesionPonenteRelation() {}
+
+func (r sesionPonenteToSesionFindUnique) With(params ...SesionRelationWith) sesionPonenteToSesionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindUnique) Select(params ...sesionPonentePrismaFields) sesionPonenteToSesionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindUnique) Omit(params ...sesionPonentePrismaFields) sesionPonenteToSesionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindUnique) Exec(ctx context.Context) (
+	*SesionPonenteModel,
+	error,
+) {
+	var v *SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToSesionFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesionPonente,
+	error,
+) {
+	var v *InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToSesionFindUnique) Update(params ...SesionPonenteSetParam) sesionPonenteToSesionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "SesionPonente"
+
+	var v sesionPonenteToSesionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionPonenteToSesionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToSesionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToSesionUpdateUnique) sesionPonenteModel() {}
+
+func (r sesionPonenteToSesionUpdateUnique) Exec(ctx context.Context) (*SesionPonenteModel, error) {
+	var v SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteToSesionUpdateUnique) Tx() SesionPonenteUniqueTxResult {
+	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionPonenteToSesionFindUnique) Delete() sesionPonenteToSesionDeleteUnique {
+	var v sesionPonenteToSesionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "SesionPonente"
+
+	return v
+}
+
+type sesionPonenteToSesionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToSesionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionPonenteToSesionDeleteUnique) sesionPonenteModel() {}
+
+func (r sesionPonenteToSesionDeleteUnique) Exec(ctx context.Context) (*SesionPonenteModel, error) {
+	var v SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteToSesionDeleteUnique) Tx() SesionPonenteUniqueTxResult {
+	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionPonenteToSesionFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToSesionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToSesionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToSesionFindFirst) with()                  {}
+func (r sesionPonenteToSesionFindFirst) sesionPonenteModel()    {}
+func (r sesionPonenteToSesionFindFirst) sesionPonenteRelation() {}
+
+func (r sesionPonenteToSesionFindFirst) With(params ...SesionRelationWith) sesionPonenteToSesionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindFirst) Select(params ...sesionPonentePrismaFields) sesionPonenteToSesionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindFirst) Omit(params ...sesionPonentePrismaFields) sesionPonenteToSesionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindFirst) OrderBy(params ...SesionOrderByParam) sesionPonenteToSesionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindFirst) Skip(count int) sesionPonenteToSesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteToSesionFindFirst) Take(count int) sesionPonenteToSesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteToSesionFindFirst) Cursor(cursor SesionPonenteCursorParam) sesionPonenteToSesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionPonenteToSesionFindFirst) Exec(ctx context.Context) (
+	*SesionPonenteModel,
+	error,
+) {
+	var v *SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToSesionFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesionPonente,
+	error,
+) {
+	var v *InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionPonenteToSesionFindMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToSesionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToSesionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToSesionFindMany) with()                  {}
+func (r sesionPonenteToSesionFindMany) sesionPonenteModel()    {}
+func (r sesionPonenteToSesionFindMany) sesionPonenteRelation() {}
+
+func (r sesionPonenteToSesionFindMany) With(params ...SesionRelationWith) sesionPonenteToSesionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindMany) Select(params ...sesionPonentePrismaFields) sesionPonenteToSesionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindMany) Omit(params ...sesionPonentePrismaFields) sesionPonenteToSesionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindMany) OrderBy(params ...SesionOrderByParam) sesionPonenteToSesionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionPonenteToSesionFindMany) Skip(count int) sesionPonenteToSesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteToSesionFindMany) Take(count int) sesionPonenteToSesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteToSesionFindMany) Cursor(cursor SesionPonenteCursorParam) sesionPonenteToSesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionPonenteToSesionFindMany) Exec(ctx context.Context) (
+	[]SesionPonenteModel,
+	error,
+) {
+	var v []SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToSesionFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesionPonente,
+	error,
+) {
+	var v []InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToSesionFindMany) Update(params ...SesionPonenteSetParam) sesionPonenteToSesionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "SesionPonente"
+
+	r.query.Outputs = countOutput
+
+	var v sesionPonenteToSesionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionPonenteToSesionUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToSesionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToSesionUpdateMany) sesionPonenteModel() {}
+
+func (r sesionPonenteToSesionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteToSesionUpdateMany) Tx() SesionPonenteManyTxResult {
+	v := newSesionPonenteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionPonenteToSesionFindMany) Delete() sesionPonenteToSesionDeleteMany {
+	var v sesionPonenteToSesionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "SesionPonente"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionPonenteToSesionDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToSesionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionPonenteToSesionDeleteMany) sesionPonenteModel() {}
+
+func (r sesionPonenteToSesionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteToSesionDeleteMany) Tx() SesionPonenteManyTxResult {
+	v := newSesionPonenteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionPonenteToUsuarioFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToUsuarioFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToUsuarioFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToUsuarioFindUnique) with()                  {}
+func (r sesionPonenteToUsuarioFindUnique) sesionPonenteModel()    {}
+func (r sesionPonenteToUsuarioFindUnique) sesionPonenteRelation() {}
+
+func (r sesionPonenteToUsuarioFindUnique) With(params ...UsuarioRelationWith) sesionPonenteToUsuarioFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindUnique) Select(params ...sesionPonentePrismaFields) sesionPonenteToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindUnique) Omit(params ...sesionPonentePrismaFields) sesionPonenteToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindUnique) Exec(ctx context.Context) (
+	*SesionPonenteModel,
+	error,
+) {
+	var v *SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToUsuarioFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesionPonente,
+	error,
+) {
+	var v *InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToUsuarioFindUnique) Update(params ...SesionPonenteSetParam) sesionPonenteToUsuarioUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "SesionPonente"
+
+	var v sesionPonenteToUsuarioUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionPonenteToUsuarioUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToUsuarioUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToUsuarioUpdateUnique) sesionPonenteModel() {}
+
+func (r sesionPonenteToUsuarioUpdateUnique) Exec(ctx context.Context) (*SesionPonenteModel, error) {
+	var v SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteToUsuarioUpdateUnique) Tx() SesionPonenteUniqueTxResult {
+	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionPonenteToUsuarioFindUnique) Delete() sesionPonenteToUsuarioDeleteUnique {
+	var v sesionPonenteToUsuarioDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "SesionPonente"
+
+	return v
+}
+
+type sesionPonenteToUsuarioDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToUsuarioDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionPonenteToUsuarioDeleteUnique) sesionPonenteModel() {}
+
+func (r sesionPonenteToUsuarioDeleteUnique) Exec(ctx context.Context) (*SesionPonenteModel, error) {
+	var v SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteToUsuarioDeleteUnique) Tx() SesionPonenteUniqueTxResult {
+	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionPonenteToUsuarioFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToUsuarioFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToUsuarioFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToUsuarioFindFirst) with()                  {}
+func (r sesionPonenteToUsuarioFindFirst) sesionPonenteModel()    {}
+func (r sesionPonenteToUsuarioFindFirst) sesionPonenteRelation() {}
+
+func (r sesionPonenteToUsuarioFindFirst) With(params ...UsuarioRelationWith) sesionPonenteToUsuarioFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindFirst) Select(params ...sesionPonentePrismaFields) sesionPonenteToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindFirst) Omit(params ...sesionPonentePrismaFields) sesionPonenteToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindFirst) OrderBy(params ...UsuarioOrderByParam) sesionPonenteToUsuarioFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindFirst) Skip(count int) sesionPonenteToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindFirst) Take(count int) sesionPonenteToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindFirst) Cursor(cursor SesionPonenteCursorParam) sesionPonenteToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindFirst) Exec(ctx context.Context) (
+	*SesionPonenteModel,
+	error,
+) {
+	var v *SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToUsuarioFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesionPonente,
+	error,
+) {
+	var v *InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionPonenteToUsuarioFindMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToUsuarioFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToUsuarioFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToUsuarioFindMany) with()                  {}
+func (r sesionPonenteToUsuarioFindMany) sesionPonenteModel()    {}
+func (r sesionPonenteToUsuarioFindMany) sesionPonenteRelation() {}
+
+func (r sesionPonenteToUsuarioFindMany) With(params ...UsuarioRelationWith) sesionPonenteToUsuarioFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindMany) Select(params ...sesionPonentePrismaFields) sesionPonenteToUsuarioFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindMany) Omit(params ...sesionPonentePrismaFields) sesionPonenteToUsuarioFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindMany) OrderBy(params ...UsuarioOrderByParam) sesionPonenteToUsuarioFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindMany) Skip(count int) sesionPonenteToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindMany) Take(count int) sesionPonenteToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindMany) Cursor(cursor SesionPonenteCursorParam) sesionPonenteToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionPonenteToUsuarioFindMany) Exec(ctx context.Context) (
+	[]SesionPonenteModel,
+	error,
+) {
+	var v []SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToUsuarioFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesionPonente,
+	error,
+) {
+	var v []InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteToUsuarioFindMany) Update(params ...SesionPonenteSetParam) sesionPonenteToUsuarioUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "SesionPonente"
+
+	r.query.Outputs = countOutput
+
+	var v sesionPonenteToUsuarioUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionPonenteToUsuarioUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToUsuarioUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteToUsuarioUpdateMany) sesionPonenteModel() {}
+
+func (r sesionPonenteToUsuarioUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteToUsuarioUpdateMany) Tx() SesionPonenteManyTxResult {
+	v := newSesionPonenteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionPonenteToUsuarioFindMany) Delete() sesionPonenteToUsuarioDeleteMany {
+	var v sesionPonenteToUsuarioDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "SesionPonente"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionPonenteToUsuarioDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteToUsuarioDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionPonenteToUsuarioDeleteMany) sesionPonenteModel() {}
+
+func (r sesionPonenteToUsuarioDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteToUsuarioDeleteMany) Tx() SesionPonenteManyTxResult {
+	v := newSesionPonenteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionPonenteFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteFindUnique) with()                  {}
+func (r sesionPonenteFindUnique) sesionPonenteModel()    {}
+func (r sesionPonenteFindUnique) sesionPonenteRelation() {}
+
+func (r sesionPonenteActions) FindUnique(
+	params SesionPonenteEqualsUniqueWhereParam,
+) sesionPonenteFindUnique {
+	var v sesionPonenteFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "SesionPonente"
+	v.query.Outputs = sesionPonenteOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r sesionPonenteFindUnique) With(params ...SesionPonenteRelationWith) sesionPonenteFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteFindUnique) Select(params ...sesionPonentePrismaFields) sesionPonenteFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteFindUnique) Omit(params ...sesionPonentePrismaFields) sesionPonenteFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteFindUnique) Exec(ctx context.Context) (
+	*SesionPonenteModel,
+	error,
+) {
+	var v *SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesionPonente,
+	error,
+) {
+	var v *InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteFindUnique) Update(params ...SesionPonenteSetParam) sesionPonenteUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "SesionPonente"
+
+	var v sesionPonenteUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionPonenteUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteUpdateUnique) sesionPonenteModel() {}
+
+func (r sesionPonenteUpdateUnique) Exec(ctx context.Context) (*SesionPonenteModel, error) {
+	var v SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteUpdateUnique) Tx() SesionPonenteUniqueTxResult {
+	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionPonenteFindUnique) Delete() sesionPonenteDeleteUnique {
+	var v sesionPonenteDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "SesionPonente"
+
+	return v
+}
+
+type sesionPonenteDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionPonenteDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionPonenteDeleteUnique) sesionPonenteModel() {}
+
+func (r sesionPonenteDeleteUnique) Exec(ctx context.Context) (*SesionPonenteModel, error) {
+	var v SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteDeleteUnique) Tx() SesionPonenteUniqueTxResult {
+	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionPonenteFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionPonenteFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteFindFirst) with()                  {}
+func (r sesionPonenteFindFirst) sesionPonenteModel()    {}
+func (r sesionPonenteFindFirst) sesionPonenteRelation() {}
+
+func (r sesionPonenteActions) FindFirst(
+	params ...SesionPonenteWhereParam,
+) sesionPonenteFindFirst {
+	var v sesionPonenteFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "SesionPonente"
+	v.query.Outputs = sesionPonenteOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r sesionPonenteFindFirst) With(params ...SesionPonenteRelationWith) sesionPonenteFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteFindFirst) Select(params ...sesionPonentePrismaFields) sesionPonenteFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteFindFirst) Omit(params ...sesionPonentePrismaFields) sesionPonenteFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteFindFirst) OrderBy(params ...SesionPonenteOrderByParam) sesionPonenteFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionPonenteFindFirst) Skip(count int) sesionPonenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteFindFirst) Take(count int) sesionPonenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteFindFirst) Cursor(cursor SesionPonenteCursorParam) sesionPonenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionPonenteFindFirst) Exec(ctx context.Context) (
+	*SesionPonenteModel,
+	error,
+) {
+	var v *SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesionPonente,
+	error,
+) {
+	var v *InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionPonenteFindMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteFindMany) with()                  {}
+func (r sesionPonenteFindMany) sesionPonenteModel()    {}
+func (r sesionPonenteFindMany) sesionPonenteRelation() {}
+
+func (r sesionPonenteActions) FindMany(
+	params ...SesionPonenteWhereParam,
+) sesionPonenteFindMany {
+	var v sesionPonenteFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "SesionPonente"
+	v.query.Outputs = sesionPonenteOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r sesionPonenteFindMany) With(params ...SesionPonenteRelationWith) sesionPonenteFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionPonenteFindMany) Select(params ...sesionPonentePrismaFields) sesionPonenteFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteFindMany) Omit(params ...sesionPonentePrismaFields) sesionPonenteFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionPonenteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionPonenteFindMany) OrderBy(params ...SesionPonenteOrderByParam) sesionPonenteFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionPonenteFindMany) Skip(count int) sesionPonenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteFindMany) Take(count int) sesionPonenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionPonenteFindMany) Cursor(cursor SesionPonenteCursorParam) sesionPonenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionPonenteFindMany) Exec(ctx context.Context) (
+	[]SesionPonenteModel,
+	error,
+) {
+	var v []SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesionPonente,
+	error,
+) {
+	var v []InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionPonenteFindMany) Update(params ...SesionPonenteSetParam) sesionPonenteUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "SesionPonente"
+
+	r.query.Outputs = countOutput
+
+	var v sesionPonenteUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionPonenteUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteUpdateMany) sesionPonenteModel() {}
+
+func (r sesionPonenteUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteUpdateMany) Tx() SesionPonenteManyTxResult {
+	v := newSesionPonenteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionPonenteFindMany) Delete() sesionPonenteDeleteMany {
+	var v sesionPonenteDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "SesionPonente"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionPonenteDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionPonenteDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionPonenteDeleteMany) sesionPonenteModel() {}
+
+func (r sesionPonenteDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteDeleteMany) Tx() SesionPonenteManyTxResult {
+	v := newSesionPonenteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template transaction.gotpl ---
 
 func newUsuarioUniqueTxResult() UsuarioUniqueTxResult {
@@ -35863,6 +47716,102 @@ func (p CiudadManyTxResult) ExtractQuery() builder.Query {
 func (p CiudadManyTxResult) IsTx() {}
 
 func (r CiudadManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newSesionUniqueTxResult() SesionUniqueTxResult {
+	return SesionUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type SesionUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p SesionUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p SesionUniqueTxResult) IsTx() {}
+
+func (r SesionUniqueTxResult) Result() (v *SesionModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newSesionManyTxResult() SesionManyTxResult {
+	return SesionManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type SesionManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p SesionManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p SesionManyTxResult) IsTx() {}
+
+func (r SesionManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newSesionPonenteUniqueTxResult() SesionPonenteUniqueTxResult {
+	return SesionPonenteUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type SesionPonenteUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p SesionPonenteUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p SesionPonenteUniqueTxResult) IsTx() {}
+
+func (r SesionPonenteUniqueTxResult) Result() (v *SesionPonenteModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newSesionPonenteManyTxResult() SesionPonenteManyTxResult {
+	return SesionPonenteManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type SesionPonenteManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p SesionPonenteManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p SesionPonenteManyTxResult) IsTx() {}
+
+func (r SesionPonenteManyTxResult) Result() (v *BatchResult) {
 	if err := r.result.Get(r.query.TxResult, &v); err != nil {
 		panic(err)
 	}
@@ -37035,6 +48984,308 @@ func (r ciudadUpsertOne) Tx() CiudadUniqueTxResult {
 	return v
 }
 
+type sesionUpsertOne struct {
+	query builder.Query
+}
+
+func (r sesionUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionUpsertOne) with()           {}
+func (r sesionUpsertOne) sesionModel()    {}
+func (r sesionUpsertOne) sesionRelation() {}
+
+func (r sesionActions) UpsertOne(
+	params SesionEqualsUniqueWhereParam,
+) sesionUpsertOne {
+	var v sesionUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "Sesion"
+	v.query.Outputs = sesionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r sesionUpsertOne) Create(
+
+	_titulo SesionWithPrismaTituloSetParam,
+	_descripcion SesionWithPrismaDescripcionSetParam,
+	_fechaInicio SesionWithPrismaFechaInicioSetParam,
+	_fechaFin SesionWithPrismaFechaFinSetParam,
+	_ubicacion SesionWithPrismaUbicacionSetParam,
+	_evento SesionWithPrismaEventoSetParam,
+
+	optional ...SesionSetParam,
+) sesionUpsertOne {
+	var v sesionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _titulo.field())
+	fields = append(fields, _descripcion.field())
+	fields = append(fields, _fechaInicio.field())
+	fields = append(fields, _fechaFin.field())
+	fields = append(fields, _ubicacion.field())
+	fields = append(fields, _evento.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionUpsertOne) Update(
+	params ...SesionSetParam,
+) sesionUpsertOne {
+	var v sesionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionUpsertOne) CreateOrUpdate(
+
+	_titulo SesionWithPrismaTituloSetParam,
+	_descripcion SesionWithPrismaDescripcionSetParam,
+	_fechaInicio SesionWithPrismaFechaInicioSetParam,
+	_fechaFin SesionWithPrismaFechaFinSetParam,
+	_ubicacion SesionWithPrismaUbicacionSetParam,
+	_evento SesionWithPrismaEventoSetParam,
+
+	optional ...SesionSetParam,
+) sesionUpsertOne {
+	var v sesionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _titulo.field())
+	fields = append(fields, _descripcion.field())
+	fields = append(fields, _fechaInicio.field())
+	fields = append(fields, _fechaFin.field())
+	fields = append(fields, _ubicacion.field())
+	fields = append(fields, _evento.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionUpsertOne) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionUpsertOne) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionPonenteUpsertOne struct {
+	query builder.Query
+}
+
+func (r sesionPonenteUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteUpsertOne) with()                  {}
+func (r sesionPonenteUpsertOne) sesionPonenteModel()    {}
+func (r sesionPonenteUpsertOne) sesionPonenteRelation() {}
+
+func (r sesionPonenteActions) UpsertOne(
+	params SesionPonenteEqualsUniqueWhereParam,
+) sesionPonenteUpsertOne {
+	var v sesionPonenteUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "SesionPonente"
+	v.query.Outputs = sesionPonenteOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r sesionPonenteUpsertOne) Create(
+
+	_sesion SesionPonenteWithPrismaSesionSetParam,
+	_usuario SesionPonenteWithPrismaUsuarioSetParam,
+
+	optional ...SesionPonenteSetParam,
+) sesionPonenteUpsertOne {
+	var v sesionPonenteUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _sesion.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionPonenteUpsertOne) Update(
+	params ...SesionPonenteSetParam,
+) sesionPonenteUpsertOne {
+	var v sesionPonenteUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionPonenteUpsertOne) CreateOrUpdate(
+
+	_sesion SesionPonenteWithPrismaSesionSetParam,
+	_usuario SesionPonenteWithPrismaUsuarioSetParam,
+
+	optional ...SesionPonenteSetParam,
+) sesionPonenteUpsertOne {
+	var v sesionPonenteUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _sesion.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionPonenteUpsertOne) Exec(ctx context.Context) (*SesionPonenteModel, error) {
+	var v SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionPonenteUpsertOne) Tx() SesionPonenteUniqueTxResult {
+	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template raw.gotpl ---
 
 type usuarioAggregateRaw struct {
@@ -37679,6 +49930,168 @@ func (r ciudadAggregateRaw) Exec(ctx context.Context) ([]CiudadModel, error) {
 
 func (r ciudadAggregateRaw) ExecInner(ctx context.Context) ([]InnerCiudad, error) {
 	var v []InnerCiudad
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type sesionAggregateRaw struct {
+	query builder.Query
+}
+
+func (r sesionAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionAggregateRaw) with()           {}
+func (r sesionAggregateRaw) sesionModel()    {}
+func (r sesionAggregateRaw) sesionRelation() {}
+
+func (r sesionActions) FindRaw(filter interface{}, options ...interface{}) sesionAggregateRaw {
+	var v sesionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Sesion"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r sesionActions) AggregateRaw(pipeline []interface{}, options ...interface{}) sesionAggregateRaw {
+	var v sesionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Sesion"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r sesionAggregateRaw) Exec(ctx context.Context) ([]SesionModel, error) {
+	var v []SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r sesionAggregateRaw) ExecInner(ctx context.Context) ([]InnerSesion, error) {
+	var v []InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type sesionPonenteAggregateRaw struct {
+	query builder.Query
+}
+
+func (r sesionPonenteAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionPonenteAggregateRaw) with()                  {}
+func (r sesionPonenteAggregateRaw) sesionPonenteModel()    {}
+func (r sesionPonenteAggregateRaw) sesionPonenteRelation() {}
+
+func (r sesionPonenteActions) FindRaw(filter interface{}, options ...interface{}) sesionPonenteAggregateRaw {
+	var v sesionPonenteAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "SesionPonente"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r sesionPonenteActions) AggregateRaw(pipeline []interface{}, options ...interface{}) sesionPonenteAggregateRaw {
+	var v sesionPonenteAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "SesionPonente"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r sesionPonenteAggregateRaw) Exec(ctx context.Context) ([]SesionPonenteModel, error) {
+	var v []SesionPonenteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r sesionPonenteAggregateRaw) ExecInner(ctx context.Context) ([]InnerSesionPonente, error) {
+	var v []InnerSesionPonente
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}

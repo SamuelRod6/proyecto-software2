@@ -18,6 +18,7 @@ model Usuario {
   createdAt     DateTime @default(now())
   inscripciones Inscripcion[]
   notificaciones Notificacion[] @relation("UsuarioNotificaciones")
+  sesionesPonente SesionPonente[]
 }
 
 model Roles {
@@ -40,6 +41,7 @@ model Evento {
   cancelado                  Boolean  @default(false)
   inscripciones              Inscripcion[]
   notificaciones             Notificacion[] @relation("EventoNotificaciones")
+  sesiones                   Sesion[]
 }
 
 model Inscripcion {
@@ -88,4 +90,28 @@ model Ciudad {
   createdAt DateTime @default(now())
 
   @@unique([nombre, id_pais])
+}
+
+model Sesion {
+  id_sesion      Int       @id @default(autoincrement())
+  titulo         String
+  descripcion    String
+  fecha_inicio   DateTime
+  fecha_fin      DateTime
+  ubicacion      String
+  id_evento      Int
+  evento         Evento    @relation(fields: [id_evento], references: [id_evento])
+  createdAt      DateTime  @default(now())
+  cancelado      Boolean   @default(false)
+  ponentes       SesionPonente[]
+}
+
+model SesionPonente {
+  id_sesion_ponente Int    @id @default(autoincrement())
+  id_sesion         Int
+  id_usuario        Int
+  sesion            Sesion   @relation(fields: [id_sesion], references: [id_sesion])
+  usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@unique([id_sesion, id_usuario])
 }
