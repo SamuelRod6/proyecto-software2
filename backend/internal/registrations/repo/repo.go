@@ -42,12 +42,22 @@ func (r *Repository) FindByEventoAndUsuario(ctx context.Context, eventoID, usuar
 func (r *Repository) FindByEventoID(ctx context.Context, eventoID int) ([]db.InscripcionModel, error) {
 	return r.client.Inscripcion.FindMany(
 		db.Inscripcion.IDEvento.Equals(eventoID),
+		db.Inscripcion.Evento.Where(
+			db.Evento.Cancelado.Equals(false),
+		),
+	).With(
+		db.Inscripcion.Evento.Fetch(),
 	).Exec(ctx)
 }
 
 func (r *Repository) FindByUsuarioID(ctx context.Context, usuarioID int) ([]db.InscripcionModel, error) {
 	return r.client.Inscripcion.FindMany(
 		db.Inscripcion.IDUsuario.Equals(usuarioID),
+		db.Inscripcion.Evento.Where(
+			db.Evento.Cancelado.Equals(false),
+		),
+	).With(
+		db.Inscripcion.Evento.Fetch(),
 	).Exec(ctx)
 }
 

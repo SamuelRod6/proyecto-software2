@@ -9,13 +9,13 @@ import (
 	"time"
 
 	eventdto "project/backend/internal/events/dto"
+	notificationservice "project/backend/internal/notifications/service"
 	"project/backend/internal/registrations/dto"
 	"project/backend/internal/registrations/repo"
 	"project/backend/internal/registrations/service"
 	"project/backend/internal/registrations/validation"
 	"project/backend/internal/shared/httperror"
 	"project/backend/prisma/db"
-	notificationservice "project/backend/internal/notifications/service"
 )
 
 type Handler struct {
@@ -110,6 +110,14 @@ func (h *Handler) listInscripciones(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Filtrar eventos cancelados
+	eventosFiltrados := make([]db.EventoModel, 0, len(eventos))
+	for _, ev := range eventos {
+		if !ev.Cancelado {
+			eventosFiltrados = append(eventosFiltrados, ev)
+		}
+	}
+
 	now := time.Now()
 	inscritosMap := make(map[int]struct{})
 	for _, ins := range inscripciones {
@@ -118,7 +126,7 @@ func (h *Handler) listInscripciones(w http.ResponseWriter, r *http.Request) {
 
 	eventosInscritos := make([]eventdto.EventoResponse, 0)
 	eventosDisponibles := make([]eventdto.EventoResponse, 0)
-	for _, ev := range eventos {
+	for _, ev := range eventosFiltrados {
 		_, inscrito := inscritosMap[ev.IDEvento]
 		abierto := ev.InscripcionesAbiertasManual && now.Before(ev.FechaCierreInscripcion) && now.Before(ev.FechaInicio)
 		er := eventdto.EventoResponse{

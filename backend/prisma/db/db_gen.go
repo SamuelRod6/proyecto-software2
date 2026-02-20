@@ -105,7 +105,7 @@ model Roles {
 
 model Evento {
   id_evento                     Int            @id @default(autoincrement())
-  nombre                        String         @unique
+  nombre                        String
   fecha_inicio                  DateTime
   fecha_fin                     DateTime
   fecha_cierre_inscripcion      DateTime
@@ -5640,7 +5640,6 @@ type eventoQuery struct {
 	// Nombre
 	//
 	// @required
-	// @unique
 	Nombre eventoQueryNombreString
 
 	// FechaInicio
@@ -6157,9 +6156,9 @@ func (r eventoQueryNombreString) SetIfPresent(value *String) eventoWithPrismaNom
 	return r.Set(*value)
 }
 
-func (r eventoQueryNombreString) Equals(value string) eventoWithPrismaNombreEqualsUniqueParam {
+func (r eventoQueryNombreString) Equals(value string) eventoWithPrismaNombreEqualsParam {
 
-	return eventoWithPrismaNombreEqualsUniqueParam{
+	return eventoWithPrismaNombreEqualsParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6172,9 +6171,9 @@ func (r eventoQueryNombreString) Equals(value string) eventoWithPrismaNombreEqua
 	}
 }
 
-func (r eventoQueryNombreString) EqualsIfPresent(value *string) eventoWithPrismaNombreEqualsUniqueParam {
+func (r eventoQueryNombreString) EqualsIfPresent(value *string) eventoWithPrismaNombreEqualsParam {
 	if value == nil {
-		return eventoWithPrismaNombreEqualsUniqueParam{}
+		return eventoWithPrismaNombreEqualsParam{}
 	}
 	return r.Equals(*value)
 }
@@ -6197,8 +6196,8 @@ func (r eventoQueryNombreString) Cursor(cursor string) eventoCursorParam {
 	}
 }
 
-func (r eventoQueryNombreString) In(value []string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) In(value []string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6211,15 +6210,15 @@ func (r eventoQueryNombreString) In(value []string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) InIfPresent(value []string) eventoParamUnique {
+func (r eventoQueryNombreString) InIfPresent(value []string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.In(value)
 }
 
-func (r eventoQueryNombreString) NotIn(value []string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) NotIn(value []string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6232,15 +6231,15 @@ func (r eventoQueryNombreString) NotIn(value []string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) NotInIfPresent(value []string) eventoParamUnique {
+func (r eventoQueryNombreString) NotInIfPresent(value []string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.NotIn(value)
 }
 
-func (r eventoQueryNombreString) Lt(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) Lt(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6253,15 +6252,15 @@ func (r eventoQueryNombreString) Lt(value string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) LtIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) LtIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.Lt(*value)
 }
 
-func (r eventoQueryNombreString) Lte(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) Lte(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6274,15 +6273,15 @@ func (r eventoQueryNombreString) Lte(value string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) LteIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) LteIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.Lte(*value)
 }
 
-func (r eventoQueryNombreString) Gt(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) Gt(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6295,15 +6294,15 @@ func (r eventoQueryNombreString) Gt(value string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) GtIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) GtIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.Gt(*value)
 }
 
-func (r eventoQueryNombreString) Gte(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) Gte(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6316,15 +6315,15 @@ func (r eventoQueryNombreString) Gte(value string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) GteIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) GteIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.Gte(*value)
 }
 
-func (r eventoQueryNombreString) Contains(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) Contains(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6337,15 +6336,15 @@ func (r eventoQueryNombreString) Contains(value string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) ContainsIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) ContainsIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.Contains(*value)
 }
 
-func (r eventoQueryNombreString) StartsWith(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) StartsWith(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6358,15 +6357,15 @@ func (r eventoQueryNombreString) StartsWith(value string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) StartsWithIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) StartsWithIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.StartsWith(*value)
 }
 
-func (r eventoQueryNombreString) EndsWith(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) EndsWith(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6379,15 +6378,15 @@ func (r eventoQueryNombreString) EndsWith(value string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) EndsWithIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) EndsWithIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.EndsWith(*value)
 }
 
-func (r eventoQueryNombreString) Mode(value QueryMode) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) Mode(value QueryMode) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6400,15 +6399,15 @@ func (r eventoQueryNombreString) Mode(value QueryMode) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) ModeIfPresent(value *QueryMode) eventoParamUnique {
+func (r eventoQueryNombreString) ModeIfPresent(value *QueryMode) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.Mode(*value)
 }
 
-func (r eventoQueryNombreString) Not(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) Not(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6421,17 +6420,17 @@ func (r eventoQueryNombreString) Not(value string) eventoParamUnique {
 	}
 }
 
-func (r eventoQueryNombreString) NotIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) NotIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.Not(*value)
 }
 
 // deprecated: Use StartsWith instead.
 
-func (r eventoQueryNombreString) HasPrefix(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) HasPrefix(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6445,17 +6444,17 @@ func (r eventoQueryNombreString) HasPrefix(value string) eventoParamUnique {
 }
 
 // deprecated: Use StartsWithIfPresent instead.
-func (r eventoQueryNombreString) HasPrefixIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) HasPrefixIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.HasPrefix(*value)
 }
 
 // deprecated: Use EndsWith instead.
 
-func (r eventoQueryNombreString) HasSuffix(value string) eventoParamUnique {
-	return eventoParamUnique{
+func (r eventoQueryNombreString) HasSuffix(value string) eventoDefaultParam {
+	return eventoDefaultParam{
 		data: builder.Field{
 			Name: "nombre",
 			Fields: []builder.Field{
@@ -6469,9 +6468,9 @@ func (r eventoQueryNombreString) HasSuffix(value string) eventoParamUnique {
 }
 
 // deprecated: Use EndsWithIfPresent instead.
-func (r eventoQueryNombreString) HasSuffixIfPresent(value *string) eventoParamUnique {
+func (r eventoQueryNombreString) HasSuffixIfPresent(value *string) eventoDefaultParam {
 	if value == nil {
-		return eventoParamUnique{}
+		return eventoDefaultParam{}
 	}
 	return r.HasSuffix(*value)
 }

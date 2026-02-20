@@ -30,7 +30,7 @@ model Roles {
 
 model Evento {
   id_evento                  Int      @id @default(autoincrement())
-  nombre                     String   @unique
+  nombre                     String
   fecha_inicio               DateTime
   fecha_fin                  DateTime
   fecha_cierre_inscripcion   DateTime

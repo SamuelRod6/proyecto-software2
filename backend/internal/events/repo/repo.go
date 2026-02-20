@@ -17,8 +17,9 @@ func New(client *db.PrismaClient) *Repository {
 }
 
 func (r *Repository) FindByName(ctx context.Context, nombre string) (*db.EventoModel, error) {
-	return r.client.Evento.FindUnique(
+	return r.client.Evento.FindFirst(
 		db.Evento.Nombre.Equals(strings.TrimSpace(nombre)),
+		db.Evento.Cancelado.Equals(false),
 	).Exec(ctx)
 }
 
