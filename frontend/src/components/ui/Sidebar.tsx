@@ -57,7 +57,7 @@ export default function Sidebar() {
                 }`
               }
             >
-              Gestión de roles y recursos
+              Gestión de permisos y recursos
             </NavLink>
           )}
         </nav>

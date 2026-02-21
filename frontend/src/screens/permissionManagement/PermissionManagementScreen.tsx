@@ -186,7 +186,7 @@ export default function PermissionManagementScreen(): JSX.Element {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-[#F5E427]">
-            Gestión de roles y recursos
+            Gestión de permisos y recursos
           </h1>
           <p className="text-slate-300">
             Crea permisos y vincula recursos con un permiso obligatorio.
