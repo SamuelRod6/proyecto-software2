@@ -18,6 +18,9 @@ interface Props {
 
 const AvailableEventsList: React.FC<Props> = ({ eventos, onInscribir }) => {
     const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
+    const { state: modalState, dispatch: modalDispatch } = useModal();
+    // Only allow opening EventDetailModal if no other modal is open
+    const canOpenEventDetail = !modalState.openModal || modalState.openModal === "EVENT_DETAIL";
     return (
         <>
             <div className="bg-slate-800 rounded-xl p-4">
@@ -29,7 +32,12 @@ const AvailableEventsList: React.FC<Props> = ({ eventos, onInscribir }) => {
                         <li
                             key={evento.id_evento}
                             className="p-4 rounded-lg border bg-slate-700 border-slate-600 flex flex-col md:flex-row md:items-center md:justify-between cursor-pointer hover:bg-slate-600 transition"
-                            onClick={() => setSelectedEvento(evento)}
+                            onClick={() => {
+                                if (canOpenEventDetail) {
+                                    modalDispatch({ type: 'OPEN_MODAL', payload: 'EVENT_DETAIL' });
+                                    setSelectedEvento(evento);
+                                }
+                            }}
                         >
                             <div>
                                 <div className="font-bold text-slate-200">
@@ -58,12 +66,16 @@ const AvailableEventsList: React.FC<Props> = ({ eventos, onInscribir }) => {
             {selectedEvento && (
                 <EventDetailModal
                     event={selectedEvento}
-                    open={!!selectedEvento}
-                    onClose={() => setSelectedEvento(null)}
+                    open={!!selectedEvento && modalState.openModal === "EVENT_DETAIL"}
+                    onClose={() => {
+                        setSelectedEvento(null);
+                        modalDispatch({ type: 'CLOSE_MODAL' });
+                    }}
                     showInscribirButton
                     onInscribir={() => {
                         onInscribir && onInscribir(selectedEvento);
                         setSelectedEvento(null);
+                        modalDispatch({ type: 'CLOSE_MODAL' });
                     }}
                 />
             )}

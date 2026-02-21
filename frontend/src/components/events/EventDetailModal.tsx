@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
 import { useAuth } from "../../contexts/Auth/Authcontext";
+import { useModal } from "../../contexts/Modal/ModalContext";
 // components
 import DateRangePicker from "../../components/ui/DateRangePicker";
 import Input from "../../components/ui/Input";
 import EditIconButton from "../../components/ui/EditIconButton";
+import EditEventModal from "./EditEventModal";
 import Modal from "../../components/ui/Modal";
 import UpdateCloseDateModal from "./UpdateCloseDateModal";
 import ToggleIconButton from "../../components/ui/ToggleIconButton";
@@ -34,8 +36,11 @@ export default function EventDetailModal({
     showInscribirButton,
     onInscribir
 }: EventDetailModalProps): JSX.Element | null {
+    // modal context
+    const { state: modalState, dispatch: modalDispatch } = useModal();
     // states
     const [showCloseDateModal, setShowCloseDateModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState<"abrir"|"cerrar"|null>(null);
     const [loadingConfirm, setLoadingConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -107,12 +112,24 @@ export default function EventDetailModal({
         }
     }
 
-    // return null if no event is provided
+    // Only render modal if allowed by context
+    if (!open || modalState.openModal !== "EVENT_DETAIL") return null;
     if (!event) return null;
+
+    // Handler to close modal via context and parent
+    const handleClose = () => {
+        modalDispatch({ type: 'CLOSE_MODAL' });
+        onClose();
+    };
 
     return (
         <>
-            <Modal open={open} onClose={onClose} title="Detalle del evento" className="max-w-screen-lg w-full">
+            <Modal
+                open={open}
+                onClose={handleClose}
+                title="Detalle del evento"
+                className="max-w-screen-lg w-full"
+            >
                 <div className="rounded-xl border border-slate-700 bg-slate-800/90 p-10 max-w-[900px] w-full mx-auto shadow-lg flex flex-col md:flex-row gap-8 md:gap-10">
                     <div className="flex-1 flex flex-col justify-center items-center">
                         <label className="block mb-2 text-slate-300 font-medium text-lg">
@@ -147,6 +164,11 @@ export default function EventDetailModal({
                                             title="Cerrar inscripciones"
                                             iconSize={22}
                                         />
+                                        <EditIconButton 
+                                            aria-label="Editar evento"
+                                            onClick={() => setShowEditModal(true)}
+                                            color="#94a3b8"
+                                        />
                                     </>
                                 ) : (
                                     <>
@@ -159,6 +181,11 @@ export default function EventDetailModal({
                                             className="p-2" 
                                             title="Abrir inscripciones"
                                             iconSize={22}
+                                        />
+                                        <EditIconButton 
+                                            aria-label="Editar fecha de cierre"
+                                            onClick={() => setShowCloseDateModal(true)}
+                                            color="#94a3b8"
                                         />
                                     </>
                                 )}
@@ -182,13 +209,6 @@ export default function EventDetailModal({
                                     <label className="mb-1 text-slate-300 font-medium flex items-center gap-2">
                                         Fecha de cierre de inscripciones
                                     </label>
-                                    {!isParticipant && (
-                                        <EditIconButton 
-                                            aria-label="Editar fecha de cierre"
-                                            onClick={() => setShowCloseDateModal(true)}
-                                            color="#94a3b8"
-                                        />
-                                    )}
                                     <Input 
                                         value={event.fecha_cierre_inscripcion} 
                                         disabled 
@@ -218,6 +238,14 @@ export default function EventDetailModal({
                     open={showCloseDateModal} 
                     onClose={() => setShowCloseDateModal(false)} 
                     event={event} 
+                />
+            )}
+            {showEditModal && event && (
+                <EditEventModal 
+                    open={showEditModal} 
+                    onClose={() => setShowEditModal(false)} 
+                    event={event} 
+                    onUpdate={onUpdate}
                 />
             )}
             <ConfirmModal

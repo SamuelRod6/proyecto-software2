@@ -67,9 +67,13 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	};
 
 	// helper to format date
-	function formatDate(d: Date): string {
-		return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric" });
-	}
+ function formatDateWithTime(d: Date, hour: number, minute: number): string {
+	 const date = new Date(d);
+	 date.setHours(hour, minute, 0, 0);
+	 // Formato: DD/MM/AAAA HH:mm:ss
+	 const pad = (n: number) => n.toString().padStart(2, '0');
+	 return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+ }
 
 	//function to parse date string from API
 	function parseDate(dateStr: string): Date {
@@ -82,13 +86,13 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		if (!name || !dateRange || !dateRange.from || !dateRange.to || !country || !city || !closeDate) {
 			return null;
 		}
-		return {
-			nombre: name,
-			fecha_inicio: formatDate(dateRange.from),
-			fecha_fin: formatDate(dateRange.to),
-			ubicacion: `${city}, ${country}`,
-			fecha_cierre_inscripcion: formatDate(closeDate),
-		};
+	   return {
+	     nombre: name,
+	     fecha_inicio: formatDateWithTime(dateRange.from, 0, 0), // 00:00 del primer día
+	     fecha_fin: formatDateWithTime(dateRange.to, 23, 59),    // 23:59 del último día
+	     ubicacion: `${city}, ${country}`,
+	     fecha_cierre_inscripcion: formatDateWithTime(closeDate, 23, 59), // cierre inscripciones a las 23:59
+	   };
 	}
 
 	// submit handler

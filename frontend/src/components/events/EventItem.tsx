@@ -1,8 +1,12 @@
 import { useState } from "react";
+import { useModal } from "../../contexts/Modal/ModalContext";
 // components
 import DeleteIconButton from "../ui/DeleteIconButton";
 import ToggleIconButton from "../ui/ToggleIconButton";
 import ConfirmModal from "../ui/ConfirmModal";
+import AddSessionButton from "./AddSessionButton";
+import EventDetailModal from "./EventDetailModal";
+import CreateSessionModal from "../sessions/CreateSessionModal";
 // contexts
 import { useAuth } from "../../contexts/Auth/Authcontext";
 
@@ -37,17 +41,37 @@ const {
 	// states
 	const [showConfirm, setShowConfirm] = useState<null | "abrir" | "cerrar">(null);
 	const [loading, setLoading] = useState(false);
+	// modal context
+	const { state: modalState, dispatch: modalDispatch } = useModal() as { state: { openModal: string | null, payload?: any }, dispatch: any };
 	// contexts
 	const { user } = useAuth();
 
 	// role checks
 	const isAdmin = user?.role === "ADMIN";
 	const isOrganizer = user?.role === "COMITE CIENTIFICO";
-	return (
-		<div
-			className="rounded-lg bg-slate-800 shadow-md p-6 mb-4 flex flex-col md:flex-row md:items-center md:justify-between transition hover:bg-slate-700 cursor-pointer"
-			onClick={typeof onClick === 'function' ? onClick : undefined}
-		>
+	const canOpenDetailModal = !modalState.openModal || modalState.openModal === "EVENT_DETAIL";
+	const isAnyOtherModalOpen = modalState.openModal && modalState.openModal !== "EVENT_DETAIL";
+	 return (
+	 	<div
+	 		className="rounded-lg bg-slate-800 shadow-md p-6 mb-4 flex flex-col md:flex-row md:items-center md:justify-between transition hover:bg-slate-700 cursor-pointer"
+	 		onClick={(e) => {
+	 			if (isAnyOtherModalOpen) {
+	 				return;
+	 			}
+	 			if (canOpenDetailModal) {
+	 				modalDispatch({ type: 'OPEN_MODAL', payload: { modalName: 'EVENT_DETAIL', payload: {
+	 					id_evento,
+	 					nombre,
+	 					fecha_inicio,
+	 					fecha_fin,
+	 					fecha_cierre_inscripcion,
+	 					inscripciones_abiertas,
+	 					ubicacion,
+	 					inscrito,
+	 				} } });
+	 			}
+	 		}}
+	 	>
 			<div>
 				<h2 className="text-xl font-semibold text-[#F5E427] mb-2 flex items-center gap-2">
 					{nombre}
@@ -64,23 +88,63 @@ const {
 					</span>
 				</div>
 			</div>
-				{(isAdmin || isOrganizer) && (
-					<div className="mt-4 md:mt-0 md:ml-4 flex-shrink-0 flex gap-2">
-						{onToggleInscripcion && (
-							<ToggleIconButton
-								open={!inscripciones_abiertas}
-								onClick={e => {
-									e.stopPropagation();
-									setShowConfirm(inscripciones_abiertas ? "cerrar" : "abrir");
-								}}
-								title={inscripciones_abiertas ? "Cerrar inscripciones" : "Abrir inscripciones"}
-							/>
-						)}
-						{onDelete && (
-							<DeleteIconButton onClick={e => { e.stopPropagation(); onDelete(id_evento); }} />
-						)}
-					</div>
-				)}
+				 {(isAdmin || isOrganizer) && (
+					 <div className="mt-4 md:mt-0 md:ml-4 flex-shrink-0 flex gap-2 items-center">
+						 <AddSessionButton
+							 onClick={e => {
+								 e.stopPropagation();
+								 modalDispatch({ type: 'OPEN_MODAL', payload: { modalName: 'CREATE_SESSION', payload: {
+									 event: {
+										 id_evento,
+										 nombre,
+										 fecha_inicio,
+										 fecha_fin,
+										 fecha_cierre_inscripcion,
+										 inscripciones_abiertas,
+										 ubicacion,
+										 inscrito,
+									 }
+								 } } });
+							 }}
+						 />
+						 {onToggleInscripcion && (
+							 <ToggleIconButton
+								 open={!inscripciones_abiertas}
+								 onClick={e => {
+									 e.stopPropagation();
+									 setShowConfirm(inscripciones_abiertas ? "cerrar" : "abrir");
+								 }}
+								 title={inscripciones_abiertas ? "Cerrar inscripciones" : "Abrir inscripciones"}
+							 />
+						 )}
+						 {onDelete && (
+							 <DeleteIconButton onClick={e => { e.stopPropagation(); onDelete(id_evento); }} />
+						 )}
+					 </div>
+				 )}
+			 {/* Modal de crear sesión */}
+			 {modalState.openModal === "CREATE_SESSION" && (
+				 <CreateSessionModal
+					 event={modalState.payload?.event}
+					 open={modalState.openModal === "CREATE_SESSION"}
+					 onClose={() => {
+						 modalDispatch({ type: 'CLOSE_MODAL' });
+					 }}
+					 onSessionCreated={() => {
+						 modalDispatch({ type: 'CLOSE_MODAL' });
+					 }}
+				 />
+			 )}
+			 {/* Event Detail Modal */}
+			 {modalState.openModal === "EVENT_DETAIL" && (
+				 <EventDetailModal
+					 event={modalState.payload}
+					 open={modalState.openModal === "EVENT_DETAIL"}
+					 onClose={() => {
+						 modalDispatch({ type: 'CLOSE_MODAL' });
+					 }}
+				 />
+			 )}
 		<ConfirmModal
 			open={!!showConfirm}
 			title={showConfirm === "cerrar" ? "Cerrar inscripciones" : "Abrir inscripciones"}
