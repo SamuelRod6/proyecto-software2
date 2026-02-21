@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { FiBell, FiLogOut } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import Modal from "./Modal";
 // contexts
 import { useAuth } from "../../contexts/Auth/Authcontext";
 import { ROUTES } from "../../navigation/routes";
+import Button from "./Button";
 import {
   getNotificationsForUser,
   markAllNotificationsRead,
@@ -16,6 +18,7 @@ export default function Header() {
   const navigate = useNavigate();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   const storedUser = (() => {
     if (typeof window === "undefined") return null;
@@ -101,7 +104,7 @@ export default function Header() {
             )}
           </button>
           <button
-            onClick={handleLogout}
+            onClick={() => setIsLogoutConfirmOpen(true)}
             title="Cerrar sesión"
             className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700 transition-colors"
           >
@@ -147,6 +150,25 @@ export default function Header() {
           </div>
         </div>
       )}
+      <Modal
+        open={isLogoutConfirmOpen}
+        onClose={() => setIsLogoutConfirmOpen(false)}
+        title="Cerrar sesión"
+        className="max-w-md w-full"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-300">¿Deseas cerrar sesión?</p>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => setIsLogoutConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleLogout}>Cerrar sesión</Button>
+          </div>
+        </div>
+      </Modal>
     </header>
   );
 }
