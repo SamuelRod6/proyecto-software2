@@ -3,6 +3,7 @@ import { useToast } from "../../contexts/Toast/ToastContext";
 import Modal from "../../components/ui/Modal";
 import SelectInput, { OptionType } from "../../components/ui/SelectorInput";
 import Button from "../../components/ui/Button";
+import { addUserNotification } from "../../utils/notifications";
 import {
   createRole,
   deleteRole,
@@ -295,6 +296,11 @@ export default function RoleManagementListScreen(): JSX.Element {
       message: "Los roles del usuario se actualizaron correctamente.",
       status: "success",
     });
+    const rolesText =
+      selectedRoles.length > 0
+        ? selectedRoles.join(", ")
+        : "Sin roles asignados";
+    addUserNotification(selectedUser.id, `Tus roles actuales: ${rolesText}.`);
 
     closeRoleModal();
     setIsUpdating(false);
