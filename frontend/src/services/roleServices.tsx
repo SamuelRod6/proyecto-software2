@@ -1,7 +1,7 @@
 import axios from "axios";
+import { getApiBaseUrl } from "../utils/env";
 
-const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_TARGET || "";
+const apiBaseUrl = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: apiBaseUrl || undefined,

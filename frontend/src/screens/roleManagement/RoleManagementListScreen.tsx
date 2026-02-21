@@ -630,8 +630,11 @@ export default function RoleManagementListScreen(): JSX.Element {
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-300">
-            ¿Eliminar el rol <span className="text-slate-100 font-semibold">{roleToDelete?.name}</span>?
-            Esta accion no se puede deshacer.
+            ¿Eliminar el rol{" "}
+            <span className="text-slate-100 font-semibold">
+              {roleToDelete?.name}
+            </span>
+            ? Esta accion no se puede deshacer.
           </p>
           <div className="flex justify-end gap-3">
             <Button variant="ghost" onClick={() => setRoleToDelete(null)}>
