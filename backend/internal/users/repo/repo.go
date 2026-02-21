@@ -87,6 +87,7 @@ func (r *UserRepository) ListUsersWithRoles(ctx context.Context, limit, offset i
 		Select(
 			db.Usuario.IDUsuario.Field(),
 			db.Usuario.Nombre.Field(),
+			db.Usuario.Email.Field(),
 		).
 		With(db.Usuario.UsuarioRoles.Fetch().With(db.UsuarioRoles.Rol.Fetch())).
 		Exec(ctx)

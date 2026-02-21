@@ -18,6 +18,7 @@ import {
 type UserRoleRow = {
   id: number;
   name: string;
+  email: string;
   roles: string[];
 };
 
@@ -61,6 +62,7 @@ function normalizeUsers(payload: unknown): UserRoleRow[] {
     return {
       id: Number(record.id ?? record.id_usuario ?? index + 1),
       name: String(record.name ?? record.nombre ?? record.email ?? "Usuario"),
+      email: String(record.email ?? record.correo ?? ""),
       roles: rolesArray,
     };
   });
@@ -470,25 +472,26 @@ export default function RoleManagementListScreen(): JSX.Element {
           <thead className="bg-slate-900 text-slate-200">
             <tr>
               <th className="px-4 py-3 font-semibold">Usuario</th>
+              <th className="px-4 py-3 font-semibold">Correo</th>
               <th className="px-4 py-3 font-semibold">Roles</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700 text-slate-300">
             {isLoading ? (
               <tr>
-                <td className="px-4 py-6 text-center" colSpan={2}>
+                <td className="px-4 py-6 text-center" colSpan={3}>
                   Cargando usuarios...
                 </td>
               </tr>
             ) : error ? (
               <tr>
-                <td className="px-4 py-6 text-center" colSpan={2}>
+                <td className="px-4 py-6 text-center" colSpan={3}>
                   {error}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center" colSpan={2}>
+                <td className="px-4 py-6 text-center" colSpan={3}>
                   Sin usuarios.
                 </td>
               </tr>
@@ -496,6 +499,7 @@ export default function RoleManagementListScreen(): JSX.Element {
               rows.map((row) => (
                 <tr key={row.id}>
                   <td className="px-4 py-3">{row.name}</td>
+                  <td className="px-4 py-3">{row.email || "-"}</td>
                   <td className="px-4 py-3">
                     <button
                       className="text-[#F5E427] hover:underline"

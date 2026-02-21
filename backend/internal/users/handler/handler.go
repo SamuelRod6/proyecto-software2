@@ -99,6 +99,7 @@ func (h *Handler) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 	type userRoleItem struct {
 		ID    int      `json:"id"`
 		Name  string   `json:"name"`
+		Email string   `json:"email"`
 		Role  string   `json:"role"`
 		Roles []string `json:"roles"`
 	}
@@ -116,6 +117,7 @@ func (h *Handler) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 		items = append(items, userRoleItem{
 			ID:    user.IDUsuario,
 			Name:  user.Nombre,
+			Email: user.Email,
 			Role:  roleName,
 			Roles: roles,
 		})
