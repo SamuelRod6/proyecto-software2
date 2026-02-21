@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { set } from "date-fns";
 // contexts
 import { useAuth } from "../../contexts/Auth/Authcontext";
 import { useToast } from "../../contexts/Toast/ToastContext";
@@ -27,6 +26,7 @@ interface Evento {
 const EventsParticipantListScreen: React.FC = () => {
     // states
     const [loading, setLoading] = useState(true);
+    const [loadingDisponibles, setLoadingDisponibles] = useState(false);
     const [eventosInscritos, setEventosInscritos] = useState<Evento[]>([]);
     const [eventosDisponibles, setEventosDisponibles] = useState<Evento[]>([]);
     const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
@@ -43,34 +43,99 @@ const EventsParticipantListScreen: React.FC = () => {
     const { user } = useAuth();
     const { showToast } = useToast();
 
-    // function to fetch user's inscriptions and available events
-    const fetchInscripcionesYDisponibles = async () => {
+    const fetchInscritos = async () => {
         if (!user?.id) {
-            setLoading(false);
+            setEventosInscritos([]);
             return;
         }
-        setLoading(true);
+
         try {
             const { status, data } = await getInscripciones({ usuarioId: user.id });
             if (status === 200 && data) {
                 setEventosInscritos(data.eventos_inscritos || []);
-                setEventosDisponibles(data.eventos_disponibles || []);
+            } else {
+                setEventosInscritos([]);
+                showToast({
+                    title: "Error",
+                    status: "error",
+                    message: data?.message || data?.error || "No se pudieron cargar tus eventos inscritos",
+                });
             }
         } catch (error: any) {
             showToast({
                 title: "Error",
                 status: "error",
-                message: error?.message || "Error al cargar inscripciones"
+                message: error?.message || "Error al cargar tus eventos inscritos"
             });
-        } finally {
-            setLoading(false);
         }
     };
 
-    // fetch data on mount and when user changes
+    const fetchDisponiblesFiltrados = async () => {
+        if (!user?.id) {
+            setEventosDisponibles([]);
+            return;
+        }
+
+        setLoadingDisponibles(true);
+        try {
+            const { status, data } = await getInscripciones({
+                usuarioId: user.id,
+                searchTerm,
+                countryTerm,
+                cityTerm,
+                fromDate,
+                toDate,
+            });
+
+            if (status === 200 && data) {
+                setEventosDisponibles(data.eventos_disponibles || []);
+            } else {
+                setEventosDisponibles([]);
+                showToast({
+                    title: "Error",
+                    status: "error",
+                    message: data?.message || data?.error || "No se pudieron cargar los eventos disponibles",
+                });
+            }
+        } catch (error: any) {
+            showToast({
+                title: "Error",
+                status: "error",
+                message: error?.message || "Error al cargar eventos disponibles",
+            });
+        } finally {
+            setLoadingDisponibles(false);
+        }
+    };
+
+    // initial load when user changes
     useEffect(() => {
-        fetchInscripcionesYDisponibles();
+        const run = async () => {
+            if (!user?.id) {
+                setLoading(false);
+                setEventosInscritos([]);
+                setEventosDisponibles([]);
+                return;
+            }
+
+            setLoading(true);
+            await Promise.all([fetchInscritos(), fetchDisponiblesFiltrados()]);
+            setLoading(false);
+        };
+
+        run();
     }, [user]);
+
+    // refetch only available events when filters change
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const timeoutId = window.setTimeout(() => {
+            fetchDisponiblesFiltrados();
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [user, searchTerm, countryTerm, cityTerm, fromDate, toDate]);
 
     // show loader while loading
     if (loading) {
@@ -119,7 +184,7 @@ const EventsParticipantListScreen: React.FC = () => {
                     message: `Te has inscrito a "${inscribirEventoModal.evento.nombre}"`,
                 });
                 setInscribirEventoModal({ open: false, evento: null });
-                fetchInscripcionesYDisponibles();
+                await Promise.all([fetchInscritos(), fetchDisponiblesFiltrados()]);
             } else {
                 showToast({
                     title: "Error",
@@ -198,7 +263,7 @@ const EventsParticipantListScreen: React.FC = () => {
                 onToDateChange={setToDate}
             />
             <div>
-                {loading ? (
+                {loadingDisponibles ? (
                     <div className="flex justify-center items-center min-h-[200px] bg-slate-800 rounded-xl">
                         <Loader visible={true} />
                     </div>
