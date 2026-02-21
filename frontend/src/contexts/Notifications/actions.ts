@@ -1,0 +1,31 @@
+import { fetchNotificationsApi } from '../../services/notificationsServices';
+
+export const REFRESH_NOTIFICATIONS = 'REFRESH_NOTIFICATIONS';
+export const MARK_AS_READ = 'MARK_AS_READ';
+
+export const refreshNotifications = (notifications: any) => ({
+    type: REFRESH_NOTIFICATIONS,
+    payload: notifications,
+});
+
+export const markAsRead = (id: number) => ({
+    type: MARK_AS_READ,
+    payload: id,
+});
+
+export const fetchNotifications = async (userId: number) => {
+    const apiNotifications = await fetchNotificationsApi(userId);
+    if (apiNotifications.status === 200 && Array.isArray(apiNotifications.data)) {
+        return apiNotifications.data.map((n: any) => ({
+            id: n.id,
+            type: n.type,
+            title: n.title,
+            read: n.read,
+            eventId: n.event_id,
+            content: n.message,
+            createdAt: n.created_at,
+        }));
+    } else {
+        return [];
+    }
+};

@@ -7,22 +7,30 @@ import EventDetailModal from "../../components/events/EventDetailModal";
 import Loader from "../../components/ui/Loader";
 import ErrorState from "../../components/ui/ErrorState";
 import EmptyState from "../../components/ui/EmptyState";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
+import { useAuth } from "../../contexts/Auth/Authcontext";
 // animations
 import emptyAnimation from "../../assets/animations/empty-animation.json";
 // APIs
-import { getEvents, Evento } from "../../services/eventsServices";
+import { getEvents, Evento, deleteEvent, patchInscriptionDate } from "../../services/eventsServices";
 
-export default function EventsListScreen(): JSX.Element {
+export default function EventsAdminListScreen(): JSX.Element {
 	// states
 	const [events, setEvents] = useState<Evento[]>([]);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [showCreateModal, setShowCreateModal] = useState(false);
 	const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null);
+	const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+	const [eventToDelete, setEventToDelete] = useState<number | null>(null);
+	const [deleting, setDeleting] = useState(false);
+	const [eventosInscritos, setEventosInscritos] = useState<number[]>([]);
+
 	// contexts
 	const { showToast } = useToast();
+	const { user } = useAuth();
 
 	// function to fetch events
 	async function fetchEvents() {
@@ -32,7 +40,7 @@ export default function EventsListScreen(): JSX.Element {
 			if (status === 200 && Array.isArray(data)) {
 				setEvents(data);
 			} else {
-				const msg = data?.error || "Error al cargar eventos";
+				const msg = data?.message || "Error al cargar eventos";
 				setError(msg);
 				showToast({
 					title: "Error",
@@ -40,17 +48,74 @@ export default function EventsListScreen(): JSX.Element {
 					status: "error"
 				});
 			}
-		} catch {
-			setError("Error al cargar eventos");
+		} catch (error: any) {
+			const msg = error?.response?.data?.message || error.message || "Error al cargar eventos";
+			setError(msg);
 			showToast({
 				title: "Error",
-				message: "Error al cargar eventos",
+				message: msg,
 				status: "error"
 			});
 		} finally {
 			setLoading(false);
 		}
 	}
+
+	// handler to open delete confirmation modal
+	const handleDeleteClick = (id: number) => {
+		setEventToDelete(id);
+		setDeleteModalOpen(true);
+	};
+
+	// handler to confirm deletion
+	const handleConfirmDelete = async () => {
+		if (eventToDelete == null) return;
+		setDeleting(true);
+		const { status, data } = await deleteEvent(eventToDelete);
+		if (status === 204) {
+			showToast({ 
+				title: "Evento eliminado", 
+				message: "El evento fue eliminado correctamente.", 
+				status: "success" 
+			});
+			fetchEvents();
+		} else {
+			showToast({ 
+				title: "Error al eliminar", 
+				message: data?.message || data?.error || "No se pudo eliminar el evento.", 
+				status: "error" 
+			});
+		}
+		setDeleting(false);
+		setDeleteModalOpen(false);
+		setEventToDelete(null);
+	};
+
+	// handler to cancel deletion
+	const handleCancelDelete = () => {
+		setDeleteModalOpen(false);
+		setEventToDelete(null);
+	};
+
+	// handler to toggle inscription status
+	const handleToggleInscripcion = async (id: number, abiertas: boolean) => {
+		const action = abiertas ? "cerrar" : "abrir";
+		const { status, data } = await patchInscriptionDate(id, action);
+		if (status === 200) {
+			showToast({
+				title: abiertas ? "Inscripciones cerradas" : "Inscripciones abiertas",
+				message: abiertas ? "Las inscripciones fueron cerradas." : "Las inscripciones fueron abiertas.",
+				status: "success"
+			});
+			fetchEvents();
+		} else {
+			showToast({
+				title: "Error al cambiar inscripciones",
+				message: data?.message || data?.error || "No se pudo cambiar el estado de las inscripciones.",
+				status: "error"
+			});
+		}
+	};
 
 	useEffect(() => {
 		fetchEvents();
@@ -67,9 +132,9 @@ export default function EventsListScreen(): JSX.Element {
 						Administra los eventos, fechas, ubicaciones y sesiones.
 					</p>
 				</div>
-				 <Button onClick={() => setShowCreateModal(true)}>
-					 Crear evento
-				 </Button>
+				<Button onClick={() => setShowCreateModal(true)}>
+					Crear evento
+				</Button>
 			</header>
 
 			<EventCreateModal 
@@ -105,7 +170,14 @@ export default function EventsListScreen(): JSX.Element {
 							fecha_cierre_inscripcion={ev.fecha_cierre_inscripcion}
 							inscripciones_abiertas={ev.inscripciones_abiertas}
 							ubicacion={ev.ubicacion}
-							onClick={() => setSelectedEvent(ev)}
+							inscrito={eventosInscritos.includes(ev.id_evento)}
+							onClick={e => {
+								// Only open modal if the click is not on a button or its children (like the toggle or delete icons)
+								if (e && e.target && (e.target.closest('button') || e.target.closest('svg'))) return;
+								setSelectedEvent(ev);
+							}}
+							onDelete={handleDeleteClick}
+							onToggleInscripcion={handleToggleInscripcion}
 						/>
 					))}
 					<EventDetailModal 
@@ -119,6 +191,16 @@ export default function EventsListScreen(): JSX.Element {
 					/>
 				</div>
 			)}
+			<ConfirmModal
+				open={deleteModalOpen}
+				title="Eliminar evento"
+				message="¿Seguro que deseas eliminar este evento? Esta acción no se puede deshacer."
+				confirmText="Eliminar"
+				cancelText="Cancelar"
+				onConfirm={handleConfirmDelete}
+				onCancel={handleCancelDelete}
+				loading={deleting}
+			/>
 		</section>
 	);
 }

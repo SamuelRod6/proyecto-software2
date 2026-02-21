@@ -16,6 +16,9 @@ model Usuario {
   id_rol        Int
   rol           Roles    @relation(fields: [id_rol], references: [id_rol])
   createdAt     DateTime @default(now())
+  inscripciones Inscripcion[]
+  notificaciones Notificacion[] @relation("UsuarioNotificaciones")
+  sesionesPonente SesionPonente[]
 }
 
 model Roles {
@@ -28,11 +31,87 @@ model Roles {
 
 model Evento {
   id_evento                  Int      @id @default(autoincrement())
-  nombre                     String   @unique
+  nombre                     String
   fecha_inicio               DateTime
   fecha_fin                  DateTime
   fecha_cierre_inscripcion   DateTime
   inscripciones_abiertas_manual Boolean @default(true)
   ubicacion                  String
   createdAt                  DateTime @default(now())
+  cancelado                  Boolean  @default(false)
+  inscripciones              Inscripcion[]
+  notificaciones             Notificacion[] @relation("EventoNotificaciones")
+  sesiones                   Sesion[]
+}
+
+model Inscripcion {
+  id_inscripcion Int      @id @default(autoincrement())
+  fecha          DateTime @default(now())
+  estado_pago    Boolean  @default(false)
+  comprobante    String   @default("")
+  id_evento      Int
+  id_usuario     Int
+  evento         Evento   @relation(fields: [id_evento], references: [id_evento])
+  usuario        Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@unique([id_evento, id_usuario])
+}
+
+model Notificacion {
+  id_notificacion Int       @id @default(autoincrement())
+  id_usuario      Int
+  id_evento       Int?
+  tipo            String
+  mensaje         String
+  leida           Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  usuario         Usuario   @relation("UsuarioNotificaciones", fields: [id_usuario], references: [id_usuario])
+  evento          Evento?   @relation("EventoNotificaciones", fields: [id_evento], references: [id_evento])
+}
+
+model JobExecution {
+  id        Int      @id @default(autoincrement())
+  job_name  String   @unique
+  last_run  DateTime
+}
+model Pais {
+  id_pais   Int      @id @default(autoincrement())
+  nombre    String   @unique
+  createdAt DateTime @default(now())
+  ciudades  Ciudad[]
+}
+
+model Ciudad {
+  id_ciudad Int      @id @default(autoincrement())
+  nombre    String
+  id_pais   Int
+  pais      Pais     @relation(fields: [id_pais], references: [id_pais])
+  createdAt DateTime @default(now())
+
+  @@unique([nombre, id_pais])
+}
+
+model Sesion {
+  id_sesion      Int       @id @default(autoincrement())
+  titulo         String
+  descripcion    String
+  fecha_inicio   DateTime
+  fecha_fin      DateTime
+  ubicacion      String
+  id_evento      Int
+  evento         Evento    @relation(fields: [id_evento], references: [id_evento])
+  createdAt      DateTime  @default(now())
+  cancelado      Boolean   @default(false)
+  ponentes       SesionPonente[]
+}
+
+model SesionPonente {
+  id_sesion_ponente Int    @id @default(autoincrement())
+  id_sesion         Int
+  id_usuario        Int
+  sesion            Sesion   @relation(fields: [id_sesion], references: [id_sesion])
+  usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@unique([id_sesion, id_usuario])
 }

@@ -1,7 +1,7 @@
-import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
+import { useAuth } from "../../contexts/Auth/Authcontext";
 // components
 import DateRangePicker from "../../components/ui/DateRangePicker";
 import Input from "../../components/ui/Input";
@@ -10,29 +10,42 @@ import Modal from "../../components/ui/Modal";
 import UpdateCloseDateModal from "./UpdateCloseDateModal";
 import ToggleIconButton from "../../components/ui/ToggleIconButton";
 import ConfirmModal from "../../components/ui/ConfirmModal";
+import Loader from "../../components/ui/Loader";
+import Button from "../../components/ui/Button";
+// services
+import { patchInscriptionDate } from "../../services/eventsServices";
 // interfaces
 import { Evento } from "../../services/eventsServices";
-import { patchInscriptionDate } from "../../services/eventsServices";
+
 interface EventDetailModalProps {
     open: boolean;
     onClose: () => void;
     event?: Evento | null;
     onUpdate?: () => void;
+    showInscribirButton?: boolean;
+    onInscribir?: () => void;
 }
 
 export default function EventDetailModal({ 
     open, 
     onClose, 
     event, 
-    onUpdate
+    onUpdate,
+    showInscribirButton,
+    onInscribir
 }: EventDetailModalProps): JSX.Element | null {
     // states
     const [showCloseDateModal, setShowCloseDateModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState<"abrir"|"cerrar"|null>(null);
     const [loadingConfirm, setLoadingConfirm] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     // contexts
     const { showToast } = useToast();
+    const { user } = useAuth();
+
+    // Role check
+    const isParticipant = user?.role === "PARTICIPANTE";
 
     // helper to parse date string from API
     function parseDate(dateStr: string): Date | undefined {
@@ -78,14 +91,15 @@ export default function EventDetailModal({
             } else {
                 showToast({
                     title: "Error",
-                    message: response.data?.error || "No se pudo actualizar el estado de las inscripciones.",
+                    message: response.data?.message || "No se pudo actualizar el estado de las inscripciones.",
                     status: "error",
                 });
             }
         } catch (error: any) {
+            const msg = error?.response?.data?.message || error.message || "No se pudo actualizar el estado de las inscripciones.";
             showToast({
                 title: "Error",
-                message: error?.response?.data?.error || "No se pudo actualizar el estado de las inscripciones.",
+                message: msg,
                 status: "error",
             });
         } finally {
@@ -119,60 +133,85 @@ export default function EventDetailModal({
                         </div>
                     </div>
                     <div className="flex-1 flex flex-col gap-4 justify-center p-6 relative">
-                        <div className="flex items-center justify-center gap-2 mb-2 mt-1 md:mt-0 md:mb-0 md:ml-auto md:mr-0" >
-                            {event.inscripciones_abiertas ? (
-                                <>
-                                    <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
-                                        Inscripciones abiertas
-                                    </span>
-                                    <ToggleIconButton 
-                                        open={true} 
-                                        onClick={() => setShowConfirmModal("cerrar")} 
-                                        className="p-2" 
-                                        title="Cerrar inscripciones"
-                                        iconSize={22}
+                        {!isParticipant && (
+                            <div className="flex items-center justify-center gap-2 mb-2 mt-1 md:mt-0 md:mb-0 md:ml-auto md:mr-0">
+                                {event.inscripciones_abiertas ? (
+                                    <>
+                                        <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
+                                            Inscripciones abiertas
+                                        </span>
+                                        <ToggleIconButton 
+                                            open={!event.inscripciones_abiertas} 
+                                            onClick={() => setShowConfirmModal("cerrar")} 
+                                            className="p-2" 
+                                            title="Cerrar inscripciones"
+                                            iconSize={22}
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
+                                            Inscripciones cerradas
+                                        </span>
+                                        <ToggleIconButton 
+                                            open={!event.inscripciones_abiertas} 
+                                            onClick={() => setShowConfirmModal("abrir")} 
+                                            className="p-2" 
+                                            title="Abrir inscripciones"
+                                            iconSize={22}
+                                        />
+                                    </>
+                                )}
+                            </div>
+                        )}
+                        <div className="flex flex-col md:flex-row gap-4">
+                            <div className="flex-1">
+                                <div className="mb-2">
+                                    <label className="block mb-1 text-slate-300 font-medium">
+                                        Nombre del evento
+                                    </label>
+                                    <Input value={event.nombre} disabled className="w-full" />
+                                </div>
+                                <div className="mb-2">
+                                    <label className="block mb-1 text-slate-300 font-medium">
+                                        Ubicación
+                                    </label>
+                                    <Input value={event.ubicacion} disabled className="w-full" />
+                                </div>
+                                <div className="mb-2">
+                                    <label className="mb-1 text-slate-300 font-medium flex items-center gap-2">
+                                        Fecha de cierre de inscripciones
+                                    </label>
+                                    {!isParticipant && (
+                                        <EditIconButton 
+                                            aria-label="Editar fecha de cierre"
+                                            onClick={() => setShowCloseDateModal(true)}
+                                            color="#94a3b8"
+                                        />
+                                    )}
+                                    <Input 
+                                        value={event.fecha_cierre_inscripcion} 
+                                        disabled 
+                                        className="w-full" 
                                     />
-                                </>
-                            ) : (
-                                <>
-                                    <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
-                                        Inscripciones cerradas
-                                    </span>
-                                    <ToggleIconButton 
-                                        open={false} 
-                                        onClick={() => setShowConfirmModal("abrir")} 
-                                        className="p-2" 
-                                        title="Abrir inscripciones"
-                                        iconSize={22}
-                                    />
-                                </>
-                            )}
-                        </div>
-                        <div>
-                            <label className="block mb-1 text-slate-300 font-medium">
-                                Nombre del evento
-                            </label>
-                            <Input value={event.nombre} disabled className="w-full" />
-                        </div>
-                        <div>
-                            <label className="block mb-1 text-slate-300 font-medium">
-                                Ubicación
-                            </label>
-                            <Input value={event.ubicacion} disabled className="w-full" />
-                        </div>
-                        <div>
-                            <label className="block mb-1 text-slate-300 font-medium flex items-center gap-2">
-                                Fecha de cierre de inscripciones
-                                <EditIconButton 
-                                    aria-label="Editar fecha de cierre"
-                                    onClick={() => setShowCloseDateModal(true)}
-                                    color="#94a3b8" // slate-400
-                                />
-                            </label>
-                            <Input value={event.fecha_cierre_inscripcion} disabled className="w-full" />
+                                </div>
+                                {showInscribirButton && (
+                                    <Button
+                                        className="mt-4 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
+                                        onClick={onInscribir}
+                                    >
+                                        Inscribirme
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
+                {loading && (
+                    <div className="flex justify-center items-center min-h-[120px]">
+                        <Loader visible={true} />
+                    </div>
+                )}
             </Modal>
             {showCloseDateModal && (
                 <UpdateCloseDateModal 

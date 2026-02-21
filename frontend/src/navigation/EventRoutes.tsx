@@ -1,9 +1,9 @@
 import { Route } from "react-router-dom";
 // screens
-import EventsListScreen from "../screens/events/EventsListScreen";
+import EventsScreenRouter from "../screens/events/EventsScreenRouter";
 
 export const eventRoutes = (
 	<>
-		<Route path="events" element={<EventsListScreen />} />
+		<Route path="events" element={<EventsScreenRouter />} />
 	</>
 );

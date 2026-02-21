@@ -7,9 +7,17 @@ import (
 
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
-	"project/backend/internal/roles"
+	paishandler "project/backend/internal/pais/handler"
+	registrationhandler "project/backend/internal/registrations/handler"
+	sesioneshandler "project/backend/internal/sesiones/handler"
+
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
+
+	notificationcron "project/backend/internal/notifications/cron"
+	notificationhandler "project/backend/internal/notifications/handler"
+
+	"project/backend/internal/roles"
 	"project/backend/prisma/db"
 
 	"github.com/joho/godotenv"
@@ -41,6 +49,12 @@ func main() {
 	roleService := roles.NewUserRoleService(prismaClient)
 	userHandler := userhandler.New(userRepo, roleService)
 	eventsHandler := eventhandler.New(prismaClient)
+	paisesHandler := paishandler.New(prismaClient)
+	fechasOcupadasHandler := eventhandler.GetFechasOcupadasHandler(eventsHandler.(*eventhandler.Handler).Svc())
+	registrationsHandler := registrationhandler.New(prismaClient)
+	notificationHandler := notificationhandler.New(prismaClient)
+	notificationcron.StartCierreInscripcionesScheduler(prismaClient)
+	sesionesHandler := sesioneshandler.New(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 
@@ -55,6 +69,17 @@ func main() {
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
 	http.Handle("/api/eventos", eventsHandler)
+	http.HandleFunc("/api/eventos/fechas-ocupadas", fechasOcupadasHandler)
+	http.Handle("/api/inscripciones", registrationsHandler)
+	http.Handle("/api/notifications", notificationHandler)
+	http.Handle("/api/notifications/", notificationHandler)
+	http.Handle("/api/paises", paisesHandler)
+	http.Handle("/api/sesiones", sesionesHandler)
+	http.Handle("/api/sesiones/", sesionesHandler)
+
+	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
+		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
