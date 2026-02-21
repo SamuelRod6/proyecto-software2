@@ -1,7 +1,10 @@
 import { NavLink } from "react-router-dom";
 import { ROUTES } from "../../navigation/routes";
+import { getStoredUserRole, isAdminRole } from "../../utils/accessControl";
 
 export default function Sidebar() {
+  const isAdmin = isAdminRole(getStoredUserRole());
+
     return (
       <aside className="hidden w-64 flex-col border-r border-slate-800 bg-slate-800 p-6 md:flex">
         <div className="text-lg font-semibold text-[#F5E427]">USB</div>
@@ -43,18 +46,20 @@ export default function Sidebar() {
           >
             Gestión de roles
           </NavLink>
-          <NavLink
-            to={ROUTES.permissionManagement}
-            className={({ isActive }) =>
-              `rounded-lg px-3 py-2 font-medium transition-colors ${
-                isActive
-                  ? "bg-[#F5E427] text-slate-900"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
-              }`
-            }
-          >
-            Gestión de roles y recursos
-          </NavLink>
+          {isAdmin && (
+            <NavLink
+              to={ROUTES.permissionManagement}
+              className={({ isActive }) =>
+                `rounded-lg px-3 py-2 font-medium transition-colors ${
+                  isActive
+                    ? "bg-[#F5E427] text-slate-900"
+                    : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+                }`
+              }
+            >
+              Gestión de roles y recursos
+            </NavLink>
+          )}
         </nav>
       </aside>
     );

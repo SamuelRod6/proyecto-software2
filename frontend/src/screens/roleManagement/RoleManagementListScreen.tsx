@@ -135,6 +135,9 @@ export default function RoleManagementListScreen(): JSX.Element {
   const [roleRows, setRoleRows] = useState<RoleRow[]>([]);
   const [rolesSectionLoading, setRolesSectionLoading] = useState(false);
   const rolesSectionLoadedRef = useRef(false);
+  const [rolePermissionsMap, setRolePermissionsMap] = useState<
+    Record<number, PermissionRow[]>
+  >({});
 
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleRow | null>(null);
@@ -227,6 +230,22 @@ export default function RoleManagementListScreen(): JSX.Element {
       const roles = normalizeRoles(data);
       setRoleRows(roles);
       syncRoleOptions(roles);
+
+      const permissionsEntries = await Promise.all(
+        roles.map(async (role) => {
+          const res = await getRolePermissions(role.id);
+          if (res.status >= 400) {
+            return [role.id, [] as PermissionRow[]] as const;
+          }
+          return [role.id, normalizePermissions(res.data)] as const;
+        }),
+      );
+
+      const nextMap: Record<number, PermissionRow[]> = {};
+      permissionsEntries.forEach(([roleId, permissions]) => {
+        nextMap[roleId] = permissions;
+      });
+      setRolePermissionsMap(nextMap);
     }
     setRolesSectionLoading(false);
   }, []);
@@ -345,6 +364,11 @@ export default function RoleManagementListScreen(): JSX.Element {
     }
 
     setRoleRows((prev) => prev.filter((item) => item.id !== role.id));
+    setRolePermissionsMap((prev) => {
+      const next = { ...prev };
+      delete next[role.id];
+      return next;
+    });
     await loadRolesSection(true);
     showToast({
       title: "Rol eliminado",
@@ -404,6 +428,15 @@ export default function RoleManagementListScreen(): JSX.Element {
       message: "Permisos del rol actualizados.",
       status: "success",
     });
+    setRolePermissionsMap((prev) => {
+      const selectedPermissions = permissions.filter((permission) =>
+        selectedPermissionIds.includes(permission.id),
+      );
+      return {
+        ...prev,
+        [selectedRoleForPermissions.id]: selectedPermissions,
+      };
+    });
     setIsSavingPermissions(false);
     closePermissionsModal();
   };
@@ -438,25 +471,24 @@ export default function RoleManagementListScreen(): JSX.Element {
             <tr>
               <th className="px-4 py-3 font-semibold">Usuario</th>
               <th className="px-4 py-3 font-semibold">Roles</th>
-              <th className="px-4 py-3 font-semibold">Permisos</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700 text-slate-300">
             {isLoading ? (
               <tr>
-                <td className="px-4 py-6 text-center" colSpan={3}>
+                <td className="px-4 py-6 text-center" colSpan={2}>
                   Cargando usuarios...
                 </td>
               </tr>
             ) : error ? (
               <tr>
-                <td className="px-4 py-6 text-center" colSpan={3}>
+                <td className="px-4 py-6 text-center" colSpan={2}>
                   {error}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-6 text-center" colSpan={3}>
+                <td className="px-4 py-6 text-center" colSpan={2}>
                   Sin usuarios.
                 </td>
               </tr>
@@ -474,7 +506,6 @@ export default function RoleManagementListScreen(): JSX.Element {
                         : "Sin roles"}
                     </button>
                   </td>
-                  <td className="px-4 py-3">permisos</td>
                 </tr>
               ))
             )}
@@ -518,19 +549,20 @@ export default function RoleManagementListScreen(): JSX.Element {
               <tr>
                 <th className="px-4 py-3 font-semibold">Rol</th>
                 <th className="px-4 py-3 font-semibold">Descripción</th>
+                <th className="px-4 py-3 font-semibold">Permisos</th>
                 <th className="px-4 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700 text-slate-300">
               {rolesSectionLoading ? (
                 <tr>
-                  <td className="px-4 py-6 text-center" colSpan={3}>
+                  <td className="px-4 py-6 text-center" colSpan={4}>
                     Cargando roles...
                   </td>
                 </tr>
               ) : roleRows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-center" colSpan={3}>
+                  <td className="px-4 py-6 text-center" colSpan={4}>
                     Sin roles.
                   </td>
                 </tr>
@@ -539,6 +571,17 @@ export default function RoleManagementListScreen(): JSX.Element {
                   <tr key={role.id}>
                     <td className="px-4 py-3">{role.name}</td>
                     <td className="px-4 py-3">{role.description || "-"}</td>
+                    <td className="px-4 py-3">
+                      {(rolePermissionsMap[role.id] ?? []).length > 0
+                        ? (rolePermissionsMap[role.id] ?? [])
+                            .map((permission) =>
+                              permission.resource
+                                ? `${permission.name} - ${permission.resource}`
+                                : permission.name,
+                            )
+                            .join(", ")
+                        : "Sin permisos"}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button
@@ -557,7 +600,7 @@ export default function RoleManagementListScreen(): JSX.Element {
                           className="text-slate-300 hover:text-[#F5E427]"
                           onClick={() => void openPermissionsModal(role)}
                         >
-                          Permisos
+                          Editar permisos
                         </button>
                       </div>
                     </td>
