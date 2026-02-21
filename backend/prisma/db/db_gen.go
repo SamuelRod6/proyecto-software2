@@ -6206,9 +6206,9 @@ func (rolePermisosQuery) IDRolIDPermiso(
 type rolePermisosQueryIDRolInt struct{}
 
 // Set the required value of IDRol
-func (r rolePermisosQueryIDRolInt) Set(value int) rolePermisosSetParam {
+func (r rolePermisosQueryIDRolInt) Set(value int) rolePermisosWithPrismaRolSetParam {
 
-	return rolePermisosSetParam{
+	return rolePermisosWithPrismaRolSetParam{
 		data: builder.Field{
 			Name:  "id_rol",
 			Value: value,
@@ -6218,9 +6218,9 @@ func (r rolePermisosQueryIDRolInt) Set(value int) rolePermisosSetParam {
 }
 
 // Set the optional value of IDRol dynamically
-func (r rolePermisosQueryIDRolInt) SetIfPresent(value *Int) rolePermisosSetParam {
+func (r rolePermisosQueryIDRolInt) SetIfPresent(value *Int) rolePermisosWithPrismaRolSetParam {
 	if value == nil {
-		return rolePermisosSetParam{}
+		return rolePermisosWithPrismaRolSetParam{}
 	}
 
 	return r.Set(*value)
@@ -6605,9 +6605,9 @@ func (r rolePermisosQueryIDRolInt) Field() rolePermisosPrismaFields {
 type rolePermisosQueryIDPermisoInt struct{}
 
 // Set the required value of IDPermiso
-func (r rolePermisosQueryIDPermisoInt) Set(value int) rolePermisosSetParam {
+func (r rolePermisosQueryIDPermisoInt) Set(value int) rolePermisosWithPrismaPermisoSetParam {
 
-	return rolePermisosSetParam{
+	return rolePermisosWithPrismaPermisoSetParam{
 		data: builder.Field{
 			Name:  "id_permiso",
 			Value: value,
@@ -6617,9 +6617,9 @@ func (r rolePermisosQueryIDPermisoInt) Set(value int) rolePermisosSetParam {
 }
 
 // Set the optional value of IDPermiso dynamically
-func (r rolePermisosQueryIDPermisoInt) SetIfPresent(value *Int) rolePermisosSetParam {
+func (r rolePermisosQueryIDPermisoInt) SetIfPresent(value *Int) rolePermisosWithPrismaPermisoSetParam {
 	if value == nil {
-		return rolePermisosSetParam{}
+		return rolePermisosWithPrismaPermisoSetParam{}
 	}
 
 	return r.Set(*value)

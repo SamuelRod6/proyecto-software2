@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Select, { SingleValue, StylesConfig } from "react-select";
+import Select, { MultiValue, SingleValue, StylesConfig } from "react-select";
 
 export interface OptionType {
     value: string;
@@ -7,14 +7,15 @@ export interface OptionType {
 }
 
 interface SelectInputProps {
-    value: string;
-    onChange: (value: string) => void;
+    value: string | string[];
+    onChange: (value: string | string[]) => void;
     options: OptionType[];
     placeholder?: string;
     inputLabel?: string;
     className?: string;
     allowCustom?: boolean;
     customPlaceholder?: string;
+    isMulti?: boolean;
 }
 
 const SelectInput: React.FC<SelectInputProps> = ({
@@ -26,14 +27,22 @@ const SelectInput: React.FC<SelectInputProps> = ({
     className = "",
     allowCustom = false,
     customPlaceholder = "Escribe...",
+    isMulti = false,
 }) => {
     const [customValue, setCustomValue] = useState("");
-    const isOther = allowCustom && value === "otro";
+    const isOther = allowCustom && !isMulti && value === "otro";
 
-    const handleSelect = (option: SingleValue<OptionType>) => {
-        if (option) {
-            onChange(option.value);
-            if (option.value !== "otro") setCustomValue("");
+    const handleSelect = (option: SingleValue<OptionType> | MultiValue<OptionType>) => {
+        if (isMulti) {
+            const values = (option as MultiValue<OptionType>).map((opt) => opt.value);
+            onChange(values);
+            return;
+        }
+
+        const selected = option as SingleValue<OptionType>;
+        if (selected) {
+            onChange(selected.value);
+            if (selected.value !== "otro") setCustomValue("");
         }
     };
 
@@ -42,20 +51,25 @@ const SelectInput: React.FC<SelectInputProps> = ({
         onChange(e.target.value);
     };
 
-    const finalOptions = allowCustom
+    const finalOptions = allowCustom && !isMulti
         ? [...options, { value: "otro", label: "Otro..." }]
         : options;
+
+    const selectedValue = isMulti
+        ? finalOptions.filter((opt) => Array.isArray(value) && value.includes(opt.value))
+        : finalOptions.find((opt) => opt.value === value) || null;
 
     return (
         <div className={className}>
             {inputLabel && <label className="block mb-1 text-slate-300 font-medium">{inputLabel}</label>}
             <Select
                 options={finalOptions}
-                value={finalOptions.find(opt => opt.value === value) || null}
+                value={selectedValue}
                 onChange={handleSelect}
                 placeholder={placeholder}
                 classNamePrefix="react-select"
                 isSearchable
+                isMulti={isMulti}
                 styles={customStyles}
             />
             {isOther && (
@@ -71,7 +85,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
     );
 };
 
-const customStyles: StylesConfig<OptionType, false> = {
+const customStyles: StylesConfig<OptionType, boolean> = {
     control: (provided) => ({
         ...provided,
         backgroundColor: "#1e293b",
