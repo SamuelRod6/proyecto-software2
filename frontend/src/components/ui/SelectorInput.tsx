@@ -33,10 +33,14 @@ const SelectInput: React.FC<SelectInputProps> = ({
     const isOther = allowCustom && value === "otro";
 
     const handleSelect = (option: SingleValue<OptionType>) => {
-        if (option) {
-            onChange(option.value);
-            if (option.value !== "otro") setCustomValue("");
+        if (!option) {
+            onChange("");
+            setCustomValue("");
+            return;
         }
+
+        onChange(option.value);
+        if (option.value !== "otro") setCustomValue("");
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
