@@ -17,6 +17,8 @@ export async function getInscripciones({
     cityTerm,
     fromDate,
     toDate,
+    limit,
+    offset,
 }: {
     eventoId?: number; 
     usuarioId?: number;
@@ -25,6 +27,8 @@ export async function getInscripciones({
     cityTerm?: string;
     fromDate?: string;
     toDate?: string;
+    limit?: number;
+    offset?: number;
 }): Promise<{ status: number; data: Inscripcion[] | any }> {
     try {
         let url = "/api/inscripciones";
@@ -36,6 +40,8 @@ export async function getInscripciones({
         if (cityTerm) params.push(`cityTerm=${encodeURIComponent(cityTerm)}`);
         if (fromDate) params.push(`fromDate=${encodeURIComponent(fromDate)}`);
         if (toDate) params.push(`toDate=${encodeURIComponent(toDate)}`);
+        if (typeof limit === "number") params.push(`limit=${limit}`);
+        if (typeof offset === "number") params.push(`offset=${offset}`);
         if (params.length > 0) url += "?" + params.join("&");
 
         const response = await axios.get<Inscripcion[]>(url);

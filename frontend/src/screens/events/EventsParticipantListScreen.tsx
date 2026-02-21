@@ -23,6 +23,8 @@ interface Evento {
     ubicacion: string;
 }
 
+const AVAILABLE_EVENTS_PAGE_SIZE = 6;
+
 const EventsParticipantListScreen: React.FC = () => {
     // states
     const [loading, setLoading] = useState(true);
@@ -39,6 +41,8 @@ const EventsParticipantListScreen: React.FC = () => {
     const [cityTerm, setCityTerm] = useState("");
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
+    const [availablePage, setAvailablePage] = useState(1);
+    const [totalDisponibles, setTotalDisponibles] = useState(0);
     // contexts
     const { user } = useAuth();
     const { showToast } = useToast();
@@ -73,9 +77,11 @@ const EventsParticipantListScreen: React.FC = () => {
     const fetchDisponiblesFiltrados = async () => {
         if (!user?.id) {
             setEventosDisponibles([]);
+            setTotalDisponibles(0);
             return;
         }
 
+        const offset = (availablePage - 1) * AVAILABLE_EVENTS_PAGE_SIZE;
         setLoadingDisponibles(true);
         try {
             const { status, data } = await getInscripciones({
@@ -85,12 +91,17 @@ const EventsParticipantListScreen: React.FC = () => {
                 cityTerm,
                 fromDate,
                 toDate,
+                limit: AVAILABLE_EVENTS_PAGE_SIZE,
+                offset,
             });
 
             if (status === 200 && data) {
                 setEventosDisponibles(data.eventos_disponibles || []);
+                const total = Number(data.total_disponibles ?? 0);
+                setTotalDisponibles(Number.isFinite(total) ? total : 0);
             } else {
                 setEventosDisponibles([]);
+                setTotalDisponibles(0);
                 showToast({
                     title: "Error",
                     status: "error",
@@ -98,6 +109,7 @@ const EventsParticipantListScreen: React.FC = () => {
                 });
             }
         } catch (error: any) {
+            setTotalDisponibles(0);
             showToast({
                 title: "Error",
                 status: "error",
@@ -115,6 +127,7 @@ const EventsParticipantListScreen: React.FC = () => {
                 setLoading(false);
                 setEventosInscritos([]);
                 setEventosDisponibles([]);
+                setTotalDisponibles(0);
                 return;
             }
 
@@ -135,7 +148,19 @@ const EventsParticipantListScreen: React.FC = () => {
         }, 300);
 
         return () => window.clearTimeout(timeoutId);
-    }, [user, searchTerm, countryTerm, cityTerm, fromDate, toDate]);
+    }, [user, searchTerm, countryTerm, cityTerm, fromDate, toDate, availablePage]);
+
+    useEffect(() => {
+        setAvailablePage(1);
+    }, [searchTerm, countryTerm, cityTerm, fromDate, toDate]);
+
+    const totalAvailablePages = Math.max(1, Math.ceil(totalDisponibles / AVAILABLE_EVENTS_PAGE_SIZE));
+
+    useEffect(() => {
+        if (availablePage > totalAvailablePages) {
+            setAvailablePage(totalAvailablePages);
+        }
+    }, [availablePage, totalAvailablePages]);
 
     // show loader while loading
     if (loading) {
@@ -274,10 +299,41 @@ const EventsParticipantListScreen: React.FC = () => {
                         animationData={emptyAnimation}
                     />
                 ) : (
-                    <AvailableEventsList
-                        eventos={eventosDisponibles}
-                        onInscribir={handleOpenInscribirModal}
-                    />
+                    <>
+                        <AvailableEventsList
+                            eventos={eventosDisponibles}
+                            onInscribir={handleOpenInscribirModal}
+                        />
+                        {totalAvailablePages > 1 && (
+                            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300 mt-6"> {/* Añadí mt-6 para igualar el space-y-6 de Roles */}
+                                <span>
+                                    Página {availablePage} de {totalAvailablePages}
+                                </span>
+                                <div className="flex gap-2">
+                                    <button
+                                        className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-[#F5E427] hover:text-[#F5E427] disabled:cursor-not-allowed disabled:opacity-50"
+                                        disabled={availablePage <= 1 || loadingDisponibles} // Mantiene estética de bloqueo
+                                        onClick={() => {
+                                            setAvailablePage((prev) => Math.max(1, prev - 1));
+                                            window.scrollTo({ top: 0, behavior: 'smooth' }); // Opcional: mejora UX al paginar
+                                        }}
+                                    >
+                                        Anterior
+                                    </button>
+                                    <button
+                                        className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-[#F5E427] hover:text-[#F5E427] disabled:cursor-not-allowed disabled:opacity-50"
+                                        disabled={availablePage >= totalAvailablePages || loadingDisponibles}
+                                        onClick={() => {
+                                            setAvailablePage((prev) => Math.min(totalAvailablePages, prev + 1));
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }}
+                                    >
+                                        Siguiente
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
             <EventInscriptionModal

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	eventdto "project/backend/internal/events/dto"
@@ -95,6 +96,12 @@ func (h *Handler) listInscripciones(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	limit, offset, err := parsePagination(r)
+	if err != nil {
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	filters, err := validation.ParseEventFilters(r)
 	if err != nil {
 		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
@@ -155,10 +162,26 @@ func (h *Handler) listInscripciones(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	totalDisponibles := len(eventosDisponibles)
+	if limit > 0 {
+		start := offset
+		if start > totalDisponibles {
+			start = totalDisponibles
+		}
+		end := start + limit
+		if end > totalDisponibles {
+			end = totalDisponibles
+		}
+		eventosDisponibles = eventosDisponibles[start:end]
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"eventos_inscritos":   eventosInscritos,
 		"eventos_disponibles": eventosDisponibles,
+		"total_disponibles":   totalDisponibles,
+		"limit":               limit,
+		"offset":              offset,
 	})
 }
 
@@ -216,4 +239,30 @@ func parseOptionalID(raw string) (int, error) {
 		return 0, errors.New("id invalido")
 	}
 	return id, nil
+}
+
+func parsePagination(r *http.Request) (int, int, error) {
+	limit := 0
+	offset := 0
+
+	if rawLimit := strings.TrimSpace(r.URL.Query().Get("limit")); rawLimit != "" {
+		parsedLimit, err := strconv.Atoi(rawLimit)
+		if err != nil || parsedLimit <= 0 {
+			return 0, 0, errors.New("limit invalido")
+		}
+		if parsedLimit > 100 {
+			parsedLimit = 100
+		}
+		limit = parsedLimit
+	}
+
+	if rawOffset := strings.TrimSpace(r.URL.Query().Get("offset")); rawOffset != "" {
+		parsedOffset, err := strconv.Atoi(rawOffset)
+		if err != nil || parsedOffset < 0 {
+			return 0, 0, errors.New("offset invalido")
+		}
+		offset = parsedOffset
+	}
+
+	return limit, offset, nil
 }
