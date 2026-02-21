@@ -53,6 +53,8 @@ export default function PermissionManagementScreen(): JSX.Element {
   const [editingPermission, setEditingPermission] =
     useState<PermissionRow | null>(null);
   const [permissionName, setPermissionName] = useState("");
+  const [permissionToDelete, setPermissionToDelete] =
+    useState<PermissionRow | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -120,8 +122,14 @@ export default function PermissionManagementScreen(): JSX.Element {
     closeModal();
   };
 
-  const handleDelete = async (permission: PermissionRow) => {
-    const result = await deletePermission(permission.id);
+  const handleDelete = (permission: PermissionRow) => {
+    setPermissionToDelete(permission);
+  };
+
+  const confirmDeletePermission = async () => {
+    if (!permissionToDelete) return;
+
+    const result = await deletePermission(permissionToDelete.id);
     if (result.status >= 400) {
       showToast({
         title: "Error",
@@ -130,11 +138,11 @@ export default function PermissionManagementScreen(): JSX.Element {
       });
       return;
     }
-    setPermissions((prev) => prev.filter((item) => item.id !== permission.id));
+    setPermissions((prev) => prev.filter((item) => item.id !== permissionToDelete.id));
     const nextMap = { ...resourcePermissionMap };
     let updated = false;
     Object.entries(nextMap).forEach(([resourceKey, permissionId]) => {
-      if (permissionId === permission.id) {
+      if (permissionId === permissionToDelete.id) {
         delete nextMap[resourceKey];
         updated = true;
       }
@@ -148,6 +156,7 @@ export default function PermissionManagementScreen(): JSX.Element {
       message: "El permiso se eliminó correctamente.",
       status: "success",
     });
+    setPermissionToDelete(null);
   };
 
   const permissionOptions: OptionType[] = useMemo(() => {
@@ -280,6 +289,26 @@ export default function PermissionManagementScreen(): JSX.Element {
           </tbody>
         </table>
       </div>
+
+      <Modal
+        open={Boolean(permissionToDelete)}
+        onClose={() => setPermissionToDelete(null)}
+        title="Eliminar permiso"
+        className="max-w-md w-full"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-300">
+            ¿Eliminar el permiso <span className="text-slate-100 font-semibold">{permissionToDelete?.name}</span>?
+            Esta accion no se puede deshacer.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setPermissionToDelete(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmDeletePermission}>Eliminar</Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={isModalOpen}

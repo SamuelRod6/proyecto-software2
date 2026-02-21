@@ -146,6 +146,7 @@ export default function RoleManagementListScreen(): JSX.Element {
   const [roleName, setRoleName] = useState("");
   const [roleDescription, setRoleDescription] = useState("");
   const [isSavingRole, setIsSavingRole] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<RoleRow | null>(null);
 
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
   const [selectedRoleForPermissions, setSelectedRoleForPermissions] =
@@ -352,8 +353,14 @@ export default function RoleManagementListScreen(): JSX.Element {
     setIsSavingRole(false);
   };
 
-  const handleDeleteRole = async (role: RoleRow) => {
-    const { status } = await deleteRole(role.id);
+  const handleDeleteRole = (role: RoleRow) => {
+    setRoleToDelete(role);
+  };
+
+  const confirmDeleteRole = async () => {
+    if (!roleToDelete) return;
+
+    const { status } = await deleteRole(roleToDelete.id);
     if (status >= 400) {
       showToast({
         title: "Error",
@@ -363,10 +370,10 @@ export default function RoleManagementListScreen(): JSX.Element {
       return;
     }
 
-    setRoleRows((prev) => prev.filter((item) => item.id !== role.id));
+    setRoleRows((prev) => prev.filter((item) => item.id !== roleToDelete.id));
     setRolePermissionsMap((prev) => {
       const next = { ...prev };
-      delete next[role.id];
+      delete next[roleToDelete.id];
       return next;
     });
     await loadRolesSection(true);
@@ -375,6 +382,7 @@ export default function RoleManagementListScreen(): JSX.Element {
       message: "El rol se eliminó correctamente.",
       status: "success",
     });
+    setRoleToDelete(null);
   };
 
   const openPermissionsModal = async (role: RoleRow) => {
@@ -613,6 +621,26 @@ export default function RoleManagementListScreen(): JSX.Element {
           </table>
         </div>
       </div>
+
+      <Modal
+        open={Boolean(roleToDelete)}
+        onClose={() => setRoleToDelete(null)}
+        title="Eliminar rol"
+        className="max-w-md w-full"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-300">
+            ¿Eliminar el rol <span className="text-slate-100 font-semibold">{roleToDelete?.name}</span>?
+            Esta accion no se puede deshacer.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button variant="ghost" onClick={() => setRoleToDelete(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmDeleteRole}>Eliminar</Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={isModalOpen}
