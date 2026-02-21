@@ -82,17 +82,16 @@ func TestRegisterHandler(t *testing.T) {
 			Name:     "Juan Perez",
 			Email:    "juan@example.com",
 			Password: "Abcdef12",
-			RoleID:   1,
 		}
 		payload, _ := json.Marshal(reqBody)
 		req := httptest.NewRequest(http.MethodPost, "/api/auth/register", bytes.NewBuffer(payload))
 		rr := httptest.NewRecorder()
 
 		repo := mockAuthRepo{
-			findRoleByID: func(_ context.Context, _ int) (*db.RolesModel, error) {
-				return &db.RolesModel{InnerRoles: db.InnerRoles{IDRol: 1, NombreRol: "ADMIN"}}, nil
-			},
 			createUser: func(_ context.Context, name, email, _ string, roleID int) (*db.UsuarioModel, error) {
+				if roleID != 0 {
+					return nil, errors.New("expected roleID 0")
+				}
 				return &db.UsuarioModel{InnerUsuario: db.InnerUsuario{IDUsuario: 10, Nombre: name, Email: email}}, nil
 			},
 		}

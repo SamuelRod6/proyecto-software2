@@ -77,13 +77,7 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role, err := h.Repo.FindRoleByID(ctx, req.RoleID)
-	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, response.ErrRoleInvalid)
-		return
-	}
-
-	user, err := h.Repo.CreateUser(ctx, req.Name, req.Email, passwordHash, role.IDRol)
+	user, err := h.Repo.CreateUser(ctx, req.Name, req.Email, passwordHash, 0)
 	if err != nil {
 		response.WriteError(w, http.StatusBadRequest, response.ErrUserExists)
 		return
@@ -94,7 +88,7 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 			ID:    user.IDUsuario,
 			Name:  user.Nombre,
 			Email: user.Email,
-			Roles: []domain.RoleInfo{{ID: role.IDRol, Name: role.NombreRol}},
+			Roles: []domain.RoleInfo{},
 		},
 	}
 	response.WriteSuccess(w, http.StatusCreated, response.SuccessRegister, resp)
@@ -134,14 +128,17 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	roles, err := h.Repo.ListRolesByUserID(ctx, user.IDUsuario)
 	if err != nil {
-		response.WriteError(w, http.StatusInternalServerError, response.ErrRoleInvalid)
-		return
+		if db.IsErrNotFound(err) {
+			roles = []db.RolesModel{}
+		} else {
+			response.WriteError(w, http.StatusInternalServerError, response.ErrRoleInvalid)
+			return
+		}
 	}
-	if len(roles) == 0 {
-		response.WriteError(w, http.StatusInternalServerError, response.ErrRoleInvalid)
-		return
+	primaryRole := ""
+	if len(roles) > 0 {
+		primaryRole = roles[0].NombreRol
 	}
-	primaryRole := roles[0].NombreRol
 	
 	token, err := service.CreateJWT(user.IDUsuario, user.Email, primaryRole)
 	if err != nil {

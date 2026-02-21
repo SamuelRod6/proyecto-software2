@@ -72,7 +72,7 @@ func (r *UserRepository) ListRolesByUserID(ctx context.Context, userID int) ([]d
 		return nil, err
 	}
 	if len(roles) == 0 {
-		return nil, db.ErrNotFound
+		return []db.RolesModel{}, nil
 	}
 
 	roleModels := make([]db.RolesModel, 0, len(roles))
@@ -82,7 +82,7 @@ func (r *UserRepository) ListRolesByUserID(ctx context.Context, userID int) ([]d
 		}
 	}
 	if len(roleModels) == 0 {
-		return nil, db.ErrNotFound
+		return []db.RolesModel{}, nil
 	}
 	return roleModels, nil
 }

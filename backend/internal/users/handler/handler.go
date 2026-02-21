@@ -237,22 +237,26 @@ func (h *Handler) UpdateUserRolesHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if req.UserID <= 0 || len(req.Roles) == 0 {
-		http.Error(w, "user_id and roles are required", http.StatusBadRequest)
+	if req.UserID <= 0 {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	roleIDs, err := h.roleService.GetRoleIDsByNames(ctx, req.Roles)
-	if err != nil {
-		if db.IsErrNotFound(err) {
-			http.Error(w, "Role not found", http.StatusNotFound)
+	roleIDs := []int{}
+	var err error
+	if len(req.Roles) > 0 {
+		roleIDs, err = h.roleService.GetRoleIDsByNames(ctx, req.Roles)
+		if err != nil {
+			if db.IsErrNotFound(err) {
+				http.Error(w, "Role not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Error querying roles", http.StatusInternalServerError)
 			return
 		}
-		http.Error(w, "Error querying roles", http.StatusInternalServerError)
-		return
 	}
 
 	if err := h.roleService.UpdateUserRoles(ctx, req.UserID, roleIDs); err != nil {

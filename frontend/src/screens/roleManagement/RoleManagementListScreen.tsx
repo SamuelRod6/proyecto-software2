@@ -162,9 +162,7 @@ export default function RoleManagementListScreen(): JSX.Element {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const offset = (page - 1) * PAGE_SIZE;
   const canUpdate = Boolean(
-    selectedUser &&
-    selectedRoles.length > 0 &&
-    !arrayEqual(selectedRoles, selectedUser.roles),
+    selectedUser && !arrayEqual(selectedRoles, selectedUser.roles),
   );
 
   const loadUsers = useCallback(async () => {
@@ -266,7 +264,7 @@ export default function RoleManagementListScreen(): JSX.Element {
   };
 
   const handleUpdateRole = async () => {
-    if (!selectedUser || selectedRoles.length === 0) return;
+    if (!selectedUser) return;
 
     setIsUpdating(true);
 
