@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	notificationdto "project/backend/internal/notifications/dto"
@@ -163,4 +164,29 @@ func isInscripcionesAbiertas(evento *db.EventoModel, now time.Time) bool {
 
 func (s *Service) GetAllEventos(ctx context.Context) ([]db.EventoModel, error) {
 	return s.repo.GetAllEventos(ctx)
+}
+
+func (s *Service) MatchesEventFilters(ev db.EventoModel, filters dto.EventFilters) bool {
+	if filters.SearchTerm != "" && !strings.Contains(strings.ToLower(ev.Nombre), strings.ToLower(filters.SearchTerm)) {
+		return false
+	}
+
+	ubicacionLower := strings.ToLower(ev.Ubicacion)
+	normalizedCountry := strings.ToLower(strings.TrimSpace(filters.CountryTerm))
+	if normalizedCountry != "" && !strings.Contains(ubicacionLower, normalizedCountry) {
+		return false
+	}
+	normalizedCity := strings.ToLower(strings.TrimSpace(filters.CityTerm))
+	if normalizedCity != "" && !strings.Contains(ubicacionLower, normalizedCity) {
+		return false
+	}
+
+	if filters.FromDate != nil && ev.FechaFin.Before(*filters.FromDate) {
+		return false
+	}
+	if filters.ToDate != nil && ev.FechaInicio.After(*filters.ToDate) {
+		return false
+	}
+
+	return true
 }

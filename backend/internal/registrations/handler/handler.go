@@ -95,6 +95,12 @@ func (h *Handler) listInscripciones(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	filters, err := validation.ParseEventFilters(r)
+	if err != nil {
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
@@ -127,6 +133,10 @@ func (h *Handler) listInscripciones(w http.ResponseWriter, r *http.Request) {
 	eventosInscritos := make([]eventdto.EventoResponse, 0)
 	eventosDisponibles := make([]eventdto.EventoResponse, 0)
 	for _, ev := range eventosFiltrados {
+		if !h.svc.MatchesEventFilters(ev, filters) {
+			continue
+		}
+
 		_, inscrito := inscritosMap[ev.IDEvento]
 		abierto := ev.InscripcionesAbiertasManual && now.Before(ev.FechaCierreInscripcion) && now.Before(ev.FechaInicio)
 		er := eventdto.EventoResponse{
