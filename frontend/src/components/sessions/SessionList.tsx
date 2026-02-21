@@ -17,7 +17,7 @@ const SessionList: React.FC<SessionListProps> = ({ sessions, onEdit, showEditBut
           {sessions.map((sesion) => (
             <li key={sesion.id_sesion} className="flex items-center justify-between py-2">
               <div>
-                <div className="font-medium text-slate-700 dark:text-slate-200">{sesion.titulo}</div>
+                <div className="font-semibold text-[#F5E427] dark:text-[#F5E427]">{sesion.titulo}</div>
                 <div className="text-xs text-slate-400">
                   {sesion.fecha_inicio?.substring(0, 16).replace('T', ' ')} - {sesion.fecha_fin?.substring(0, 16).replace('T', ' ')}
                 </div>

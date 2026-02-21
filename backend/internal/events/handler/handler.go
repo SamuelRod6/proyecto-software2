@@ -124,31 +124,65 @@ func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
-
-	eventos, err := h.svc.ListEventos(ctx)
-	if err != nil {
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+	// Si viene el parámetro evento_id, retornar el detalle con sesiones y ponentes
+	eventoIDStr := r.URL.Query().Get("evento_id")
+	if eventoIDStr != "" {
+		eventoID, err := strconv.Atoi(eventoIDStr)
+		if err != nil {
+			httperror.WriteJSON(w, http.StatusBadRequest, "evento_id inválido")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		evento, err := h.svc.GetEventoByID(ctx, eventoID)
+		if err != nil {
+			httperror.WriteJSON(w, http.StatusNotFound, "Evento no encontrado")
+			return
+		}
+		// Obtener sesiones usando el tipo concreto
+		svc, ok := h.svc.(*service.Service)
+		if !ok {
+			httperror.WriteJSON(w, http.StatusInternalServerError, "Error interno de servicio")
+			return
+		}
+		sesiones, _ := svc.GetSesionesRepo().ListSesiones(ctx, eventoID)
+		var sesionesResp []dto.SesionResponse
+		for _, s := range sesiones {
+			ponentes, _ := svc.GetSesionesRepo().ListPonentes(ctx, s.IDSesion)
+			var ponentesResp []dto.PonenteResponse
+			for _, p := range ponentes {
+				ponentesResp = append(ponentesResp, dto.PonenteResponse{
+					IDUsuario: p.IDUsuario,
+					Nombre:    p.Nombre,
+					Email:     p.Email,
+				})
+			}
+			sesionesResp = append(sesionesResp, dto.SesionResponse{
+				IDSesion:    s.IDSesion,
+				Titulo:      s.Titulo,
+				Descripcion: s.Descripcion,
+				FechaInicio: s.FechaInicio.Format("2006-01-02T15:04:05"),
+				FechaFin:    s.FechaFin.Format("2006-01-02T15:04:05"),
+				Ubicacion:   s.Ubicacion,
+				Ponentes:    ponentesResp,
+			})
+		}
+		now := time.Now()
+		res := dto.EventoResponse{
+			ID:                     evento.IDEvento,
+			Nombre:                 evento.Nombre,
+			FechaInicio:            evento.FechaInicio.Format("02/01/2006"),
+			FechaFin:               evento.FechaFin.Format("02/01/2006"),
+			FechaCierreInscripcion: evento.FechaCierreInscripcion.Format("02/01/2006"),
+			InscripcionesAbiertas:  isInscripcionesAbiertas(evento, now),
+			Ubicacion:              evento.Ubicacion,
+			Sesiones:               sesionesResp,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(res)
 		return
 	}
-
-	now := time.Now()
-	res := make([]dto.EventoResponse, 0, len(eventos))
-	for _, ev := range eventos {
-		res = append(res, dto.EventoResponse{
-			ID:                     ev.IDEvento,
-			Nombre:                 ev.Nombre,
-			FechaInicio:            ev.FechaInicio.Format("02/01/2006"),
-			FechaFin:               ev.FechaFin.Format("02/01/2006"),
-			FechaCierreInscripcion: ev.FechaCierreInscripcion.Format("02/01/2006"),
-			InscripcionesAbiertas:  isInscripcionesAbiertas(&ev, now),
-			Ubicacion:              ev.Ubicacion,
-		})
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(res)
+	// ...existing code...
 }
 
 func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {

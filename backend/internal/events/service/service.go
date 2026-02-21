@@ -13,6 +13,7 @@ import (
 	notificationsrepo "project/backend/internal/notifications/repo"
 	notificationsrv "project/backend/internal/notifications/service"
 	registrationrepo "project/backend/internal/registrations/repo"
+	sesionesrepo "project/backend/internal/sesiones/repo"
 	"project/backend/prisma/db"
 )
 
@@ -31,6 +32,7 @@ type Service struct {
 	repo                *repo.Repository
 	inscripcionRepo     *registrationrepo.Repository
 	notificationService notificationsrv.NotificationService
+	sesionesRepo        *sesionesrepo.Repository
 }
 
 func New(prismaClient *db.PrismaClient) *Service {
@@ -38,11 +40,13 @@ func New(prismaClient *db.PrismaClient) *Service {
 	inscripcionRepo := registrationrepo.New(prismaClient)
 	notificationRepo := notificationsrepo.NewNotificationRepository(prismaClient)
 	notificationService := notificationsrv.NewNotificationService(notificationRepo)
+	sesionesRepo := sesionesrepo.NewRepository(prismaClient)
 
 	return &Service{
 		repo:                eventRepo,
 		inscripcionRepo:     inscripcionRepo,
 		notificationService: notificationService,
+		sesionesRepo:        sesionesRepo,
 	}
 }
 
@@ -255,4 +259,8 @@ func sameDay(a, b time.Time) bool {
 
 func (s *Service) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error) {
 	return s.repo.GetFechasOcupadas(ctx)
+}
+
+func (s *Service) GetSesionesRepo() *sesionesrepo.Repository {
+	return s.sesionesRepo
 }

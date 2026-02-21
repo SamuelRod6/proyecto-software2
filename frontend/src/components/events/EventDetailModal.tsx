@@ -16,6 +16,8 @@ import Loader from "../../components/ui/Loader";
 import Button from "../../components/ui/Button";
 // services
 import { patchInscriptionDate } from "../../services/eventsServices";
+import { getEventDetail } from "../../services/sessionsServices";
+import SessionList from "../sessions/SessionList";
 // interfaces
 import { Evento } from "../../services/eventsServices";
 
@@ -44,6 +46,8 @@ export default function EventDetailModal({
     const [showConfirmModal, setShowConfirmModal] = useState<"abrir"|"cerrar"|null>(null);
     const [loadingConfirm, setLoadingConfirm] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [eventDetail, setEventDetail] = useState<any | null>(null);
+    const [sessions, setSessions] = useState<any[]>([]);
 
     // contexts
     const { showToast } = useToast();
@@ -58,6 +62,43 @@ export default function EventDetailModal({
         const [day, month, year] = dateStr.split("/");
         return new Date(Number(year), Number(month) - 1, Number(day));
     }
+
+    // Fetch event detail when modal opens
+    useEffect(() => {
+        if (open && event?.id_evento) {
+            setLoading(true);
+            getEventDetail(event.id_evento)
+                .then(({ status, data }) => {
+                    if (status === 200 && data) {
+                        setEventDetail(data);
+                        setSessions(data.sesiones || []);
+                    } else {
+                        showToast({
+                            title: "Error",
+                            message: data?.message || "No se pudo cargar el detalle del evento.",
+                            status: "error",
+                        });
+                        setEventDetail(null);
+                        setSessions([]);
+                        onClose();
+                    }
+                })
+                .catch(() => {
+                    showToast({
+                        title: "Error",
+                        message: "No se pudo cargar el detalle del evento.",
+                        status: "error",
+                    });
+                    setEventDetail(null);
+                    setSessions([]);
+                    onClose();
+                })
+                .finally(() => setLoading(false));
+        } else {
+            setEventDetail(null);
+            setSessions([]);
+        }
+    }, [open, event]);
 
     // prepare date range for the calendar
     const dateRange = event ? {
@@ -115,6 +156,16 @@ export default function EventDetailModal({
     // Only render modal if allowed by context
     if (!open || modalState.openModal !== "EVENT_DETAIL") return null;
     if (!event) return null;
+    if (loading) {
+        return (
+            <Modal open={open} onClose={onClose} title="Detalle del evento">
+                <div className="flex justify-center items-center min-h-[120px]">
+                    <Loader visible={true} />
+                </div>
+            </Modal>
+        );
+    }
+    if (!eventDetail) return null;
 
     // Handler to close modal via context and parent
     const handleClose = () => {
@@ -152,13 +203,13 @@ export default function EventDetailModal({
                     <div className="flex-1 flex flex-col gap-4 justify-center p-6 relative">
                         {!isParticipant && (
                             <div className="flex items-center justify-center gap-2 mb-2 mt-1 md:mt-0 md:mb-0 md:ml-auto md:mr-0">
-                                {event.inscripciones_abiertas ? (
+                                {eventDetail.inscripciones_abiertas ? (
                                     <>
                                         <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
                                             Inscripciones abiertas
                                         </span>
                                         <ToggleIconButton 
-                                            open={!event.inscripciones_abiertas} 
+                                            open={!eventDetail.inscripciones_abiertas} 
                                             onClick={() => setShowConfirmModal("cerrar")} 
                                             className="p-2" 
                                             title="Cerrar inscripciones"
@@ -176,7 +227,7 @@ export default function EventDetailModal({
                                             Inscripciones cerradas
                                         </span>
                                         <ToggleIconButton 
-                                            open={!event.inscripciones_abiertas} 
+                                            open={!eventDetail.inscripciones_abiertas} 
                                             onClick={() => setShowConfirmModal("abrir")} 
                                             className="p-2" 
                                             title="Abrir inscripciones"
@@ -197,20 +248,20 @@ export default function EventDetailModal({
                                     <label className="block mb-1 text-slate-300 font-medium">
                                         Nombre del evento
                                     </label>
-                                    <Input value={event.nombre} disabled className="w-full" />
+                                    <Input value={eventDetail.nombre} disabled className="w-full" />
                                 </div>
                                 <div className="mb-2">
                                     <label className="block mb-1 text-slate-300 font-medium">
                                         Ubicación
                                     </label>
-                                    <Input value={event.ubicacion} disabled className="w-full" />
+                                    <Input value={eventDetail.ubicacion} disabled className="w-full" />
                                 </div>
                                 <div className="mb-2">
                                     <label className="mb-1 text-slate-300 font-medium flex items-center gap-2">
                                         Fecha de cierre de inscripciones
                                     </label>
                                     <Input 
-                                        value={event.fecha_cierre_inscripcion} 
+                                        value={eventDetail.fecha_cierre_inscripcion} 
                                         disabled 
                                         className="w-full" 
                                     />
@@ -223,15 +274,12 @@ export default function EventDetailModal({
                                         Inscribirme
                                     </Button>
                                 )}
+                                {/* Listado de sesiones debajo del campo de cierre de inscripciones */}
+                                <SessionList sessions={sessions} />
                             </div>
                         </div>
                     </div>
                 </div>
-                {loading && (
-                    <div className="flex justify-center items-center min-h-[120px]">
-                        <Loader visible={true} />
-                    </div>
-                )}
             </Modal>
             {showCloseDateModal && (
                 <UpdateCloseDateModal 
