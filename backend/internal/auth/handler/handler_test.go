@@ -19,6 +19,7 @@ type mockAuthRepo struct {
 	createUser      func(ctx context.Context, name, email, passwordHash string, roleID int) (*db.UsuarioModel, error)
 	findUserByEmail func(ctx context.Context, email string) (*db.UsuarioModel, error)
 	findPrimaryRole func(ctx context.Context, userID int) (*db.RolesModel, error)
+	listRoles       func(ctx context.Context, userID int) ([]db.RolesModel, error)
 	updatePassword  func(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error)
 }
 
@@ -48,6 +49,14 @@ func (m mockAuthRepo) FindPrimaryRoleByUserID(ctx context.Context, userID int) (
 		return nil, errors.New("not implemented")
 	}
 	return m.findPrimaryRole(ctx, userID)
+}
+
+
+func (m mockAuthRepo) ListRolesByUserID(ctx context.Context, userID int) ([]db.RolesModel, error) {
+	if m.listRoles == nil {
+		return nil, errors.New("not implemented")
+	}
+	return m.listRoles(ctx, userID)
 }
 
 func (m mockAuthRepo) UpdatePassword(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error) {
@@ -132,8 +141,10 @@ func TestLoginHandler(t *testing.T) {
 			findUserByEmail: func(_ context.Context, _ string) (*db.UsuarioModel, error) {
 				return &db.UsuarioModel{InnerUsuario: db.InnerUsuario{IDUsuario: 2, Email: "user@example.com", PasswordHash: passwordHash}}, nil
 			},
-			findPrimaryRole: func(_ context.Context, _ int) (*db.RolesModel, error) {
-				return &db.RolesModel{InnerRoles: db.InnerRoles{IDRol: 1, NombreRol: "ADMIN"}}, nil
+			listRoles: func(_ context.Context, _ int) ([]db.RolesModel, error) {
+				return []db.RolesModel{
+					{InnerRoles: db.InnerRoles{IDRol: 1, NombreRol: "ADMIN"}},
+				}, nil
 			},
 		}
 

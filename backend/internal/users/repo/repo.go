@@ -63,6 +63,30 @@ func (r *UserRepository) FindPrimaryRoleByUserID(ctx context.Context, userID int
 	return roles[0].RelationsUsuarioRoles.Rol, nil
 }
 
+func (r *UserRepository) ListRolesByUserID(ctx context.Context, userID int) ([]db.RolesModel, error) {
+	roles, err := r.Client.UsuarioRoles.
+		FindMany(db.UsuarioRoles.IDUsuario.Equals(userID)).
+		With(db.UsuarioRoles.Rol.Fetch()).
+		Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(roles) == 0 {
+		return nil, db.ErrNotFound
+	}
+
+	roleModels := make([]db.RolesModel, 0, len(roles))
+	for _, userRole := range roles {
+		if userRole.RelationsUsuarioRoles.Rol != nil {
+			roleModels = append(roleModels, *userRole.RelationsUsuarioRoles.Rol)
+		}
+	}
+	if len(roleModels) == 0 {
+		return nil, db.ErrNotFound
+	}
+	return roleModels, nil
+}
+
 func (r *UserRepository) UpdatePassword(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error) {
 	return r.Client.Usuario.FindUnique(
 		db.Usuario.Email.Equals(email),

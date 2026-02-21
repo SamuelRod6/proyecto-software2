@@ -4,7 +4,8 @@ const USER_KEY = "auth-user";
 const RESOURCE_PERMISSION_KEY = "resource-permissions";
 
 type StoredUser = {
-    role?: string;
+  role?: string;
+  roles?: Array<string | { id?: number; name?: string }>;
 };
 
 type RoleRow = {
@@ -19,19 +20,60 @@ type PermissionRow = {
 };
 
 export function getStoredUserRole(): string | null {
-    if (typeof window === "undefined") return null;
-    const raw = localStorage.getItem(USER_KEY);
-    if (!raw) return null;
-    try {
-        const parsed = JSON.parse(raw) as StoredUser;
-        return parsed.role ?? null;
-    } catch {
-        return null;
+  const roles = getStoredUserRoleNames();
+  return roles[0] ?? null;
+}
+
+export function getStoredUserRoleNames(): string[] {
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as StoredUser;
+    const rawRoles = parsed.roles ?? parsed.role ?? [];
+    if (Array.isArray(rawRoles)) {
+      return rawRoles
+        .map((role) => {
+          if (typeof role === "string") return role;
+          return role?.name ?? "";
+        })
+        .map((role) => String(role).trim())
+        .filter(Boolean);
     }
+    return String(rawRoles)
+      .split(",")
+      .map((role) => role.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function getStoredUserRoleIds(): number[] {
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as StoredUser;
+    const rawRoles = parsed.roles ?? [];
+    if (!Array.isArray(rawRoles)) return [];
+    return rawRoles
+      .map((role) => {
+        if (typeof role === "string") return Number.NaN;
+        return Number(role?.id);
+      })
+      .filter((id) => Number.isFinite(id));
+  } catch {
+    return [];
+  }
 }
 
 export function isAdminRole(role: string | null | undefined): boolean {
     return String(role || "").trim().toUpperCase() === "ADMIN";
+}
+
+export function isAdminUser(): boolean {
+  return getStoredUserRoleNames().some((role) => isAdminRole(role));
 }
 
 export function getResourcePermissionMap(): Record<string, number> {
@@ -92,23 +134,41 @@ function normalizePermissions(payload: unknown): PermissionRow[] {
 }
 
 export async function hasResourceAccess(resourceKey: string): Promise<boolean> {
-    const role = getStoredUserRole();
-    if (isAdminRole(role)) return true;
+    const userRoleNames = getStoredUserRoleNames();
+    if (userRoleNames.some((role) => isAdminRole(role))) return true;
 
     const map = getResourcePermissionMap();
     const requiredPermissionId = map[resourceKey];
     if (!requiredPermissionId) return false;
 
-    const rolesResponse = await getRoles();
-    if (rolesResponse.status >= 400) return false;
-    const roles = normalizeRoles(rolesResponse.data);
-    const currentRole = roles.find(
-        (item) => item.name.trim().toLowerCase() === String(role || "").trim().toLowerCase(),
-    );
-    if (!currentRole) return false;
+    let roleIds = getStoredUserRoleIds();
+    if (roleIds.length === 0 && userRoleNames.length > 0) {
+      const rolesResponse = await getRoles();
+      if (rolesResponse.status < 400) {
+        const roles = normalizeRoles(rolesResponse.data);
+        roleIds = roles
+          .filter((item) =>
+            userRoleNames.some(
+              (role) =>
+                item.name.trim().toLowerCase() === role.trim().toLowerCase(),
+            ),
+          )
+          .map((role) => role.id)
+          .filter((id) => Number.isFinite(id) && id > 0);
+      }
+    }
 
-    const permissionsResponse = await getRolePermissions(currentRole.id);
-    if (permissionsResponse.status >= 400) return false;
-    const permissions = normalizePermissions(permissionsResponse.data);
-    return permissions.some((permission) => permission.id === requiredPermissionId);
+    if (roleIds.length === 0) return false;
+
+    const permissionsResponses = await Promise.all(
+      roleIds.map((roleId) => getRolePermissions(roleId)),
+    );
+
+    return permissionsResponses.some((response) => {
+      if (response.status >= 400) return false;
+      const permissions = normalizePermissions(response.data);
+      return permissions.some(
+        (permission) => permission.id === requiredPermissionId,
+      );
+    });
 }

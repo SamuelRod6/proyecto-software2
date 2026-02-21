@@ -20,11 +20,20 @@ type Handler struct {
 	Repo UserRepository
 }
 
+func mapRoles(roles []db.RolesModel) []domain.RoleInfo {
+	items := make([]domain.RoleInfo, 0, len(roles))
+	for _, role := range roles {
+		items = append(items, domain.RoleInfo{ID: role.IDRol, Name: role.NombreRol})
+	}
+	return items
+}
+
 type UserRepository interface {
 	FindRoleByID(ctx context.Context, roleID int) (*db.RolesModel, error)
 	CreateUser(ctx context.Context, name, email, passwordHash string, roleID int) (*db.UsuarioModel, error)
 	FindUserByEmail(ctx context.Context, email string) (*db.UsuarioModel, error)
 	FindPrimaryRoleByUserID(ctx context.Context, userID int) (*db.RolesModel, error)
+	ListRolesByUserID(ctx context.Context, userID int) ([]db.RolesModel, error)
 	UpdatePassword(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error)
 }
 
@@ -85,7 +94,7 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 			ID:    user.IDUsuario,
 			Name:  user.Nombre,
 			Email: user.Email,
-			Role:  role.NombreRol,
+			Roles: []domain.RoleInfo{{ID: role.IDRol, Name: role.NombreRol}},
 		},
 	}
 	response.WriteSuccess(w, http.StatusCreated, response.SuccessRegister, resp)
@@ -123,13 +132,18 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	role, err := h.Repo.FindPrimaryRoleByUserID(ctx, user.IDUsuario)
+	roles, err := h.Repo.ListRolesByUserID(ctx, user.IDUsuario)
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, response.ErrRoleInvalid)
 		return
 	}
+	if len(roles) == 0 {
+		response.WriteError(w, http.StatusInternalServerError, response.ErrRoleInvalid)
+		return
+	}
+	primaryRole := roles[0].NombreRol
 	
-	token, err := service.CreateJWT(user.IDUsuario, user.Email, role.NombreRol)
+	token, err := service.CreateJWT(user.IDUsuario, user.Email, primaryRole)
 	if err != nil {
 		log.Printf("create jwt error: %v", err)
 		response.WriteError(w, http.StatusInternalServerError, response.ErrTokenCreation)
@@ -142,7 +156,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 			ID:    user.IDUsuario,
 			Name:  user.Nombre,
 			Email: user.Email,
-			Role:  role.NombreRol,
+			Roles: mapRoles(roles),
 		},
 		Token: token,
 	}

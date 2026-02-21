@@ -16,6 +16,7 @@ export default function Header() {
         return JSON.parse(raw) as {
           name?: string;
           email?: string;
+          roles?: string[];
           role?: string;
         };
       } catch {
@@ -49,7 +50,6 @@ export default function Header() {
               </p>
               <p className="text-sm text-slate-400">
                 {storedUser?.email || "Sin correo"}
-                {storedUser?.role ? ` • ${storedUser.role}` : ""}
               </p>
             </div>
           </div>

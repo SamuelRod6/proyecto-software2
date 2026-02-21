@@ -100,25 +100,21 @@ func (h *Handler) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 		ID    int      `json:"id"`
 		Name  string   `json:"name"`
 		Email string   `json:"email"`
-		Role  string   `json:"role"`
 		Roles []string `json:"roles"`
 	}
 
 	items := make([]userRoleItem, 0, len(users))
 	for _, user := range users {
-		roleName := ""
 		roles := make([]string, 0, len(user.RelationsUsuario.UsuarioRoles))
 		for _, userRole := range user.RelationsUsuario.UsuarioRoles {
 			if userRole.RelationsUsuarioRoles.Rol != nil {
-				roleName = userRole.RelationsUsuarioRoles.Rol.NombreRol
-				roles = append(roles, roleName)
+				roles = append(roles, userRole.RelationsUsuarioRoles.Rol.NombreRol)
 			}
 		}
 		items = append(items, userRoleItem{
 			ID:    user.IDUsuario,
 			Name:  user.Nombre,
 			Email: user.Email,
-			Role:  roleName,
 			Roles: roles,
 		})
 	}

@@ -76,8 +76,13 @@ export default function RegisterScreen(): JSX.Element {
 
         const token = loginResult.data?.payload?.token as string | undefined;
         const user = loginResult.data?.payload?.user as
-            | { id: number; name: string; email: string; role: string }
-            | undefined;
+          | {
+              id: number;
+              name: string;
+              email: string;
+              roles: { id: number; name: string }[];
+            }
+          | undefined;
 
         if (token) {
             localStorage.setItem("auth-token", token);
