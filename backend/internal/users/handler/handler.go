@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"project/backend/internal/roles"
+	roles "project/backend/internal/roles/service"
 	"project/backend/internal/shared/response"
 	"project/backend/internal/users/repo"
 	"project/backend/internal/users/service"
@@ -23,6 +23,11 @@ type Handler struct {
 type UpdateRoleRequest struct {
 	UserID int    `json:"user_id"`
 	Rol    string `json:"rol"`
+}
+
+type UpdateRolesRequest struct {
+	UserID int      `json:"user_id"`
+	Roles  []string `json:"roles"`
 }
 
 type UserService interface {
@@ -92,21 +97,25 @@ func (h *Handler) UsersListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type userRoleItem struct {
-		ID   int    `json:"id"`
-		Name string `json:"name"`
-		Role string `json:"role"`
+		ID    int      `json:"id"`
+		Name  string   `json:"name"`
+		Email string   `json:"email"`
+		Roles []string `json:"roles"`
 	}
 
 	items := make([]userRoleItem, 0, len(users))
 	for _, user := range users {
-		roleName := ""
-		if user.RelationsUsuario.Rol != nil {
-			roleName = user.RelationsUsuario.Rol.NombreRol
+		roles := make([]string, 0, len(user.RelationsUsuario.UsuarioRoles))
+		for _, userRole := range user.RelationsUsuario.UsuarioRoles {
+			if userRole.RelationsUsuarioRoles.Rol != nil {
+				roles = append(roles, userRole.RelationsUsuarioRoles.Rol.NombreRol)
+			}
 		}
 		items = append(items, userRoleItem{
-			ID:   user.IDUsuario,
-			Name: user.Nombre,
-			Role: roleName,
+			ID:    user.IDUsuario,
+			Name:  user.Nombre,
+			Email: user.Email,
+			Roles: roles,
 		})
 	}
 
@@ -203,4 +212,62 @@ func (h *Handler) UpdateUserRoleHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Role updated successfully"})
+}
+
+func (h *Handler) UpdateUserRolesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roleHeader := strings.TrimSpace(r.Header.Get("X-Role"))
+	if !strings.EqualFold(roleHeader, "ADMIN") {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if h.roleService == nil {
+		http.Error(w, "Role service unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	var req UpdateRolesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.UserID <= 0 {
+		http.Error(w, "user_id is required", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	roleIDs := []int{}
+	var err error
+	if len(req.Roles) > 0 {
+		roleIDs, err = h.roleService.GetRoleIDsByNames(ctx, req.Roles)
+		if err != nil {
+			if db.IsErrNotFound(err) {
+				http.Error(w, "Role not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Error querying roles", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := h.roleService.UpdateUserRoles(ctx, req.UserID, roleIDs); err != nil {
+		if db.IsErrNotFound(err) {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Error updating roles", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Roles updated successfully"})
 }

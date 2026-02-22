@@ -13,9 +13,8 @@ model Usuario {
   nombre        String   @unique
   email         String   @unique
   password_hash String
-  id_rol        Int
-  rol           Roles    @relation(fields: [id_rol], references: [id_rol])
   createdAt     DateTime @default(now())
+  UsuarioRoles  UsuarioRoles[]
 }
 
 model Roles {
@@ -23,7 +22,33 @@ model Roles {
   nombre_rol  String    @unique
   descripcion String
   createdAt   DateTime  @default(now())
-  Usuario     Usuario[]
+  UsuarioRoles UsuarioRoles[]
+  RolePermisos RolePermisos[]
+}
+
+model Permisos {
+  id_permiso    Int      @id @default(autoincrement())
+  nombre_permiso String  @unique
+  createdAt     DateTime @default(now())
+  RolePermisos RolePermisos[]
+}
+
+model RolePermisos {
+  id_rol     Int
+  id_permiso Int
+  rol        Roles       @relation(fields: [id_rol], references: [id_rol])
+  permiso    Permisos @relation(fields: [id_permiso], references: [id_permiso])
+
+  @@id([id_rol, id_permiso])
+}
+
+model UsuarioRoles {
+  id_usuario Int
+  id_rol     Int
+  usuario    Usuario @relation(fields: [id_usuario], references: [id_usuario])
+  rol        Roles   @relation(fields: [id_rol], references: [id_rol])
+
+  @@id([id_usuario, id_rol])
 }
 
 model Evento {
