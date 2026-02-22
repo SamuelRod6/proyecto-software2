@@ -3,17 +3,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../contexts/Auth/Authcontext";
 import { useToast } from "../../contexts/Toast/ToastContext";
 // services
-import {
-  getInscripciones,
-  inscribirEvento,
-} from "../../services/inscripcionesServices";
+import { getInscripciones } from "../../services/inscripcionesServices";
 import { RESOURCE_KEYS } from "../../constants/resources";
 import { hasResourceAccess } from "../../utils/accessControl";
 // components
 import Loader from "../../components/ui/Loader";
 import EmptyState from "../../components/ui/EmptyState";
 import AvailableEventsList from "../../components/events/AvailableEventsList";
-import EventInscriptionModal from "../../components/events/EventInscriptionModal";
+import InscriptionCreateModal from "../../components/inscriptions/InscriptionCreateModal";
 import EventFilters from "../../components/events/EventFilters";
 // assets
 import emptyAnimation from "../../assets/animations/empty-animation.json";
@@ -41,7 +38,6 @@ const EventsParticipantListScreen: React.FC = () => {
     open: boolean;
     evento: Evento | null;
   }>({ open: false, evento: null });
-  const [inscribirLoading, setInscribirLoading] = useState(false);
   const [canInscribir, setCanInscribir] = useState(false);
   // filtros
   const [searchTerm, setSearchTerm] = useState("");
@@ -198,51 +194,19 @@ const EventsParticipantListScreen: React.FC = () => {
   // Handler to open inscription modal for a specific event
   const handleOpenInscribirModal = (evento: Evento) => {
     if (!canInscribir) return;
+    if (!user?.id) {
+      showToast({
+        title: "No autenticado",
+        status: "error",
+        message: "Debes iniciar sesión para inscribirte.",
+      });
+      return;
+    }
     setInscribirEventoModal({ open: true, evento });
   };
 
-  // Handler to submit inscription form
-  const handleInscribir = async (formData: any) => {
-    if (!inscribirEventoModal.evento || !user || !canInscribir) return;
-    setInscribirLoading(true);
-    try {
-      const payload = {
-        id_usuario: user.id,
-        id_evento: inscribirEventoModal.evento.id_evento,
-        comentario: formData.comentario,
-        estado_pago: formData.estado_pago,
-        comprobante: formData.comprobante,
-      };
-      const { status, data } = await inscribirEvento(payload);
-
-      if (status === 200) {
-        showToast({
-          title: "Inscripción exitosa",
-          status: "success",
-          message: `Te has inscrito a "${inscribirEventoModal.evento.nombre}"`,
-        });
-        setInscribirEventoModal({ open: false, evento: null });
-        await fetchDisponiblesFiltrados();
-      } else {
-        showToast({
-          title: "Error",
-          status: "error",
-          message: data?.message || "No se pudo completar la inscripción",
-        });
-      }
-    } catch (error: any) {
-      console.log("Error al inscribirse:", error?.response?.data || error);
-      showToast({
-        title: "Error",
-        status: "error",
-        message:
-          error?.response?.data?.message ||
-          error?.message ||
-          "No se pudo completar la inscripción",
-      });
-    } finally {
-      setInscribirLoading(false);
-    }
+  const handleCloseInscribirModal = () => {
+    setInscribirEventoModal({ open: false, evento: null });
   };
 
   return (
@@ -316,12 +280,14 @@ const EventsParticipantListScreen: React.FC = () => {
           </>
         )}
       </div>
-      <EventInscriptionModal
-        isOpen={inscribirEventoModal.open}
-        onClose={() => setInscribirEventoModal({ open: false, evento: null })}
-        evento={inscribirEventoModal.evento}
-        onSubmit={handleInscribir}
-        loading={inscribirLoading}
+      <InscriptionCreateModal
+        open={inscribirEventoModal.open}
+        onClose={handleCloseInscribirModal}
+        eventoId={inscribirEventoModal.evento?.id_evento ?? null}
+        eventoNombre={inscribirEventoModal.evento?.nombre ?? ""}
+        userId={user?.id ?? 0}
+        userEmail={user?.email ?? ""}
+        userName={user?.name ?? ""}
       />
     </section>
   );
