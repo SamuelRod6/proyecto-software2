@@ -10,7 +10,6 @@ import { permissionManagementRoutes } from "./PermissionManagement";
 import { inscriptionRoutes } from "./InscriptionRoutes";
 // screens
 import HomeScreen from "../screens/HomeScreen";
-import NotificationListScreen from "../screens/notifications/NotificationListScreen";
 // contexts
 import { AuthProvider } from "../contexts/Auth/Authcontext";
 
@@ -32,7 +31,6 @@ export default function AppRouter(): JSX.Element {
             {inscriptionRoutes}
             {roleManagementRoutes}
             {permissionManagementRoutes}
-            <Route path="notifications" element={<NotificationListScreen />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.login} replace />} />
         </Routes>

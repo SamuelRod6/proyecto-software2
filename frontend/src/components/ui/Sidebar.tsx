@@ -117,18 +117,6 @@ export default function Sidebar() {
             Reportes de inscripciones
           </NavLink>
         )}
-        <NavLink
-          to={ROUTES.notifications}
-          className={({ isActive }) =>
-            `rounded-lg px-3 py-2 font-medium transition-colors ${
-              isActive
-                ? "bg-[#F5E427] text-slate-900"
-                : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
-            }`
-          }
-        >
-          Notificaciones
-        </NavLink>
         {canManageRoles && (
           <NavLink
             to={ROUTES.roleManagement}
