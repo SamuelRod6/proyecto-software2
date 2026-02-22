@@ -68,17 +68,28 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 
 	// helper to format date
  function formatDateWithTime(d: Date, hour: number, minute: number): string {
-	 const date = new Date(d);
-	 date.setHours(hour, minute, 0, 0);
-	 // Formato: DD/MM/AAAA HH:mm:ss
-	 const pad = (n: number) => n.toString().padStart(2, '0');
-	 return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+	const date = new Date(d);
+	// Set hora en UTC
+	date.setUTCHours(hour, minute, 0, 0);
+	// Formato: DD/MM/AAAA HH:mm:ss (en UTC)
+	const pad = (n: number) => n.toString().padStart(2, '0');
+	return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:00`;
  }
 
 	//function to parse date string from API
-	function parseDate(dateStr: string): Date {
-		const [day, month, year] = dateStr.split("/").map(Number);
-		return new Date(year, month - 1, day);
+	function parseDate(dateStr: string): Date | undefined {
+		if (!dateStr) return undefined;
+		// Soporta formato DD/MM/YYYY HH:mm:ss
+		const [datePart, timePart] = dateStr.split(" ");
+		const [day, month, year] = datePart.split("/").map(Number);
+		let hours = 0, minutes = 0, seconds = 0;
+		if (timePart) {
+			const [h, m, s] = timePart.split(":").map(Number);
+			hours = h || 0;
+			minutes = m || 0;
+			seconds = s || 0;
+		}
+		return new Date(year, month - 1, day, hours, minutes, seconds);
 	}
 
 	// function to form the payload

@@ -112,9 +112,9 @@ func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	res := dto.EventoResponse{
 		ID:                     created.IDEvento,
 		Nombre:                 created.Nombre,
-		FechaInicio:            created.FechaInicio.Format("02/01/2006"),
-		FechaFin:               created.FechaFin.Format("02/01/2006"),
-		FechaCierreInscripcion: created.FechaCierreInscripcion.Format("02/01/2006"),
+		FechaInicio:            created.FechaInicio.Format("02/01/2006 15:04:05"),
+		FechaFin:               created.FechaFin.Format("02/01/2006 15:04:05"),
+		FechaCierreInscripcion: created.FechaCierreInscripcion.Format("02/01/2006 15:04:05"),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(created, now),
 		Ubicacion:              created.Ubicacion,
 	}
@@ -171,9 +171,9 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 		res := dto.EventoResponse{
 			ID:                     evento.IDEvento,
 			Nombre:                 evento.Nombre,
-			FechaInicio:            evento.FechaInicio.Format("02/01/2006"),
-			FechaFin:               evento.FechaFin.Format("02/01/2006"),
-			FechaCierreInscripcion: evento.FechaCierreInscripcion.Format("02/01/2006"),
+			FechaInicio:            evento.FechaInicio.Format("02/01/2006 15:04:05"),
+			FechaFin:               evento.FechaFin.Format("02/01/2006 15:04:05"),
+			FechaCierreInscripcion: evento.FechaCierreInscripcion.Format("02/01/2006 15:04:05"),
 			InscripcionesAbiertas:  isInscripcionesAbiertas(evento, now),
 			Ubicacion:              evento.Ubicacion,
 			Sesiones:               sesionesResp,
@@ -182,7 +182,31 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(res)
 		return
 	}
-	// ...existing code...
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	eventos, err := h.svc.ListEventos(ctx)
+	if err != nil {
+		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	now := time.Now()
+	res := make([]dto.EventoResponse, 0, len(eventos))
+	for _, ev := range eventos {
+		res = append(res, dto.EventoResponse{
+			ID:                     ev.IDEvento,
+			Nombre:                 ev.Nombre,
+			FechaInicio:            ev.FechaInicio.Format("02/01/2006"),
+			FechaFin:               ev.FechaFin.Format("02/01/2006"),
+			FechaCierreInscripcion: ev.FechaCierreInscripcion.Format("02/01/2006"),
+			InscripcionesAbiertas:  isInscripcionesAbiertas(&ev, now),
+			Ubicacion:              ev.Ubicacion,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
@@ -255,9 +279,9 @@ func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 	res := dto.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
-		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
-		FechaFin:               updated.FechaFin.Format("02/01/2006"),
-		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
+		FechaInicio:            updated.FechaInicio.Format("02/01/2006 15:04:05"),
+		FechaFin:               updated.FechaFin.Format("02/01/2006 15:04:05"),
+		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006 15:04:05"),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(updated, now),
 		Ubicacion:              updated.Ubicacion,
 	}
@@ -338,9 +362,9 @@ func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 	res := dto.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
-		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
-		FechaFin:               updated.FechaFin.Format("02/01/2006"),
-		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
+		FechaInicio:            updated.FechaInicio.Format("02/01/2006 15:04:05"),
+		FechaFin:               updated.FechaFin.Format("02/01/2006 15:04:05"),
+		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006 15:04:05"),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(updated, now),
 		Ubicacion:              updated.Ubicacion,
 	}

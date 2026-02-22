@@ -19,7 +19,11 @@ const SessionList: React.FC<SessionListProps> = ({ sessions, onEdit, showEditBut
               <div>
                 <div className="font-semibold text-[#F5E427] dark:text-[#F5E427]">{sesion.titulo}</div>
                 <div className="text-xs text-slate-400">
-                  {sesion.fecha_inicio?.substring(0, 16).replace('T', ' ')} - {sesion.fecha_fin?.substring(0, 16).replace('T', ' ')}
+                  {(() => {
+                    const inicio = new Date(sesion.fecha_inicio);
+                    const fin = new Date(sesion.fecha_fin);
+                    return `${inicio.toLocaleString("es-VE", { timeZone: "America/Caracas", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} - ${fin.toLocaleString("es-VE", { timeZone: "America/Caracas", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+                  })()}
                 </div>
               </div>
               {showEditButton && onEdit && (

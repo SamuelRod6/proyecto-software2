@@ -1,3 +1,4 @@
+import { useModal } from '../../contexts/Modal/ModalContext';
 import React, { useState } from "react";
 // components
 import EventDetailModal from "./EventDetailModal";

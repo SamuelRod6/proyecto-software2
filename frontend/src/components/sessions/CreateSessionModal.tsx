@@ -90,11 +90,19 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       const fechaFin = new Date(fecha!);
       const [hFin, mFin] = horaFin.split(':');
       fechaFin.setHours(Number(hFin), Number(mFin), 0, 0);
+      // Formato local Venezuela: YYYY-MM-DDTHH:mm:ss-04:00
+      function toVenezuelaISOString(date: Date) {
+        // Ajusta a UTC-4
+        const offset = -4;
+        const local = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}-04:00`;
+      }
       const payload = {
         titulo,
         descripcion,
-        fecha_inicio: fechaInicio.toISOString(),
-        fecha_fin: fechaFin.toISOString(),
+        fecha_inicio: toVenezuelaISOString(fechaInicio),
+        fecha_fin: toVenezuelaISOString(fechaFin),
         ubicacion,
       };
       const eventId = event?.id_evento || event?.id || event?.idEvento;
@@ -271,6 +279,8 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
                 } else {
                   fin = new Date(fechaFinStr);
                 }
+                // Restar un día al fin
+                fin.setDate(fin.getDate() - 1);
                 // Limitar solo a rango del evento
                 return date < inicio || date > fin;
               }}

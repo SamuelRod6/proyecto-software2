@@ -59,8 +59,18 @@ export default function EventDetailModal({
     // helper to parse date string from API
     function parseDate(dateStr: string): Date | undefined {
         if (!dateStr) return undefined;
-        const [day, month, year] = dateStr.split("/");
-        return new Date(Number(year), Number(month) - 1, Number(day));
+        // Soporta formato DD/MM/YYYY HH:mm:ss
+        const [datePart, timePart] = dateStr.split(" ");
+        const [day, month, year] = datePart.split("/").map(Number);
+        let hours = 0, minutes = 0, seconds = 0;
+        if (timePart) {
+            const [h, m, s] = timePart.split(":").map(Number);
+            hours = h || 0;
+            minutes = m || 0;
+            seconds = s || 0;
+        }
+        // Construye la fecha en local
+        return new Date(year, month - 1, day, hours, minutes, seconds);
     }
 
     // Fetch event detail when modal opens
@@ -101,9 +111,20 @@ export default function EventDetailModal({
     }, [open, event]);
 
     // prepare date range for the calendar
+    // Corrige visualización: si la hora de fin es antes de las 6am, muestra el día anterior
+    function adjustEndDate(date: Date | undefined): Date | undefined {
+        if (!date) return undefined;
+        if (date.getHours() < 6) {
+            // Si la hora es antes de las 6am, retrocede un día
+            const adjusted = new Date(date);
+            adjusted.setDate(date.getDate() - 1);
+            return adjusted;
+        }
+        return date;
+    }
     const dateRange = event ? {
         from: parseDate(event.fecha_inicio),
-        to: parseDate(event.fecha_fin)
+        to: adjustEndDate(parseDate(event.fecha_fin))
     } : undefined;
 
     // effect to show error if no event is provided when modal is opened
@@ -261,7 +282,13 @@ export default function EventDetailModal({
                                         Fecha de cierre de inscripciones
                                     </label>
                                     <Input 
-                                        value={eventDetail.fecha_cierre_inscripcion} 
+                                        value={(() => {
+                                            let d = parseDate(eventDetail.fecha_cierre_inscripcion);
+                                            if (!d) return "";
+                                            // Restar un día
+                                            d = new Date(d.getTime() - 86400000);
+                                            return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Caracas" });
+                                        })()} 
                                         disabled 
                                         className="w-full" 
                                     />

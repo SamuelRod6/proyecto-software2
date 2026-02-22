@@ -25,6 +25,37 @@ interface EventItemProps {
 }
 
 export default function EventItem(props: EventItemProps) {
+	// Helper para parsear fecha DD/MM/YYYY HH:mm:ss
+	function parseDate(dateStr: string): Date | undefined {
+		if (!dateStr) return undefined;
+		const [datePart, timePart] = dateStr.split(" ");
+		const [day, month, year] = datePart.split("/").map(Number);
+		let hours = 0, minutes = 0, seconds = 0;
+		if (timePart) {
+			const [h, m, s] = timePart.split(":").map(Number);
+			hours = h || 0;
+			minutes = m || 0;
+			seconds = s || 0;
+		}
+		return new Date(year, month - 1, day, hours, minutes, seconds);
+	}
+
+	// Ajusta fecha fin si es antes de las 6am
+	function adjustEndDate(date: Date | undefined): Date | undefined {
+		if (!date) return undefined;
+		if (date.getHours() < 6) {
+			const adjusted = new Date(date);
+			adjusted.setDate(date.getDate() - 1);
+			return adjusted;
+		}
+		return date;
+	}
+
+	// Formatea fecha a string legible
+	function formatDate(d: Date | undefined): string {
+		if (!d) return "";
+		return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric" });
+	}
 const {
 	id_evento,
 	nombre,
@@ -81,10 +112,18 @@ const {
 				</h2>
 				<div className="text-slate-300 text-sm">
 					<span className="mr-4">
-						<span className="font-medium">Inicio:</span> {fecha_inicio}
+						<span className="font-medium">Inicio:</span> {formatDate(parseDate(fecha_inicio))}
 					</span>
 					<span>
-						<span className="font-medium">Fin:</span> {fecha_fin}
+						<span className="font-medium">Fin:</span> {formatDate(adjustEndDate(parseDate(fecha_fin)))}
+					</span>
+					<span className="ml-4">
+						<span className="font-medium">Cierre inscripciones:</span> {(() => {
+							let d = parseDate(fecha_cierre_inscripcion);
+							if (!d) return "";
+							d = new Date(d.getTime() - 86400000);
+							return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Caracas" });
+						})()}
 					</span>
 				</div>
 			</div>
