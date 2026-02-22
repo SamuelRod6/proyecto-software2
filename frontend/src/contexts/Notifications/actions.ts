@@ -2,6 +2,8 @@ import { fetchNotificationsApi } from '../../services/notificationsServices';
 
 export const REFRESH_NOTIFICATIONS = 'REFRESH_NOTIFICATIONS';
 export const MARK_AS_READ = 'MARK_AS_READ';
+export const REMOVE_NOTIFICATION = 'REMOVE_NOTIFICATION';
+export const CLEAR_NOTIFICATIONS = 'CLEAR_NOTIFICATIONS';
 
 export const refreshNotifications = (notifications: any) => ({
     type: REFRESH_NOTIFICATIONS,
@@ -11,6 +13,15 @@ export const refreshNotifications = (notifications: any) => ({
 export const markAsRead = (id: number) => ({
     type: MARK_AS_READ,
     payload: id,
+});
+
+export const removeNotification = (id: number | string) => ({
+    type: REMOVE_NOTIFICATION,
+    payload: id,
+});
+
+export const clearNotifications = () => ({
+    type: CLEAR_NOTIFICATIONS,
 });
 
 export const fetchNotifications = async (userId: number) => {

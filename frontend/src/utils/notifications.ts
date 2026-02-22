@@ -60,6 +60,22 @@ export function markNotificationRead(notificationId: string): void {
   window.dispatchEvent(new Event(UPDATE_EVENT));
 }
 
+export function removeNotification(notificationId: string): void {
+  if (typeof window === "undefined") return;
+  const current = getNotifications();
+  const updated = current.filter((item) => item.id !== notificationId);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  window.dispatchEvent(new Event(UPDATE_EVENT));
+}
+
+export function clearNotificationsForUser(userId: number): void {
+  if (typeof window === "undefined") return;
+  const current = getNotifications();
+  const updated = current.filter((item) => item.userId !== userId);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  window.dispatchEvent(new Event(UPDATE_EVENT));
+}
+
 export function notificationsUpdatedEvent(): string {
   return UPDATE_EVENT;
 }

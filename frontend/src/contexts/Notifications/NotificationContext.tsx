@@ -2,10 +2,18 @@ import React, { createContext, useReducer, useCallback, useEffect } from 'react'
 import { useAuth } from '../Auth/Authcontext';
 import { useToast } from '../Toast/ToastContext';
 import { notificationReducer, initialState, NotificationState, Notification } from './reducer';
-import { fetchNotifications, refreshNotifications as refreshNotificationsAction, markAsRead as markAsReadAction } from './actions';
+import {
+	fetchNotifications,
+	refreshNotifications as refreshNotificationsAction,
+	markAsRead as markAsReadAction,
+	removeNotification as removeNotificationAction,
+	clearNotifications as clearNotificationsAction,
+} from './actions';
 import { markNotificationAsReadApi } from '../../services/notificationsServices';
 import {
   getNotificationsForUser,
+	clearNotificationsForUser,
+	removeNotification as removeLocalNotification,
   markNotificationRead,
   notificationsUpdatedEvent,
 } from "../../utils/notifications";
@@ -14,6 +22,8 @@ interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
   markAsRead: (id: number | string) => void;
+	removeNotification: (id: number | string) => void;
+	clearNotifications: () => void;
   refreshNotifications: () => void;
   loading: boolean;
   error: string | null;
@@ -27,6 +37,8 @@ export const NotificationContext = createContext<NotificationContextType>({
 	notifications: [],
 	unreadCount: 0,
 	markAsRead: () => {},
+	removeNotification: () => {},
+	clearNotifications: () => {},
 	refreshNotifications: () => {},
 	loading: false,
 	error: null,
@@ -107,6 +119,22 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     await refreshNotifications();
   };
 
+	const removeNotification = (id: number | string) => {
+		if (typeof id === "string") {
+			removeLocalNotification(id);
+			dispatch(removeNotificationAction(id));
+			return;
+		}
+		dispatch(removeNotificationAction(id));
+	};
+
+	const clearNotifications = () => {
+		if (user?.id) {
+			clearNotificationsForUser(user.id);
+		}
+		dispatch(clearNotificationsAction());
+	};
+
 	const unreadCount = state.notifications.filter((n) => !n.read).length;
 
 	return (
@@ -115,6 +143,8 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 				notifications: state.notifications,
 				unreadCount,
 				markAsRead,
+				removeNotification,
+				clearNotifications,
 				refreshNotifications,
 				loading,
 				error

@@ -16,6 +16,7 @@ import (
 	"project/backend/internal/inscripciones/validation"
 	"project/backend/internal/shared/httperror"
 	"project/backend/prisma/db"
+
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -250,15 +251,28 @@ func (h *Handler) ComprobanteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	row := rows[0]
+	valueOrFallback := func(value string) string {
+		if strings.TrimSpace(value) == "" {
+			return "No registrado"
+		}
+		return value
+	}
+	comprobante := "No adjunto"
+	if row.ComprobantePago != nil && strings.TrimSpace(*row.ComprobantePago) != "" {
+		comprobante = "Adjunto"
+	}
 	lines := []string{
 		"Comprobante de inscripción",
 		"",
-		"Evento: " + row.EventoNombre,
-		"Participante: " + row.Nombre,
-		"Correo: " + row.Email,
-		"Afiliación: " + row.Afiliacion,
-		"Fecha inscripción: " + row.FechaInscripcion,
-		"Estado: " + row.Estado,
+		"ID inscripción: " + strconv.Itoa(row.IDInscripcion),
+		"Evento: " + valueOrFallback(row.EventoNombre),
+		"Participante: " + valueOrFallback(row.Nombre),
+		"Correo: " + valueOrFallback(row.Email),
+		"Afiliación: " + valueOrFallback(row.Afiliacion),
+		"Fecha inscripción: " + valueOrFallback(row.FechaInscripcion),
+		"Fecha límite de pago: " + valueOrFallback(row.FechaLimitePago),
+		"Estado: " + valueOrFallback(row.Estado),
+		"Comprobante de pago: " + comprobante,
 	}
 
 	pdf := buildSimplePDF(lines)

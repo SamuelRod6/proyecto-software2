@@ -11,7 +11,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
   open,
   onClose,
 }) => {
-  const { notifications, markAsRead, loading, error } = useContext(
+  const { notifications, markAsRead, removeNotification, loading, error } = useContext(
     NotificationContext,
   );
   const [selectedId, setSelectedId] = useState<number | string | null>(null);
@@ -69,13 +69,27 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
                       <span className="w-2 h-2 bg-red-500 rounded-full mr-2" />
                     )}
                     <span
-                      className={`font-semibold truncate ${
+                      className={`font-semibold truncate flex-1 ${
                         notif.read ? "text-slate-400" : "text-white"
                       }`}
                       title={notif.title || notif.type}
                     >
                       {notif.title || notif.type}
                     </span>
+                    <button
+                      type="button"
+                      className="ml-2 text-slate-400 hover:text-slate-200"
+                      aria-label="Quitar notificacion"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (selectedId === notif.id) {
+                          setSelectedId(null);
+                        }
+                        removeNotification(notif.id);
+                      }}
+                    >
+                      ×
+                    </button>
                   </button>
                 ))}
               </div>

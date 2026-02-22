@@ -1,5 +1,5 @@
 // reducer.ts
-import { REFRESH_NOTIFICATIONS, MARK_AS_READ } from './actions';
+import { REFRESH_NOTIFICATIONS, MARK_AS_READ, REMOVE_NOTIFICATION, CLEAR_NOTIFICATIONS } from './actions';
 
 export interface Notification {
   id: number | string;
@@ -35,6 +35,16 @@ export function notificationReducer(state: NotificationState, action: any): Noti
         notifications: state.notifications.map((n) =>
           n.id === action.payload ? { ...n, read: true } : n
         ),
+      };
+    case REMOVE_NOTIFICATION:
+      return {
+        ...state,
+        notifications: state.notifications.filter((n) => n.id !== action.payload),
+      };
+    case CLEAR_NOTIFICATIONS:
+      return {
+        ...state,
+        notifications: [],
       };
     default:
       return state;
