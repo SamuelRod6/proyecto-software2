@@ -7,6 +7,7 @@ import (
 
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
+	inscripcioneshandler "project/backend/internal/inscripciones/handler"
 	paishandler "project/backend/internal/pais/handler"
 	permissionhandler "project/backend/internal/permissions/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
@@ -50,6 +51,7 @@ func main() {
 	roleService := roles.NewUserRoleService(prismaClient)
 	userHandler := userhandler.New(userRepo, roleService)
 	eventsHandler := eventhandler.New(prismaClient)
+	inscriptionsHandler := inscripcioneshandler.New(prismaClient)
 	paisesHandler := paishandler.New(prismaClient)
 	fechasOcupadasHandler := eventhandler.GetFechasOcupadasHandler(eventsHandler.(*eventhandler.Handler).Svc())
 	registrationsHandler := registrationhandler.New(prismaClient)
@@ -78,7 +80,16 @@ func main() {
 
 	http.Handle("/api/eventos", eventsHandler)
 	http.HandleFunc("/api/eventos/fechas-ocupadas", fechasOcupadasHandler)
-	http.Handle("/api/inscripciones", registrationsHandler)
+	http.Handle("/api/inscripciones", inscriptionsHandler)
+	http.HandleFunc("/api/inscripciones/status", inscriptionsHandler.UpdateEstadoHandler)
+	http.HandleFunc("/api/inscripciones/historial", inscriptionsHandler.HistorialHandler)
+	http.HandleFunc("/api/inscripciones/preferencias", inscriptionsHandler.PreferenciasHandler)
+	http.HandleFunc("/api/inscripciones/notificaciones", inscriptionsHandler.NotificacionesHandler)
+	http.HandleFunc("/api/inscripciones/comprobante", inscriptionsHandler.ComprobanteHandler)
+	http.HandleFunc("/api/inscripciones/reportes", inscriptionsHandler.ReportesHandler)
+	http.HandleFunc("/api/inscripciones/reportes/schedule", inscriptionsHandler.ReportesProgramadosHandler)
+	http.Handle("/api/registrations", registrationsHandler)
+	http.Handle("/api/registrations/", registrationsHandler)
 	http.Handle("/api/notifications", notificationHandler)
 	http.Handle("/api/notifications/", notificationHandler)
 	http.Handle("/api/paises", paisesHandler)

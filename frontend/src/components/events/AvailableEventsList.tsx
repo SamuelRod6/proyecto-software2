@@ -8,7 +8,10 @@ interface Evento {
     nombre: string;
     fecha_inicio: string;
     fecha_fin: string;
+  fecha_cierre_inscripcion: string;
+  inscripciones_abiertas: boolean;
     ubicacion: string;
+  inscrito?: boolean;
 }
 
 interface Props {
@@ -43,17 +46,23 @@ const AvailableEventsList: React.FC<Props> = ({
                 </div>
                 <div className="text-xs text-slate-300">{evento.ubicacion}</div>
               </div>
-              <Button
-                className="mt-2 md:mt-0 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!canInscribir) return;
-                  onInscribir && onInscribir(evento);
-                }}
-                disabled={!canInscribir}
-              >
-                Inscribirme
-              </Button>
+              {evento.inscrito ? (
+                <span className="mt-2 md:mt-0 text-sm font-semibold text-slate-200">
+                  Ya inscrito
+                </span>
+              ) : (
+                <Button
+                  className="mt-2 md:mt-0 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!canInscribir) return;
+                    onInscribir && onInscribir(evento);
+                  }}
+                  disabled={!canInscribir}
+                >
+                  Inscribirme
+                </Button>
+              )}
             </li>
           ))}
         </ul>
@@ -63,7 +72,7 @@ const AvailableEventsList: React.FC<Props> = ({
           event={selectedEvento}
           open={!!selectedEvento}
           onClose={() => setSelectedEvento(null)}
-          showInscribirButton={canInscribir}
+          showInscribirButton={canInscribir && !selectedEvento.inscrito}
           onInscribir={() => {
             onInscribir && onInscribir(selectedEvento);
             setSelectedEvento(null);

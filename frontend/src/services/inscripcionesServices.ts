@@ -9,6 +9,8 @@ export interface Inscripcion {
   comprobante: string;
 }
 
+const REGISTRATIONS_BASE_URL = "/api/registrations";
+
 export async function getInscripciones({
     eventoId,
     usuarioId,
@@ -31,7 +33,7 @@ export async function getInscripciones({
     offset?: number;
 }): Promise<{ status: number; data: Inscripcion[] | any }> {
     try {
-        let url = "/api/inscripciones";
+        let url = REGISTRATIONS_BASE_URL;
         const params = [];
         if (eventoId) params.push(`evento_id=${eventoId}`);
         if (usuarioId) params.push(`usuario_id=${usuarioId}`);
@@ -65,7 +67,7 @@ export async function inscribirEvento(data: {
     comprobante?: string;
 }): Promise<{ status: number; data: any }> {
     try {
-        const response = await axios.post("/api/inscripciones", data);
+        const response = await axios.post(REGISTRATIONS_BASE_URL, data);
         return { status: response.status, data: response.data };
     } catch (error: any) {
         if (error.response) {
