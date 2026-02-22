@@ -15,6 +15,13 @@ import (
 	"project/backend/prisma/db"
 )
 
+const (
+	dateLayout       = "02/01/2006"
+	contentTypeKey   = "Content-Type"
+	contentTypeJSON  = "application/json"
+	dbErrorMessage   = "db error"
+)
+
 type Handler struct {
 	svc EventService
 }
@@ -89,7 +96,7 @@ func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 			httperror.WriteJSON(w, http.StatusConflict, err.Error())
 			return
 		}
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
 		return
 	}
 
@@ -98,13 +105,13 @@ func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 			httperror.WriteJSON(w, http.StatusConflict, err.Error())
 			return
 		}
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
 		return
 	}
 
 	created, err := h.svc.CreateEvento(ctx, req, startDate, endDate, cierreDate)
 	if err != nil {
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
 		return
 	}
 
@@ -112,14 +119,14 @@ func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	res := dto.EventoResponse{
 		ID:                     created.IDEvento,
 		Nombre:                 created.Nombre,
-		FechaInicio:            created.FechaInicio.Format("02/01/2006"),
-		FechaFin:               created.FechaFin.Format("02/01/2006"),
-		FechaCierreInscripcion: created.FechaCierreInscripcion.Format("02/01/2006"),
+		FechaInicio:            created.FechaInicio.Format(dateLayout),
+		FechaFin:               created.FechaFin.Format(dateLayout),
+		FechaCierreInscripcion: created.FechaCierreInscripcion.Format(dateLayout),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(created, now),
 		Ubicacion:              created.Ubicacion,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeKey, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(res)
 }
 
@@ -129,7 +136,7 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 
 	eventos, err := h.svc.ListEventos(ctx)
 	if err != nil {
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
 		return
 	}
 
@@ -139,15 +146,15 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 		res = append(res, dto.EventoResponse{
 			ID:                     ev.IDEvento,
 			Nombre:                 ev.Nombre,
-			FechaInicio:            ev.FechaInicio.Format("02/01/2006"),
-			FechaFin:               ev.FechaFin.Format("02/01/2006"),
-			FechaCierreInscripcion: ev.FechaCierreInscripcion.Format("02/01/2006"),
+			FechaInicio:            ev.FechaInicio.Format(dateLayout),
+			FechaFin:               ev.FechaFin.Format(dateLayout),
+			FechaCierreInscripcion: ev.FechaCierreInscripcion.Format(dateLayout),
 			InscripcionesAbiertas:  isInscripcionesAbiertas(&ev, now),
 			Ubicacion:              ev.Ubicacion,
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeKey, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(res)
 }
 
@@ -183,7 +190,7 @@ func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 			httperror.WriteJSON(w, http.StatusNotFound, err.Error())
 			return
 		}
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
 		return
 	}
 
@@ -200,20 +207,7 @@ func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updated, err := h.svc.UpdateEvento(ctx, req, startDate, endDate, cierreDate)
-	if err != nil {
-		if errors.Is(err, service.ErrNameExists) || errors.Is(err, service.ErrOverlap) {
-			httperror.WriteJSON(w, http.StatusConflict, err.Error())
-			return
-		}
-		if errors.Is(err, service.ErrCloseDateLocked) {
-			httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		if errors.Is(err, service.ErrNotFound) {
-			httperror.WriteJSON(w, http.StatusNotFound, err.Error())
-			return
-		}
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+	if handleUpdateEventoError(w, err) {
 		return
 	}
 
@@ -221,14 +215,14 @@ func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 	res := dto.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
-		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
-		FechaFin:               updated.FechaFin.Format("02/01/2006"),
-		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
+		FechaInicio:            updated.FechaInicio.Format(dateLayout),
+		FechaFin:               updated.FechaFin.Format(dateLayout),
+		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format(dateLayout),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(updated, now),
 		Ubicacion:              updated.Ubicacion,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeKey, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(res)
 }
 
@@ -276,7 +270,7 @@ func (h *Handler) deleteEvento(w http.ResponseWriter, r *http.Request) {
 			httperror.WriteJSON(w, http.StatusNotFound, err.Error())
 			return
 		}
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -296,7 +290,7 @@ func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 			httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
 		return
 	}
 
@@ -304,13 +298,13 @@ func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 	res := dto.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
-		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
-		FechaFin:               updated.FechaFin.Format("02/01/2006"),
-		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
+		FechaInicio:            updated.FechaInicio.Format(dateLayout),
+		FechaFin:               updated.FechaFin.Format(dateLayout),
+		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format(dateLayout),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(updated, now),
 		Ubicacion:              updated.Ubicacion,
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeKey, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(res)
 }
 
@@ -332,7 +326,7 @@ func (h *Handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eve
 			httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
 		return
 	}
 
@@ -340,14 +334,14 @@ func (h *Handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eve
 	res := dto.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
-		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
-		FechaFin:               updated.FechaFin.Format("02/01/2006"),
-		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
+		FechaInicio:            updated.FechaInicio.Format(dateLayout),
+		FechaFin:               updated.FechaFin.Format(dateLayout),
+		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format(dateLayout),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(updated, now),
 		Ubicacion:              updated.Ubicacion,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set(contentTypeKey, contentTypeJSON)
 	_ = json.NewEncoder(w).Encode(res)
 }
 
@@ -374,7 +368,24 @@ func GetFechasOcupadasHandler(svc EventService) http.HandlerFunc {
 			json.NewEncoder(w).Encode(map[string]string{"error": "Error obteniendo fechas ocupadas por los eventos existentes"})
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set(contentTypeKey, contentTypeJSON)
 		json.NewEncoder(w).Encode(fechas)
 	}
+}
+
+func handleUpdateEventoError(w http.ResponseWriter, err error) bool {
+	if err == nil {
+		return false
+	}
+	switch {
+	case errors.Is(err, service.ErrNameExists), errors.Is(err, service.ErrOverlap):
+		httperror.WriteJSON(w, http.StatusConflict, err.Error())
+	case errors.Is(err, service.ErrCloseDateLocked):
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+	case errors.Is(err, service.ErrNotFound):
+		httperror.WriteJSON(w, http.StatusNotFound, err.Error())
+	default:
+		httperror.WriteJSON(w, http.StatusInternalServerError, dbErrorMessage)
+	}
+	return true
 }

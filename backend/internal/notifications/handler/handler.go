@@ -71,6 +71,10 @@ func (h *Handler) listNotificationsByUser(w http.ResponseWriter, r *http.Request
 	}
 	var responses []dto.NotificationResponse
 	for _, n := range notifications {
+		tipo := ""
+		if val, ok := n.Tipo(); ok {
+			tipo = val
+		}
 		responses = append(responses, dto.NotificationResponse{
 			ID:     n.IDNotificacion,
 			UserID: n.IDUsuario,
@@ -81,8 +85,8 @@ func (h *Handler) listNotificationsByUser(w http.ResponseWriter, r *http.Request
 				}
 				return nil
 			}(),
-			Type:      n.Tipo,
-			Title:     dto.GetNotificationTitle(n.Tipo),
+			Type:      tipo,
+			Title:     dto.GetNotificationTitle(tipo),
 			Message:   n.Mensaje,
 			Read:      n.Leida,
 			CreatedAt: n.CreatedAt,

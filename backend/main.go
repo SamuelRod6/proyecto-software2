@@ -4,8 +4,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
@@ -31,27 +29,10 @@ var prismaClient *db.PrismaClient
 func main() {
 	envFile := os.Getenv("ENV_FILE")
 	if envFile == "" {
-		candidates := []string{"../.env", "../.env.local", "../.env.neon"}
-		for _, candidate := range candidates {
-			if _, err := os.Stat(candidate); err == nil {
-				envFile = candidate
-				break
-			}
-		}
-	} else if !filepath.IsAbs(envFile) && !strings.HasPrefix(envFile, "../") {
-		envFile = filepath.Join("..", envFile)
+		envFile = ".env"
 	}
-	if envFile != "" {
-		if err := godotenv.Load(envFile); err != nil {
-			log.Println("Warning: " + envFile + " file not found")
-		} else {
-			log.Println("Loaded env file: " + envFile)
-		}
-	} else {
-		log.Println("Warning: no .env file found in project root")
-	}
-	if strings.TrimSpace(os.Getenv("DATABASE_URL")) == "" {
-		log.Fatal("DATABASE_URL is not set")
+	if err := godotenv.Load(envFile); err != nil {
+		log.Println("Warning: " + envFile + " file not found")
 	}
 
 	prismaClient = db.NewClient()

@@ -25,13 +25,15 @@ func NewNotificationRepository(client *db.PrismaClient) NotificationRepository {
 }
 
 func (r *notificationRepository) Create(ctx context.Context, req dto.CreateNotificationRequest) (*db.NotificacionModel, error) {
-	setTipo := db.Notificacion.Tipo.Set(req.Type)
 	setMensaje := db.Notificacion.Mensaje.Set(req.Message)
 	setUsuario := db.Notificacion.Usuario.Link(
 		db.Usuario.IDUsuario.Equals(req.UserID),
 	)
 
 	var optionals []db.NotificacionSetParam
+	if req.Type != "" {
+		optionals = append(optionals, db.Notificacion.Tipo.Set(req.Type))
+	}
 	if req.EventID != nil {
 		optionals = append(optionals, db.Notificacion.Evento.Link(
 			db.Evento.IDEvento.Equals(*req.EventID),
@@ -39,7 +41,7 @@ func (r *notificationRepository) Create(ctx context.Context, req dto.CreateNotif
 	}
 
 	notification, err := r.client.Notificacion.CreateOne(
-		setTipo, setMensaje, setUsuario,
+		setMensaje, setUsuario,
 		optionals...,
 	).Exec(ctx)
 	if err != nil {
