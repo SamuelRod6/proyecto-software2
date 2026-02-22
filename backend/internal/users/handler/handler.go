@@ -25,18 +25,18 @@ const (
 	contentTypeJSON   = "application/json"
 	roleHeaderKey     = "X-Role"
 
-	errMethodNotAllowed      = "Method not allowed"
-	errForbidden             = "Forbidden"
+	errMethodNotAllowed       = "Method not allowed"
+	errForbidden              = "Forbidden"
 	errRoleServiceUnavailable = "Role service unavailable"
-	errQueryRoles            = "Error querying roles"
-	errQueryPermissions      = "Error querying permissions"
-	errInvalidBody           = "Invalid request body"
-	errUserIDRequired        = "user_id is required"
-	errUserIDAndRoleRequired = "user_id and rol are required"
-	errRoleNotFound          = "Role not found"
-	errUserNotFound          = "User not found"
-	errUpdateRole            = "Error updating role"
-	errUpdateRoles           = "Error updating roles"
+	errQueryRoles             = "Error querying roles"
+	errQueryPermissions       = "Error querying permissions"
+	errInvalidBody            = "Invalid request body"
+	errUserIDRequired         = "user_id is required"
+	errUserIDAndRoleRequired  = "user_id and rol are required"
+	errRoleNotFound           = "Role not found"
+	errUserNotFound           = "User not found"
+	errUpdateRole             = "Error updating role"
+	errUpdateRoles            = "Error updating roles"
 )
 
 type UpdateRoleRequest struct {
@@ -342,6 +342,12 @@ func parseRoleHeader(roleHeader string) []string {
 }
 
 func (h *Handler) authorizeRolesManage(ctx context.Context, roleNames []string) (bool, error) {
+	for _, roleName := range roleNames {
+		if isAdminRoleName(roleName) {
+			return true, nil
+		}
+	}
+
 	roleIDs := []int{}
 	for _, roleName := range roleNames {
 		id, err := h.roleService.GetRoleIDByName(ctx, roleName)
@@ -367,4 +373,8 @@ func (h *Handler) authorizeRolesManage(ctx context.Context, roleNames []string) 
 		}
 	}
 	return false, nil
+}
+
+func isAdminRoleName(name string) bool {
+	return strings.EqualFold(strings.TrimSpace(name), "ADMIN")
 }
