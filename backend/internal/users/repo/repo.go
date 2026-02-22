@@ -26,8 +26,12 @@ func (r *UserRepository) CreateUser(ctx context.Context, name, email, passwordHa
 
 	if roleID > 0 {
 		_, err = r.Client.UsuarioRoles.CreateOne(
-			db.UsuarioRoles.IDUsuario.Set(user.IDUsuario),
-			db.UsuarioRoles.IDRol.Set(roleID),
+			db.UsuarioRoles.Usuario.Link(
+				db.Usuario.IDUsuario.Equals(user.IDUsuario),
+			),
+			db.UsuarioRoles.Rol.Link(
+				db.Roles.IDRol.Equals(roleID),
+			),
 		).Exec(ctx)
 		if err != nil {
 			return nil, err

@@ -303,8 +303,12 @@ func (h *Handler) updateRolePermissions(w http.ResponseWriter, r *http.Request, 
 
 	for _, permissionID := range uniqueIDs {
 		_, err = h.client.RolePermisos.CreateOne(
-			db.RolePermisos.IDRol.Set(roleID),
-			db.RolePermisos.IDPermiso.Set(permissionID),
+			db.RolePermisos.Rol.Link(
+				db.Roles.IDRol.Equals(roleID),
+			),
+			db.RolePermisos.Permiso.Link(
+				db.Permisos.IDPermiso.Equals(permissionID),
+			),
 		).Exec(ctx)
 		if err != nil {
 			response.WriteError(w, http.StatusInternalServerError, response.ErrDatabase)

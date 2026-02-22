@@ -110,10 +110,25 @@ jobs:
 
       - name: Start backend server
         run: |
-          nohup bash -c "go run ./cmd/api" </dev/null >/dev/null 2>&1 &
+          nohup bash -c "go run ./cmd/api" > /tmp/backend.log 2>&1 &
+          echo $! > /tmp/backend.pid
         working-directory: backend
         env:
           DATABASE_URL: postgresql://projectuser:projectpassword@localhost:5432/project-sft2?schema=public
+          JWT_SECRET: ci-test-secret
+          PORT: "8080"
+
+      - name: Wait for backend
+        run: |
+          for i in {1..45}; do
+            if curl -fsS http://localhost:8080/api/hello > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start. Logs:" 
+          cat /tmp/backend.log
+          exit 1
 
       - name: Install frontend deps
         run: npm ci

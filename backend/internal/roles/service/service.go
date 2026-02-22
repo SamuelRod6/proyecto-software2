@@ -39,8 +39,12 @@ func (s prismaUserRoleService) UpdateUserRole(ctx context.Context, userID int, r
     }
 
     _, err = s.client.UsuarioRoles.CreateOne(
-        db.UsuarioRoles.IDUsuario.Set(userID),
-        db.UsuarioRoles.IDRol.Set(roleID),
+        db.UsuarioRoles.Usuario.Link(
+            db.Usuario.IDUsuario.Equals(userID),
+        ),
+        db.UsuarioRoles.Rol.Link(
+            db.Roles.IDRol.Equals(roleID),
+        ),
     ).Exec(ctx)
     return err
 }
@@ -80,8 +84,12 @@ func (s prismaUserRoleService) UpdateUserRoles(ctx context.Context, userID int, 
 
     for _, roleID := range roleIDs {
         _, err = s.client.UsuarioRoles.CreateOne(
-            db.UsuarioRoles.IDUsuario.Set(userID),
-            db.UsuarioRoles.IDRol.Set(roleID),
+            db.UsuarioRoles.Usuario.Link(
+                db.Usuario.IDUsuario.Equals(userID),
+            ),
+            db.UsuarioRoles.Rol.Link(
+                db.Roles.IDRol.Equals(roleID),
+            ),
         ).Exec(ctx)
         if err != nil {
             return err
