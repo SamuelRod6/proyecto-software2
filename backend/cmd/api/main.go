@@ -10,6 +10,7 @@ import (
 	permissionhandler "project/backend/internal/permissions/handler"
 	rolehandler "project/backend/internal/roles/handler"
 	roles "project/backend/internal/roles/service"
+	inscripcionhandler "project/backend/internal/inscripciones/handler"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
 	"project/backend/prisma/db"
@@ -45,6 +46,7 @@ func main() {
 	eventsHandler := eventhandler.New(prismaClient)
 	rolesHandler := rolehandler.New(prismaClient)
 	permissionsHandler := permissionhandler.New(prismaClient)
+	inscripcionHandler := inscripcionhandler.New(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 	http.HandleFunc("/api/user/assign-roles", userHandler.UpdateUserRolesHandler)
@@ -64,6 +66,13 @@ func main() {
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
 	http.Handle("/api/eventos", eventsHandler)
+	http.Handle("/api/inscripciones", inscripcionHandler)
+	http.HandleFunc("/api/inscripciones/status", inscripcionHandler.UpdateEstadoHandler)
+	http.HandleFunc("/api/inscripciones/historial", inscripcionHandler.HistorialHandler)
+	http.HandleFunc("/api/inscripciones/preferencias", inscripcionHandler.PreferenciasHandler)
+	http.HandleFunc("/api/inscripciones/comprobante", inscripcionHandler.ComprobanteHandler)
+	http.HandleFunc("/api/inscripciones/reportes", inscripcionHandler.ReportesHandler)
+	http.HandleFunc("/api/inscripciones/notificaciones", inscripcionHandler.NotificacionesHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

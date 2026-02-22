@@ -8,9 +8,10 @@ require (
 	github.com/shopspring/decimal v1.4.0
 )
 
+require golang.org/x/text v0.21.0 // indirect
+
 require (
 	github.com/steebchen/prisma-client-go v0.47.0
-	golang.org/x/crypto v0.31.0
 	go.mongodb.org/mongo-driver/v2 v2.0.1 // indirect
+	golang.org/x/crypto v0.31.0
 )
-

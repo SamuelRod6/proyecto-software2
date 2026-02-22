@@ -111,7 +111,7 @@ func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 		FechaInicio:            created.FechaInicio.Format("02/01/2006"),
 		FechaFin:               created.FechaFin.Format("02/01/2006"),
 		FechaCierreInscripcion: created.FechaCierreInscripcion.Format("02/01/2006"),
-		InscripcionesAbiertas:  created.InscripcionesAbiertasManual && time.Now().Before(created.FechaInicio),
+		InscripcionesAbiertas:  created.InscripcionesAbiertasManual && time.Now().Before(created.FechaCierreInscripcion),
 		Ubicacion:              created.Ubicacion,
 	}
 
@@ -137,7 +137,7 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 			FechaInicio:            ev.FechaInicio.Format("02/01/2006"),
 			FechaFin:               ev.FechaFin.Format("02/01/2006"),
 			FechaCierreInscripcion: ev.FechaCierreInscripcion.Format("02/01/2006"),
-			InscripcionesAbiertas:  ev.InscripcionesAbiertasManual && time.Now().Before(ev.FechaInicio),
+			InscripcionesAbiertas:  ev.InscripcionesAbiertasManual && time.Now().Before(ev.FechaCierreInscripcion),
 			Ubicacion:              ev.Ubicacion,
 		})
 	}
@@ -198,7 +198,7 @@ func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
 		FechaFin:               updated.FechaFin.Format("02/01/2006"),
 		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
-		InscripcionesAbiertas:  updated.InscripcionesAbiertasManual && time.Now().Before(updated.FechaInicio),
+		InscripcionesAbiertas:  updated.InscripcionesAbiertasManual && time.Now().Before(updated.FechaCierreInscripcion),
 		Ubicacion:              updated.Ubicacion,
 	}
 
@@ -255,7 +255,7 @@ func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 		FechaInicio:            updated.FechaInicio.Format("02/01/2006"),
 		FechaFin:               updated.FechaFin.Format("02/01/2006"),
 		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format("02/01/2006"),
-		InscripcionesAbiertas:  updated.InscripcionesAbiertasManual && time.Now().Before(updated.FechaInicio),
+		InscripcionesAbiertas:  updated.InscripcionesAbiertasManual && time.Now().Before(updated.FechaCierreInscripcion),
 		Ubicacion:              updated.Ubicacion,
 	}
 

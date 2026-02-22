@@ -5,6 +5,7 @@ import { ROUTES } from "./routes";
 import { authRoutes } from "./AuthRoutes";
 import ProtectedRoute from "./ProtectedRoute";
 import { eventRoutes } from "./EventRoutes";
+import { inscriptionRoutes } from "./InscriptionRoutes";
 import { roleManagementRoutes } from "./RoleManagement";
 import { permissionManagementRoutes } from "./PermissionManagement";
 // screens
@@ -29,6 +30,7 @@ export default function AppRouter(): JSX.Element {
             {eventRoutes}
             {roleManagementRoutes}
             {permissionManagementRoutes}
+			{inscriptionRoutes}
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.login} replace />} />
         </Routes>
