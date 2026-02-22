@@ -8,7 +8,6 @@ export const ROUTES = {
   eventCreate: "/events/new",
   roleManagement: "/roleManagement",
   permissionManagement: "/permissionManagement",
-  inscriptions: "/inscriptions",
   myInscriptions: "/inscriptions/mine",
   inscriptionsAdmin: "/inscriptions/admin",
   inscriptionsReports: "/inscriptions/reports",
