@@ -6,6 +6,7 @@ import { authRoutes } from "./AuthRoutes";
 import ProtectedRoute from "./ProtectedRoute";
 import { eventRoutes } from "./EventRoutes";
 import { roleManagementRoutes } from "./RoleManagement";
+import { permissionManagementRoutes } from "./PermissionManagement";
 // screens
 import HomeScreen from "../screens/HomeScreen";
 import NotificationListScreen from '../screens/notifications/NotificationListScreen';
@@ -18,31 +19,25 @@ export default function AppRouter(): JSX.Element {
 			<AuthProvider>
 				<Routes>
 					{authRoutes}
-					<Route 
+					<Route
 						element={
 							<ProtectedRoute>
 								<AppLayout />
 							</ProtectedRoute>
 						}
 					>
-						<Route 
-							index 
-							element={
-								<HomeScreen />
-							} 
-						/>
+						<Route index element={<HomeScreen />} />
 						{eventRoutes}
 						{roleManagementRoutes}
-						<Route 
-							path="notifications" 
-							element={<NotificationListScreen />} 
+						{permissionManagementRoutes}
+						<Route
+							path="notifications"
+							element={<NotificationListScreen />}
 						/>
 					</Route>
-					<Route 
-						path="*" 
-						element={
-							<Navigate to={ROUTES.login} replace />
-						} 
+					<Route
+						path="*"
+						element={<Navigate to={ROUTES.login} replace />}
 					/>
 				</Routes>
 			</AuthProvider>

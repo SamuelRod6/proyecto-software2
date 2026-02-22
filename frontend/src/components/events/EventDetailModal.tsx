@@ -44,8 +44,13 @@ export default function EventDetailModal({
     const { showToast } = useToast();
     const { user } = useAuth();
 
-    // Role check
-    const isParticipant = user?.role === "PARTICIPANTE";
+    const roles =
+      user?.roles?.map((role) =>
+        typeof role === "string" ? role : role.name,
+      ) ?? (user?.role ? [user.role] : []);
+    const isParticipant =
+      roles.includes("PARTICIPANTE") &&
+      !roles.some((role) => role === "ADMIN" || role === "COMITE CIENTIFICO");
 
     // helper to parse date string from API
     function parseDate(dateStr: string): Date | undefined {

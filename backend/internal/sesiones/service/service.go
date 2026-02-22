@@ -225,7 +225,10 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 	}
 	var usuarios []db.UsuarioModel
 	for _, id := range req.Usuarios {
-		u, err := s.repo.Prisma().Usuario.FindUnique(db.Usuario.IDUsuario.Equals(id)).With(db.Usuario.Rol.Fetch()).Exec(ctx)
+		u, err := s.repo.Prisma().Usuario.
+			FindUnique(db.Usuario.IDUsuario.Equals(id)).
+			With(db.Usuario.UsuarioRoles.Fetch().With(db.UsuarioRoles.Rol.Fetch())).
+			Exec(ctx)
 		if err != nil || u == nil {
 			return errors.New("Usuario no encontrado")
 		}

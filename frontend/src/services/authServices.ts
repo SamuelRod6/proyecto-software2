@@ -1,17 +1,17 @@
 import axios from "axios";
 
 export interface RegisterPayload {
-    name: string;
-    email: string;
-    password: string;
-    roleId: number | null;
+  name: string;
+  email: string;
+  password: string;
+  roleId?: number | null;
 }
 
 export interface AuthUser {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
+  id: number;
+  name: string;
+  email: string;
+  roles: { id: number; name: string }[];
 }
 
 export interface LoginPayload {

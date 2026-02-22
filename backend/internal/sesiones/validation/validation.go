@@ -60,7 +60,21 @@ func ValidarSesionNoCancelada(sesion *db.SesionModel) error {
 
 func ValidarRolPonente(usuarios []db.UsuarioModel) error {
 	for _, u := range usuarios {
-		if u.Rol() == nil || u.Rol().NombreRol != "PONENTE" {
+		roles := u.RelationsUsuario.UsuarioRoles
+		if roles == nil {
+			return ErrPonenteRol
+		}
+
+		tieneRol := false
+		for _, userRole := range roles {
+			role := userRole.RelationsUsuarioRoles.Rol
+			if role != nil && role.NombreRol == "PONENTE" {
+				tieneRol = true
+				break
+			}
+		}
+
+		if !tieneRol {
 			return ErrPonenteRol
 		}
 	}

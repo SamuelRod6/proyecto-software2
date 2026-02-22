@@ -8,6 +8,16 @@ type MockUserRoleService struct {
 	UpdateErr  error
 }
 
+// GetRoleIDsByNames implements [roles.UserRoleService].
+func (m MockUserRoleService) GetRoleIDsByNames(ctx context.Context, names []string) ([]int, error) {
+	panic("unimplemented")
+}
+
+// UpdateUserRoles implements [roles.UserRoleService].
+func (m MockUserRoleService) UpdateUserRoles(ctx context.Context, userID int, roleIDs []int) error {
+	panic("unimplemented")
+}
+
 func (m MockUserRoleService) GetRoleIDByName(_ context.Context, _ string) (int, error) {
 	return m.RoleID, m.GetRoleErr
 }

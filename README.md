@@ -21,7 +21,7 @@ cd frontend
 npm install
 npm run dev         # iniciar Vite (desarrollo)
 npm run build       # construir
-npm run preview     # servir build en 4173
+npm run preview     # servir build en 5173
 npm run test        # Jest
 npm run test:e2e    # Cypress (requiere backend en :8080)
 ```

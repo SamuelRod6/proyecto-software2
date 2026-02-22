@@ -4,14 +4,19 @@ import { useToast } from '../Toast/ToastContext';
 import { notificationReducer, initialState, NotificationState, Notification } from './reducer';
 import { fetchNotifications, refreshNotifications as refreshNotificationsAction, markAsRead as markAsReadAction } from './actions';
 import { markNotificationAsReadApi } from '../../services/notificationsServices';
+import {
+  getNotificationsForUser,
+  markNotificationRead,
+  notificationsUpdatedEvent,
+} from "../../utils/notifications";
 
 interface NotificationContextType {
-	notifications: Notification[];
-	unreadCount: number;
-	markAsRead: (id: number) => void;
-	refreshNotifications: () => void;
-	loading: boolean;
-	error: string | null;
+  notifications: Notification[];
+  unreadCount: number;
+  markAsRead: (id: number | string) => void;
+  refreshNotifications: () => void;
+  loading: boolean;
+  error: string | null;
 }
 
 interface NotificationProviderProps {
@@ -44,10 +49,29 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 		setError(null);
 		try {
 			const data = await fetchNotifications(user.id);
-			dispatch(refreshNotificationsAction(data));
-			console.log('Notificaciones actualizadas:', data);
+			const local = getNotificationsForUser(user.id).map((item) => ({
+        id: item.id,
+        type: "ROLE_UPDATE",
+        title: "Roles actualizados",
+        content: item.message,
+        read: item.read,
+        createdAt: item.createdAt,
+      }));
+      const merged = [...local, ...(Array.isArray(data) ? data : [])];
+      dispatch(refreshNotificationsAction(merged));
 		} catch (err: any) {
 			setError('Error al cargar notificaciones');
+			const local = user?.id
+        ? getNotificationsForUser(user.id).map((item) => ({
+            id: item.id,
+            type: "ROLE_UPDATE",
+            title: "Roles actualizados",
+            content: item.message,
+            read: item.read,
+            createdAt: item.createdAt,
+          }))
+        : [];
+      dispatch(refreshNotificationsAction(local));
 			showToast({
 				title: "Error al cargar notificaciones",
 				message: err?.message || "No se pudieron cargar las notificaciones.",
@@ -65,11 +89,23 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 		return () => clearInterval(interval);
 	}, [refreshNotifications]);
 
+	useEffect(() => {
+    const handler = () => refreshNotifications();
+    window.addEventListener(notificationsUpdatedEvent(), handler);
+    return () => {
+      window.removeEventListener(notificationsUpdatedEvent(), handler);
+    };
+  }, [refreshNotifications]);
+
 	// Function to mark a notification as read
-	const markAsRead = async (id: number) => {
-		await markNotificationAsReadApi(id);
-		await refreshNotifications();
-	};
+	const markAsRead = async (id: number | string) => {
+    if (typeof id === "string") {
+      markNotificationRead(id);
+      return;
+    }
+    await markNotificationAsReadApi(id);
+    await refreshNotifications();
+  };
 
 	const unreadCount = state.notifications.filter((n) => !n.read).length;
 

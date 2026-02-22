@@ -2,10 +2,11 @@ import type { AuthAction } from "./actions";
 import { LOGIN, LOGOUT } from "./actions";
 
 export type User = {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
+  id: number;
+  name: string;
+  email: string;
+  roles?: { id: number; name: string }[];
+  role?: string;
 } | null;
 
 export type AuthState = {

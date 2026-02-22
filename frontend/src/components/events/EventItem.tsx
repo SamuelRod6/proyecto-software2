@@ -41,8 +41,11 @@ const {
 	const { user } = useAuth();
 
 	// role checks
-	const isAdmin = user?.role === "ADMIN";
-	const isOrganizer = user?.role === "COMITE CIENTIFICO";
+	const roles =
+    user?.roles?.map((role) => (typeof role === "string" ? role : role.name)) ??
+    (user?.role ? [user.role] : []);
+  const isAdmin = roles.includes("ADMIN");
+  const isOrganizer = roles.includes("COMITE CIENTIFICO");
 	return (
 		<div
 			className="rounded-lg bg-slate-800 shadow-md p-6 mb-4 flex flex-col md:flex-row md:items-center md:justify-between transition hover:bg-slate-700 cursor-pointer"

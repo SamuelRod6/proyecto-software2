@@ -206,7 +206,9 @@ func TestUsersListHandler(t *testing.T) {
         users := []db.UsuarioModel{
             {
                 InnerUsuario: db.InnerUsuario{IDUsuario: 1, Nombre: "Juan"},
-                RelationsUsuario: db.RelationsUsuario{Rol: &db.RolesModel{InnerRoles: db.InnerRoles{NombreRol: "ADMIN"}}},
+                RelationsUsuario: db.RelationsUsuario{UsuarioRoles: []db.UsuarioRolesModel{
+                    {RelationsUsuarioRoles: db.RelationsUsuarioRoles{Rol: &db.RolesModel{InnerRoles: db.InnerRoles{NombreRol: "ADMIN"}}}},
+                }},
             },
         }
 

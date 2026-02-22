@@ -2,9 +2,9 @@
 import { REFRESH_NOTIFICATIONS, MARK_AS_READ } from './actions';
 
 export interface Notification {
-  id: number;
+  id: number | string;
   type: string;
-  title: string;
+  title?: string;
   read: boolean;
   eventName?: string;
   description?: string;
