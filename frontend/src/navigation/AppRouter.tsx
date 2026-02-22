@@ -7,45 +7,36 @@ import ProtectedRoute from "./ProtectedRoute";
 import { eventRoutes } from "./EventRoutes";
 import { roleManagementRoutes } from "./RoleManagement";
 import { permissionManagementRoutes } from "./PermissionManagement";
+import { inscriptionRoutes } from "./InscriptionRoutes";
 // screens
 import HomeScreen from "../screens/HomeScreen";
-import NotificationListScreen from '../screens/notifications/NotificationListScreen';
-import MyInscriptionsScreen from "../screens/inscriptions/MyInscriptionsScreen";
+import NotificationListScreen from "../screens/notifications/NotificationListScreen";
 // contexts
 import { AuthProvider } from "../contexts/Auth/Authcontext";
 
 export default function AppRouter(): JSX.Element {
 	return (
-		<BrowserRouter>
-			<AuthProvider>
-				<Routes>
-					{authRoutes}
-					<Route
-						element={
-							<ProtectedRoute>
-								<AppLayout />
-							</ProtectedRoute>
-						}
-					>
-						<Route index element={<HomeScreen />} />
-						{eventRoutes}
-						{roleManagementRoutes}
-						{permissionManagementRoutes}
-						<Route
-							path="inscriptions/mine"
-							element={<MyInscriptionsScreen />}
-						/>
-						<Route
-							path="notifications"
-							element={<NotificationListScreen />}
-						/>
-					</Route>
-					<Route
-						path="*"
-						element={<Navigate to={ROUTES.login} replace />}
-					/>
-				</Routes>
-			</AuthProvider>
-		</BrowserRouter>
-	);
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {authRoutes}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<HomeScreen />} />
+            {eventRoutes}
+            {inscriptionRoutes}
+            {roleManagementRoutes}
+            {permissionManagementRoutes}
+            <Route path="notifications" element={<NotificationListScreen />} />
+          </Route>
+          <Route path="*" element={<Navigate to={ROUTES.login} replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }

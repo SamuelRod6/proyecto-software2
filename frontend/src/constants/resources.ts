@@ -1,6 +1,7 @@
 export const RESOURCE_KEYS = {
   EVENTS_MANAGEMENT: "events.management",
   EVENTS_INSCRIPTION: "events.inscription",
+  INSCRIPTIONS_MANAGEMENT: "inscriptions.management",
   ROLE_MANAGEMENT: "roles.manage",
   PERMISSION_MANAGEMENT: "permissions.manage",
 } as const;
@@ -21,6 +22,11 @@ export const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
     key: RESOURCE_KEYS.EVENTS_MANAGEMENT,
     label: "Gestión de eventos",
     description: "Permite crear y modificar eventos.",
+  },
+  {
+    key: RESOURCE_KEYS.INSCRIPTIONS_MANAGEMENT,
+    label: "Gestión de inscripciones",
+    description: "Permite revisar y actualizar inscripciones.",
   },
   {
     key: RESOURCE_KEYS.ROLE_MANAGEMENT,

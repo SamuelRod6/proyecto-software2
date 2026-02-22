@@ -9,4 +9,5 @@ export const ROUTES = {
   roleManagement: "/roleManagement",
   permissionManagement: "/permissionManagement",
   myInscriptions: "/inscriptions/mine",
+  inscriptionsAdmin: "/inscriptions/admin",
 };

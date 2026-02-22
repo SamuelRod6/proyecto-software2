@@ -6,19 +6,23 @@ import { hasResourceAccess } from "../../utils/accessControl";
 
 export default function Sidebar() {
   const [canManageEvents, setCanManageEvents] = useState(false);
+  const [canManageInscriptions, setCanManageInscriptions] = useState(false);
   const [canManageRoles, setCanManageRoles] = useState(false);
   const [canManagePermissions, setCanManagePermissions] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     const checkAccess = async () => {
-      const [eventsAccess, rolesAccess, permissionsAccess] = await Promise.all([
-        hasResourceAccess(RESOURCE_KEYS.EVENTS_MANAGEMENT),
-        hasResourceAccess(RESOURCE_KEYS.ROLE_MANAGEMENT),
-        hasResourceAccess(RESOURCE_KEYS.PERMISSION_MANAGEMENT),
-      ]);
+      const [eventsAccess, inscriptionsAccess, rolesAccess, permissionsAccess] =
+        await Promise.all([
+          hasResourceAccess(RESOURCE_KEYS.EVENTS_MANAGEMENT),
+          hasResourceAccess(RESOURCE_KEYS.INSCRIPTIONS_MANAGEMENT),
+          hasResourceAccess(RESOURCE_KEYS.ROLE_MANAGEMENT),
+          hasResourceAccess(RESOURCE_KEYS.PERMISSION_MANAGEMENT),
+        ]);
       if (isMounted) {
         setCanManageEvents(eventsAccess);
+        setCanManageInscriptions(inscriptionsAccess);
         setCanManageRoles(rolesAccess);
         setCanManagePermissions(permissionsAccess);
       }
@@ -83,6 +87,20 @@ export default function Sidebar() {
             }
           >
             Gestión de eventos
+          </NavLink>
+        )}
+        {canManageInscriptions && (
+          <NavLink
+            to={ROUTES.inscriptionsAdmin}
+            className={({ isActive }) =>
+              `rounded-lg px-3 py-2 font-medium transition-colors ${
+                isActive
+                  ? "bg-[#F5E427] text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+              }`
+            }
+          >
+            Gestionar inscripciones
           </NavLink>
         )}
         {canManageRoles && (
