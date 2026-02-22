@@ -4,6 +4,7 @@ export interface CreateEventPayload {
     nombre: string;
     fecha_inicio: string;
     fecha_fin: string;
+    fecha_cierre_inscripcion: string;
     ubicacion: string;
 }
 

@@ -15,6 +15,9 @@ model Usuario {
   password_hash String
   createdAt     DateTime @default(now())
   UsuarioRoles  UsuarioRoles[]
+  inscripciones Inscripcion[]
+  preferencias  NotificacionPreferencia?
+  notificaciones Notificacion[]
 }
 
 model Roles {
@@ -60,4 +63,68 @@ model Evento {
   inscripciones_abiertas_manual Boolean @default(true)
   ubicacion                  String
   createdAt                  DateTime @default(now())
+  inscripciones              Inscripcion[]
+}
+
+model Inscripcion {
+  id_inscripcion   Int      @id @default(autoincrement())
+  id_evento        Int
+  id_usuario       Int
+  nombre_participante String
+  email            String
+  afiliacion       String
+  comprobante_pago String?
+  fecha_inscripcion DateTime @default(now())
+  estado           String   @default("Pendiente")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  evento           Evento   @relation(fields: [id_evento], references: [id_evento])
+  usuario          Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  historial        InscripcionHistorial[]
+  notificaciones   Notificacion[]
+
+  @@unique([id_evento, id_usuario])
+}
+
+model InscripcionHistorial {
+  id_historial   Int      @id @default(autoincrement())
+  id_inscripcion Int
+  estado_anterior String
+  estado_nuevo   String
+  nota           String?
+  actor          String?
+  fecha_cambio   DateTime @default(now())
+  inscripcion    Inscripcion @relation(fields: [id_inscripcion], references: [id_inscripcion])
+}
+
+model NotificacionPreferencia {
+  id_preferencia Int      @id @default(autoincrement())
+  id_usuario     Int      @unique
+  frecuencia     String   @default("inmediata")
+  tipos          String   @default("estado")
+  habilitado     Boolean  @default(true)
+  usuario        Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model Notificacion {
+  id_notificacion Int      @id @default(autoincrement())
+  id_usuario      Int
+  id_inscripcion  Int?
+  canal           String   @default("email")
+  asunto          String
+  mensaje         String
+  fecha_envio     DateTime @default(now())
+  estado          String   @default("enviado")
+  usuario         Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  inscripcion     Inscripcion? @relation(fields: [id_inscripcion], references: [id_inscripcion])
+}
+
+model ReporteProgramado {
+  id_reporte Int      @id @default(autoincrement())
+  id_evento  Int?
+  estado     String?
+  frecuencia String
+  formato    String
+  creado_por String?
+  creado_en  DateTime @default(now())
 }

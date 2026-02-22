@@ -21,6 +21,12 @@ export default function HomeScreen(): JSX.Element {
 				>
 					Ir a eventos
 				</Link>
+				<Link
+					to={ROUTES.myInscriptions}
+					className="mt-3 inline-flex items-center rounded-md border border-slate-600 px-6 py-2 text-base font-semibold text-slate-200 hover:border-[#F5E427] hover:text-[#F5E427] transition-colors"
+				>
+					Ver mis inscripciones
+				</Link>
 			</div>
 		</section>
 	);
