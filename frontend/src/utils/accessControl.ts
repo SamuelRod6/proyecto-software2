@@ -68,13 +68,6 @@ export function getStoredUserRoleIds(): number[] {
   }
 }
 
-export function isAdminRole(role: string | null | undefined): boolean {
-    return String(role || "").trim().toUpperCase() === "ADMIN";
-}
-
-export function isAdminUser(): boolean {
-  return getStoredUserRoleNames().some((role) => isAdminRole(role));
-}
 
 export function getResourcePermissionMap(): Record<string, number> {
     if (typeof window === "undefined") return {};
@@ -90,6 +83,18 @@ export function getResourcePermissionMap(): Record<string, number> {
         return {};
     }
 }
+
+  export function isAdminRole(role: string | null | undefined): boolean {
+    return (
+      String(role || "")
+        .trim()
+        .toUpperCase() === "ADMIN"
+    );
+  }
+
+  export function isAdminUser(): boolean {
+    return getStoredUserRoleNames().some((role) => isAdminRole(role));
+  }
 
 export function setResourcePermissionMap(map: Record<string, number>): void {
     if (typeof window === "undefined") return;
@@ -134,8 +139,8 @@ function normalizePermissions(payload: unknown): PermissionRow[] {
 }
 
 export async function hasResourceAccess(resourceKey: string): Promise<boolean> {
-    const userRoleNames = getStoredUserRoleNames();
-    if (userRoleNames.some((role) => isAdminRole(role))) return true;
+  const userRoleNames = getStoredUserRoleNames();
+  if (userRoleNames.some((role) => isAdminRole(role))) return true;
 
     const map = getResourcePermissionMap();
     const requiredPermissionId = map[resourceKey];

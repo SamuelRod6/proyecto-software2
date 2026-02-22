@@ -5,17 +5,20 @@ import { RESOURCE_KEYS } from "../../constants/resources";
 import { hasResourceAccess } from "../../utils/accessControl";
 
 export default function Sidebar() {
+  const [canManageEvents, setCanManageEvents] = useState(false);
   const [canManageRoles, setCanManageRoles] = useState(false);
   const [canManagePermissions, setCanManagePermissions] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     const checkAccess = async () => {
-      const [rolesAccess, permissionsAccess] = await Promise.all([
+      const [eventsAccess, rolesAccess, permissionsAccess] = await Promise.all([
+        hasResourceAccess(RESOURCE_KEYS.EVENTS_MANAGEMENT),
         hasResourceAccess(RESOURCE_KEYS.ROLE_MANAGEMENT),
         hasResourceAccess(RESOURCE_KEYS.PERMISSION_MANAGEMENT),
       ]);
       if (isMounted) {
+        setCanManageEvents(eventsAccess);
         setCanManageRoles(rolesAccess);
         setCanManagePermissions(permissionsAccess);
       }
@@ -55,6 +58,20 @@ export default function Sidebar() {
         >
           Eventos
         </NavLink>
+        {canManageEvents && (
+          <NavLink
+            to={ROUTES.eventsManagement}
+            className={({ isActive }) =>
+              `rounded-lg px-3 py-2 font-medium transition-colors ${
+                isActive
+                  ? "bg-[#F5E427] text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+              }`
+            }
+          >
+            Gestión de eventos
+          </NavLink>
+        )}
         {canManageRoles && (
           <NavLink
             to={ROUTES.roleManagement}

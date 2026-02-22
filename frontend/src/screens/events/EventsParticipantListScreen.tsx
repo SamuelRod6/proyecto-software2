@@ -4,6 +4,8 @@ import { useAuth } from "../../contexts/Auth/Authcontext";
 import { useToast } from "../../contexts/Toast/ToastContext";
 // services
 import { getInscripciones, inscribirEvento } from "../../services/inscripcionesServices";
+import { RESOURCE_KEYS } from "../../constants/resources";
+import { hasResourceAccess } from "../../utils/accessControl";
 // components
 import Loader from "../../components/ui/Loader";
 import EmptyState from "../../components/ui/EmptyState";
@@ -35,6 +37,7 @@ const EventsParticipantListScreen: React.FC = () => {
     const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
     const [inscribirEventoModal, setInscribirEventoModal] = useState<{ open: boolean, evento: Evento | null }>({ open: false, evento: null });
     const [inscribirLoading, setInscribirLoading] = useState(false);
+    const [canInscribir, setCanInscribir] = useState(false);
     // filtros
     const [searchTerm, setSearchTerm] = useState("");
     const [countryTerm, setCountryTerm] = useState("");
@@ -139,6 +142,22 @@ const EventsParticipantListScreen: React.FC = () => {
         run();
     }, [user]);
 
+    useEffect(() => {
+      let isMounted = true;
+      const checkAccess = async () => {
+        const access = await hasResourceAccess(
+          RESOURCE_KEYS.EVENTS_INSCRIPTION,
+        );
+        if (isMounted) {
+          setCanInscribir(access);
+        }
+      };
+      void checkAccess();
+      return () => {
+        isMounted = false;
+      };
+    }, []);
+
     // refetch only available events when filters change
     useEffect(() => {
         if (!user?.id) return;
@@ -185,12 +204,13 @@ const EventsParticipantListScreen: React.FC = () => {
 
     // Handler to open inscription modal for a specific event
     const handleOpenInscribirModal = (evento: Evento) => {
+        if (!canInscribir) return;
         setInscribirEventoModal({ open: true, evento });
     };
 
     // Handler to submit inscription form
     const handleInscribir = async (formData: any) => {
-        if (!inscribirEventoModal.evento || !user) return;
+        if (!inscribirEventoModal.evento || !user || !canInscribir) return;
         setInscribirLoading(true);
         try {
             const payload = {
@@ -230,120 +250,128 @@ const EventsParticipantListScreen: React.FC = () => {
     };
 
     return (
-        <section className="space-y-8 bg-slate-900 min-h-screen px-4 py-8">
-            {loading ? (
-                <div className="flex justify-center items-center min-h-[200px] bg-slate-800 rounded-xl">
-                    <Loader visible={true} />
-                </div>
-            ) : eventosInscritos.length === 0 ? (
-                <div>
-                    <EmptyState
-                        title="Aún no te has inscrito en ningún evento"
-                        description="Cuando te inscribas en algún evento, lo mostraremos aquí."
-                        animationData={emptyAnimation}
-                    />
-                </div>
-            ) : (
-                <div className="flex flex-col md:flex-row gap-8">
-                    <div className="flex-[0.7] flex justify-center items-center">
-                        <ParticipantEventsCalendar
-                            eventRanges={eventosInscritos.map(e => ({
-                                from: parseDate(e.fecha_inicio),
-                                to: parseDate(e.fecha_fin),
-                                id: e.id_evento,
-                            }))}
-                            selectedRange={
-                                selectedEvento
-                                    ? {
-                                        from: parseDate(selectedEvento.fecha_inicio),
-                                        to: parseDate(selectedEvento.fecha_fin),
-                                        id: selectedEvento.id_evento,
-                                    }
-                                    : undefined
-                            }
-                            month={calendarMonth}
-                            onMonthChange={setCalendarMonth}
-                        />
-                    </div>
-                    <div className="flex-[2]">
-                        <ParticipantEventsList
-                            eventos={eventosInscritos}
-                            onSelectEvento={handleSelectEvento}
-                            selectedEvento={selectedEvento}
-                        />
-                    </div>
-                </div>
-            )}
-            {/* Filtros de eventos */}
-            <EventFilters
-                searchTerm={searchTerm}
-                countryTerm={countryTerm}
-                cityTerm={cityTerm}
-                fromDate={fromDate}
-                toDate={toDate}
-                onSearchTermChange={setSearchTerm}
-                onCountryTermChange={setCountryTerm}
-                onCityTermChange={setCityTerm}
-                onFromDateChange={setFromDate}
-                onToDateChange={setToDate}
+      <section className="space-y-8 bg-slate-900 min-h-screen px-4 py-8">
+        {loading ? (
+          <div className="flex justify-center items-center min-h-[200px] bg-slate-800 rounded-xl">
+            <Loader visible={true} />
+          </div>
+        ) : eventosInscritos.length === 0 ? (
+          <div>
+            <EmptyState
+              title="Aún no te has inscrito en ningún evento"
+              description="Cuando te inscribas en algún evento, lo mostraremos aquí."
+              animationData={emptyAnimation}
             />
-            <div>
-                {loadingDisponibles ? (
-                    <div className="flex justify-center items-center min-h-[200px] bg-slate-800 rounded-xl">
-                        <Loader visible={true} />
-                    </div>
-                ) : eventosDisponibles.length === 0 ? (
-                    <EmptyState
-                        title="No hay eventos disponibles"
-                        description="Cuando existan eventos disponibles para inscribirte, los mostraremos aquí."
-                        animationData={emptyAnimation}
-                    />
-                ) : (
-                    <>
-                        <AvailableEventsList
-                            eventos={eventosDisponibles}
-                            onInscribir={handleOpenInscribirModal}
-                        />
-                        {totalAvailablePages > 1 && (
-                            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300 mt-6"> {/* Añadí mt-6 para igualar el space-y-6 de Roles */}
-                                <span>
-                                    Página {availablePage} de {totalAvailablePages}
-                                </span>
-                                <div className="flex gap-2">
-                                    <button
-                                        className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-[#F5E427] hover:text-[#F5E427] disabled:cursor-not-allowed disabled:opacity-50"
-                                        disabled={availablePage <= 1 || loadingDisponibles} // Mantiene estética de bloqueo
-                                        onClick={() => {
-                                            setAvailablePage((prev) => Math.max(1, prev - 1));
-                                            window.scrollTo({ top: 0, behavior: 'smooth' }); // Opcional: mejora UX al paginar
-                                        }}
-                                    >
-                                        Anterior
-                                    </button>
-                                    <button
-                                        className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-[#F5E427] hover:text-[#F5E427] disabled:cursor-not-allowed disabled:opacity-50"
-                                        disabled={availablePage >= totalAvailablePages || loadingDisponibles}
-                                        onClick={() => {
-                                            setAvailablePage((prev) => Math.min(totalAvailablePages, prev + 1));
-                                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                                        }}
-                                    >
-                                        Siguiente
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </>
-                )}
+          </div>
+        ) : (
+          <div className="flex flex-col md:flex-row gap-8">
+            <div className="flex-[0.7] flex justify-center items-center">
+              <ParticipantEventsCalendar
+                eventRanges={eventosInscritos.map((e) => ({
+                  from: parseDate(e.fecha_inicio),
+                  to: parseDate(e.fecha_fin),
+                  id: e.id_evento,
+                }))}
+                selectedRange={
+                  selectedEvento
+                    ? {
+                        from: parseDate(selectedEvento.fecha_inicio),
+                        to: parseDate(selectedEvento.fecha_fin),
+                        id: selectedEvento.id_evento,
+                      }
+                    : undefined
+                }
+                month={calendarMonth}
+                onMonthChange={setCalendarMonth}
+              />
             </div>
-            <EventInscriptionModal
-                isOpen={inscribirEventoModal.open}
-                onClose={() => setInscribirEventoModal({ open: false, evento: null })}
-                evento={inscribirEventoModal.evento}
-                onSubmit={handleInscribir}
-                loading={inscribirLoading}
+            <div className="flex-[2]">
+              <ParticipantEventsList
+                eventos={eventosInscritos}
+                onSelectEvento={handleSelectEvento}
+                selectedEvento={selectedEvento}
+              />
+            </div>
+          </div>
+        )}
+        {/* Filtros de eventos */}
+        <EventFilters
+          searchTerm={searchTerm}
+          countryTerm={countryTerm}
+          cityTerm={cityTerm}
+          fromDate={fromDate}
+          toDate={toDate}
+          onSearchTermChange={setSearchTerm}
+          onCountryTermChange={setCountryTerm}
+          onCityTermChange={setCityTerm}
+          onFromDateChange={setFromDate}
+          onToDateChange={setToDate}
+        />
+        <div>
+          {loadingDisponibles ? (
+            <div className="flex justify-center items-center min-h-[200px] bg-slate-800 rounded-xl">
+              <Loader visible={true} />
+            </div>
+          ) : eventosDisponibles.length === 0 ? (
+            <EmptyState
+              title="No hay eventos disponibles"
+              description="Cuando existan eventos disponibles para inscribirte, los mostraremos aquí."
+              animationData={emptyAnimation}
             />
-        </section>
+          ) : (
+            <>
+              <AvailableEventsList
+                eventos={eventosDisponibles}
+                onInscribir={handleOpenInscribirModal}
+                canInscribir={canInscribir}
+              />
+              {totalAvailablePages > 1 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300 mt-6">
+                  {" "}
+                  {/* Añadí mt-6 para igualar el space-y-6 de Roles */}
+                  <span>
+                    Página {availablePage} de {totalAvailablePages}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-[#F5E427] hover:text-[#F5E427] disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={availablePage <= 1 || loadingDisponibles} // Mantiene estética de bloqueo
+                      onClick={() => {
+                        setAvailablePage((prev) => Math.max(1, prev - 1));
+                        window.scrollTo({ top: 0, behavior: "smooth" }); // Opcional: mejora UX al paginar
+                      }}
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      className="rounded-md border border-slate-600 px-3 py-1 text-slate-200 transition hover:border-[#F5E427] hover:text-[#F5E427] disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={
+                        availablePage >= totalAvailablePages ||
+                        loadingDisponibles
+                      }
+                      onClick={() => {
+                        setAvailablePage((prev) =>
+                          Math.min(totalAvailablePages, prev + 1),
+                        );
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <EventInscriptionModal
+          isOpen={inscribirEventoModal.open}
+          onClose={() => setInscribirEventoModal({ open: false, evento: null })}
+          evento={inscribirEventoModal.evento}
+          onSubmit={handleInscribir}
+          loading={inscribirLoading}
+        />
+      </section>
     );
 };
 

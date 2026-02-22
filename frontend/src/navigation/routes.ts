@@ -3,6 +3,7 @@ export const ROUTES = {
   login: "/login",
   register: "/register",
   events: "/events",
+  eventsManagement: "/events-management",
   eventDetail: (eventId: string = ":eventId"): string => `/events/${eventId}`,
   eventCreate: "/events/new",
   roleManagement: "/roleManagement",

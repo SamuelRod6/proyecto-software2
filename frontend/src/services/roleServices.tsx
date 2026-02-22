@@ -7,6 +7,45 @@ const api = axios.create({
   baseURL: apiBaseUrl || undefined,
 });
 
+const USER_KEY = "auth-user";
+
+const getRoleHeader = (): string | null => {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as {
+      role?: string;
+      roles?: Array<string | { name?: string }>;
+    };
+    const rawRoles = parsed.roles ?? parsed.role ?? [];
+    const rolesList: string[] = [];
+
+    if (Array.isArray(rawRoles)) {
+      for (const item of rawRoles) {
+        if (typeof item === "string" && item.trim()) {
+          rolesList.push(item.trim());
+          continue;
+        }
+        if (typeof item === "object" && item?.name) {
+          rolesList.push(String(item.name).trim());
+        }
+      }
+    } else {
+      const first = String(rawRoles).split(",")[0];
+      if (first) rolesList.push(first.trim());
+    }
+
+    if (rolesList.length === 0) return null;
+    const uniqueRoles = Array.from(
+      new Set(rolesList.map((role) => role.trim()).filter(Boolean)),
+    );
+    return uniqueRoles.length > 0 ? uniqueRoles.join(",") : null;
+  } catch {
+    return null;
+  }
+};
+
 export interface UserRoleRow {
   id: number;
   name: string;
@@ -107,9 +146,10 @@ export async function updateUserRoles(
   payload: UpdateUserRolesPayload,
 ): Promise<{ status: number; data: any }> {
   try {
+    const roleHeader = getRoleHeader();
     const response = await api.put("/api/user/assign-roles", payload, {
       headers: {
-        "X-Role": "ADMIN",
+        ...(roleHeader ? { "X-Role": roleHeader } : {}),
       },
     });
     return { status: response.status, data: response.data };

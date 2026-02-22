@@ -44,40 +44,42 @@ describe("accessControl", () => {
     expect(isAdminUser()).toBe(true);
   });
 
+
   test("hasResourceAccess grants access when permission is assigned to role", async () => {
     setAuthUser({ roles: [{ id: 10, name: "PONENTE" }] });
-    setResourceMap({ "events.create": 99 });
+    setResourceMap({ "events.management": 99 });
 
     (getRolePermissions as jest.Mock).mockResolvedValue({
       status: 200,
       data: { permissions: [{ id: 99, name: "crear_evento" }] },
     } satisfies MockResponse);
 
-    const allowed = await hasResourceAccess("events.create");
+    const allowed = await hasResourceAccess("events.management");
     expect(allowed).toBe(true);
     expect(getRolePermissions).toHaveBeenCalledWith(10);
   });
 
   test("hasResourceAccess denies when permission not present", async () => {
     setAuthUser({ roles: [{ id: 10, name: "PONENTE" }] });
-    setResourceMap({ "events.create": 99 });
+    setResourceMap({ "events.management": 99 });
 
     (getRolePermissions as jest.Mock).mockResolvedValue({
       status: 200,
       data: { permissions: [{ id: 101, name: "otro" }] },
     } satisfies MockResponse);
 
-    const allowed = await hasResourceAccess("events.create");
+    const allowed = await hasResourceAccess("events.management");
     expect(allowed).toBe(false);
   });
 
   test("hasResourceAccess uses admin short-circuit", async () => {
     setAuthUser({ roles: [{ id: 1, name: "ADMIN" }] });
-    setResourceMap({ "events.create": 99 });
+    setResourceMap({ "events.management": 99 });
 
-    const allowed = await hasResourceAccess("events.create");
+    const allowed = await hasResourceAccess("events.management");
     expect(allowed).toBe(true);
     expect(getRolePermissions).not.toHaveBeenCalled();
     expect(getRoles).not.toHaveBeenCalled();
   });
+
 });

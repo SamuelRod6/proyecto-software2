@@ -2,6 +2,7 @@ package roles
 
 import (
 	"context"
+	"strings"
 
 	"project/backend/prisma/db"
 )
@@ -9,6 +10,7 @@ import (
 type UserRoleService interface {
     GetRoleIDByName(ctx context.Context, name string) (int, error)
     GetRoleIDsByNames(ctx context.Context, names []string) ([]int, error)
+    HasRoleResourcePermission(ctx context.Context, roleID int, resourceKey string) (bool, error)
     UpdateUserRole(ctx context.Context, userID int, roleID int) error
     UpdateUserRoles(ctx context.Context, userID int, roleIDs []int) error
 }
@@ -47,6 +49,43 @@ func (s prismaUserRoleService) UpdateUserRole(ctx context.Context, userID int, r
         ),
     ).Exec(ctx)
     return err
+}
+
+func (s prismaUserRoleService) HasRoleResourcePermission(ctx context.Context, roleID int, resourceKey string) (bool, error) {
+    if roleID <= 0 || strings.TrimSpace(resourceKey) == "" {
+        return false, nil
+    }
+
+    permissions, err := s.client.RolePermisos.
+        FindMany(db.RolePermisos.IDRol.Equals(roleID)).
+        With(db.RolePermisos.Permiso.Fetch()).
+        Exec(ctx)
+    if err != nil {
+        return false, err
+    }
+
+    for _, item := range permissions {
+        perm := item.RelationsRolePermisos.Permiso
+        if perm == nil {
+            continue
+        }
+        if permissionMatchesResource(perm.NombrePermiso, resourceKey) {
+            return true, nil
+        }
+    }
+
+    return false, nil
+}
+
+func permissionMatchesResource(permissionName, resourceKey string) bool {
+    if permissionName == resourceKey {
+        return true
+    }
+    parts := strings.SplitN(permissionName, "::", 2)
+    if len(parts) != 2 {
+        return false
+    }
+    return parts[1] == resourceKey
 }
 
 func (s prismaUserRoleService) GetRoleIDsByNames(ctx context.Context, names []string) ([]int, error) {

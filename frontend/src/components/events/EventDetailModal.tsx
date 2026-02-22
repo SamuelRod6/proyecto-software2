@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
-import { useAuth } from "../../contexts/Auth/Authcontext";
 // components
 import DateRangePicker from "../../components/ui/DateRangePicker";
 import Input from "../../components/ui/Input";
@@ -12,6 +11,8 @@ import ToggleIconButton from "../../components/ui/ToggleIconButton";
 import ConfirmModal from "../../components/ui/ConfirmModal";
 import Loader from "../../components/ui/Loader";
 import Button from "../../components/ui/Button";
+import { RESOURCE_KEYS } from "../../constants/resources";
+import { hasResourceAccess } from "../../utils/accessControl";
 // services
 import { patchInscriptionDate } from "../../services/eventsServices";
 // interfaces
@@ -42,15 +43,21 @@ export default function EventDetailModal({
 
     // contexts
     const { showToast } = useToast();
-    const { user } = useAuth();
+    const [canManageEvents, setCanManageEvents] = useState(false);
 
-    const roles =
-      user?.roles?.map((role) =>
-        typeof role === "string" ? role : role.name,
-      ) ?? (user?.role ? [user.role] : []);
-    const isParticipant =
-      roles.includes("PARTICIPANTE") &&
-      !roles.some((role) => role === "ADMIN" || role === "COMITE CIENTIFICO");
+    useEffect(() => {
+      let isMounted = true;
+      const checkAccess = async () => {
+        const access = await hasResourceAccess(RESOURCE_KEYS.EVENTS_MANAGEMENT);
+        if (isMounted) {
+          setCanManageEvents(access);
+        }
+      };
+      void checkAccess();
+      return () => {
+        isMounted = false;
+      };
+    }, []);
 
     // helper to parse date string from API
     function parseDate(dateStr: string): Date | undefined {
@@ -116,127 +123,142 @@ export default function EventDetailModal({
     if (!event) return null;
 
     return (
-        <>
-            <Modal open={open} onClose={onClose} title="Detalle del evento" className="max-w-screen-lg w-full">
-                <div className="rounded-xl border border-slate-700 bg-slate-800/90 p-10 max-w-[900px] w-full mx-auto shadow-lg flex flex-col md:flex-row gap-8 md:gap-10">
-                    <div className="flex-1 flex flex-col justify-center items-center">
-                        <label className="block mb-2 text-slate-300 font-medium text-lg">
-                            Fechas del evento
-                        </label>
-                        <div className="w-full bg-[#e3e8f0] rounded-xl p-5 flex items-center justify-center">
-                            <DateRangePicker
-                                value={dateRange}
-                                onChange={() => {}}
-                                fromLabel="Inicio"
-                                toLabel="Fin"
-                                className="bg-[#e3e8f0] rounded p-2"
-                                dayPickerProps={{
-                                    disabled: () => true,
-                                    month: dateRange?.from || undefined
-                                }}
-                            />
-                        </div>
-                    </div>
-                    <div className="flex-1 flex flex-col gap-4 justify-center p-6 relative">
-                        {!isParticipant && (
-                            <div className="flex items-center justify-center gap-2 mb-2 mt-1 md:mt-0 md:mb-0 md:ml-auto md:mr-0">
-                                {event.inscripciones_abiertas ? (
-                                    <>
-                                        <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
-                                            Inscripciones abiertas
-                                        </span>
-                                        <ToggleIconButton 
-                                            open={!event.inscripciones_abiertas} 
-                                            onClick={() => setShowConfirmModal("cerrar")} 
-                                            className="p-2" 
-                                            title="Cerrar inscripciones"
-                                            iconSize={22}
-                                        />
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
-                                            Inscripciones cerradas
-                                        </span>
-                                        <ToggleIconButton 
-                                            open={!event.inscripciones_abiertas} 
-                                            onClick={() => setShowConfirmModal("abrir")} 
-                                            className="p-2" 
-                                            title="Abrir inscripciones"
-                                            iconSize={22}
-                                        />
-                                    </>
-                                )}
-                            </div>
-                        )}
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <div className="flex-1">
-                                <div className="mb-2">
-                                    <label className="block mb-1 text-slate-300 font-medium">
-                                        Nombre del evento
-                                    </label>
-                                    <Input value={event.nombre} disabled className="w-full" />
-                                </div>
-                                <div className="mb-2">
-                                    <label className="block mb-1 text-slate-300 font-medium">
-                                        Ubicación
-                                    </label>
-                                    <Input value={event.ubicacion} disabled className="w-full" />
-                                </div>
-                                <div className="mb-2">
-                                    <label className="mb-1 text-slate-300 font-medium flex items-center gap-2">
-                                        Fecha de cierre de inscripciones
-                                    </label>
-                                    {!isParticipant && (
-                                        <EditIconButton 
-                                            aria-label="Editar fecha de cierre"
-                                            onClick={() => setShowCloseDateModal(true)}
-                                            color="#94a3b8"
-                                        />
-                                    )}
-                                    <Input 
-                                        value={event.fecha_cierre_inscripcion} 
-                                        disabled 
-                                        className="w-full" 
-                                    />
-                                </div>
-                                {showInscribirButton && (
-                                    <Button
-                                        className="mt-4 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
-                                        onClick={onInscribir}
-                                    >
-                                        Inscribirme
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {loading && (
-                    <div className="flex justify-center items-center min-h-[120px]">
-                        <Loader visible={true} />
-                    </div>
-                )}
-            </Modal>
-            {showCloseDateModal && (
-                <UpdateCloseDateModal 
-                    open={showCloseDateModal} 
-                    onClose={() => setShowCloseDateModal(false)} 
-                    event={event} 
+      <>
+        <Modal
+          open={open}
+          onClose={onClose}
+          title="Detalle del evento"
+          className="max-w-screen-lg w-full"
+        >
+          <div className="rounded-xl border border-slate-700 bg-slate-800/90 p-10 max-w-[900px] w-full mx-auto shadow-lg flex flex-col md:flex-row gap-8 md:gap-10">
+            <div className="flex-1 flex flex-col justify-center items-center">
+              <label className="block mb-2 text-slate-300 font-medium text-lg">
+                Fechas del evento
+              </label>
+              <div className="w-full bg-[#e3e8f0] rounded-xl p-5 flex items-center justify-center">
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={() => {}}
+                  fromLabel="Inicio"
+                  toLabel="Fin"
+                  className="bg-[#e3e8f0] rounded p-2"
+                  dayPickerProps={{
+                    disabled: () => true,
+                    month: dateRange?.from || undefined,
+                  }}
                 />
-            )}
-            <ConfirmModal
-                open={!!showConfirmModal}
-                title={showConfirmModal === "cerrar" ? "Cerrar inscripciones" : "Abrir inscripciones"}
-                message={showConfirmModal === "cerrar"
-                    ? "¿Estás seguro que deseas cerrar las inscripciones para este evento?"
-                    : "¿Estás seguro que deseas abrir las inscripciones para este evento?"}
-                confirmText={showConfirmModal === "cerrar" ? "Cerrar" : "Abrir"}
-                cancelText="Cancelar"
-                onConfirm={handleToggleInscripciones}
-                onCancel={() => setShowConfirmModal(null)}
-                loading={loadingConfirm}
-            />
-        </>
+              </div>
+            </div>
+            <div className="flex-1 flex flex-col gap-4 justify-center p-6 relative">
+              {canManageEvents && (
+                <div className="flex items-center justify-center gap-2 mb-2 mt-1 md:mt-0 md:mb-0 md:ml-auto md:mr-0">
+                  {event.inscripciones_abiertas ? (
+                    <>
+                      <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
+                        Inscripciones abiertas
+                      </span>
+                      <ToggleIconButton
+                        open={!event.inscripciones_abiertas}
+                        onClick={() => setShowConfirmModal("cerrar")}
+                        className="p-2"
+                        title="Cerrar inscripciones"
+                        iconSize={22}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
+                        Inscripciones cerradas
+                      </span>
+                      <ToggleIconButton
+                        open={!event.inscripciones_abiertas}
+                        onClick={() => setShowConfirmModal("abrir")}
+                        className="p-2"
+                        title="Abrir inscripciones"
+                        iconSize={22}
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="mb-2">
+                    <label className="block mb-1 text-slate-300 font-medium">
+                      Nombre del evento
+                    </label>
+                    <Input value={event.nombre} disabled className="w-full" />
+                  </div>
+                  <div className="mb-2">
+                    <label className="block mb-1 text-slate-300 font-medium">
+                      Ubicación
+                    </label>
+                    <Input
+                      value={event.ubicacion}
+                      disabled
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="mb-2">
+                    <label className="mb-1 text-slate-300 font-medium flex items-center gap-2">
+                      Fecha de cierre de inscripciones
+                    </label>
+                    {canManageEvents && (
+                      <EditIconButton
+                        aria-label="Editar fecha de cierre"
+                        onClick={() => setShowCloseDateModal(true)}
+                        color="#94a3b8"
+                      />
+                    )}
+                    <Input
+                      value={event.fecha_cierre_inscripcion}
+                      disabled
+                      className="w-full"
+                    />
+                  </div>
+                  {showInscribirButton && (
+                    <Button
+                      className="mt-4 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
+                      onClick={onInscribir}
+                    >
+                      Inscribirme
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+          {loading && (
+            <div className="flex justify-center items-center min-h-[120px]">
+              <Loader visible={true} />
+            </div>
+          )}
+        </Modal>
+        {showCloseDateModal && (
+          <UpdateCloseDateModal
+            open={showCloseDateModal}
+            onClose={() => setShowCloseDateModal(false)}
+            event={event}
+          />
+        )}
+        <ConfirmModal
+          open={!!showConfirmModal}
+          title={
+            showConfirmModal === "cerrar"
+              ? "Cerrar inscripciones"
+              : "Abrir inscripciones"
+          }
+          message={
+            showConfirmModal === "cerrar"
+              ? "¿Estás seguro que deseas cerrar las inscripciones para este evento?"
+              : "¿Estás seguro que deseas abrir las inscripciones para este evento?"
+          }
+          confirmText={showConfirmModal === "cerrar" ? "Cerrar" : "Abrir"}
+          cancelText="Cancelar"
+          onConfirm={handleToggleInscripciones}
+          onCancel={() => setShowConfirmModal(null)}
+          loading={loadingConfirm}
+        />
+      </>
     );
 }

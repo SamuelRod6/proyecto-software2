@@ -137,7 +137,7 @@ export default function EventsAdminListScreen(): JSX.Element {
 	useEffect(() => {
 		let isMounted = true;
 		const checkAccess = async () => {
-			const access = await hasResourceAccess(RESOURCE_KEYS.CREATE_EVENT);
+			const access = await hasResourceAccess(RESOURCE_KEYS.EVENTS_MANAGEMENT);
 			if (isMounted) {
 				setCanCreateEvent(access);
 			}
