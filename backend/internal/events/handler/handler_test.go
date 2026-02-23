@@ -21,9 +21,12 @@ type mockEventService struct {
 	ensureNoSolapamiento  func(ctx context.Context, start, end time.Time) error
 	createEvento          func(ctx context.Context, req dto.CreateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
 	listEventos           func(ctx context.Context) ([]db.EventoModel, error)
+	getEventoByID         func(ctx context.Context, id int) (*db.EventoModel, error)
 	updateEvento          func(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error)
+	deleteEvento          func(ctx context.Context, id int) error
 	cerrarInscripciones   func(ctx context.Context, eventoID int) (*db.EventoModel, error)
 	abrirInscripciones    func(ctx context.Context, eventoID int) (*db.EventoModel, error)
+	getFechasOcupadas     func(ctx context.Context) ([]dto.RangoFechas, error)
 }
 
 func (m mockEventService) EnsureNombreUnico(ctx context.Context, nombre string) error {
@@ -54,11 +57,25 @@ func (m mockEventService) ListEventos(ctx context.Context) ([]db.EventoModel, er
 	return m.listEventos(ctx)
 }
 
+func (m mockEventService) GetEventoByID(ctx context.Context, id int) (*db.EventoModel, error) {
+	if m.getEventoByID == nil {
+		return nil, errors.New("not implemented")
+	}
+	return m.getEventoByID(ctx, id)
+}
+
 func (m mockEventService) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error) {
 	if m.updateEvento == nil {
 		return nil, errors.New("not implemented")
 	}
 	return m.updateEvento(ctx, req, start, end, cierre)
+}
+
+func (m mockEventService) DeleteEvento(ctx context.Context, id int) error {
+	if m.deleteEvento == nil {
+		return errors.New("not implemented")
+	}
+	return m.deleteEvento(ctx, id)
 }
 
 func (m mockEventService) CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error) {
@@ -75,8 +92,15 @@ func (m mockEventService) AbrirInscripciones(ctx context.Context, eventoID int) 
 	return m.abrirInscripciones(ctx, eventoID)
 }
 
+func (m mockEventService) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error) {
+	if m.getFechasOcupadas == nil {
+		return nil, errors.New("not implemented")
+	}
+	return m.getFechasOcupadas(ctx)
+}
+
 func TestServeHTTPMethodNotAllowed(t *testing.T) {
-	req := httptest.NewRequest(http.MethodDelete, "/api/eventos", nil)
+	req := httptest.NewRequest(http.MethodTrace, "/api/eventos", nil)
 	rr := httptest.NewRecorder()
 
 	h := NewWithService(mockEventService{})
@@ -169,6 +193,17 @@ func TestUpdateEvento(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	svc := mockEventService{
+		getEventoByID: func(_ context.Context, id int) (*db.EventoModel, error) {
+			return &db.EventoModel{InnerEvento: db.InnerEvento{
+				IDEvento:               id,
+				Nombre:                 "Evento Existente",
+				FechaInicio:            start,
+				FechaFin:               end,
+				FechaCierreInscripcion: cierre,
+				InscripcionesAbiertasManual: true,
+				Ubicacion:              "Caracas, Venezuela",
+			}}, nil
+		},
 		updateEvento: func(_ context.Context, req dto.UpdateEventoRequest, startDate, endDate, cierreDate time.Time) (*db.EventoModel, error) {
 			return &db.EventoModel{InnerEvento: db.InnerEvento{IDEvento: req.ID, Nombre: req.Nombre, FechaInicio: startDate, FechaFin: endDate, FechaCierreInscripcion: cierreDate, InscripcionesAbiertasManual: true, Ubicacion: req.Ubicacion}}, nil
 		},

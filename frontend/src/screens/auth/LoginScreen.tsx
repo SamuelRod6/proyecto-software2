@@ -73,7 +73,7 @@ export default function LoginScreen(): JSX.Element {
             localStorage.setItem("auth-user", JSON.stringify(user));
         }
 
-        login();
+        login(user ?? null);
         navigate(ROUTES.home);
         setIsSubmitting(false);
     };

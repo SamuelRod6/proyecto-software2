@@ -86,7 +86,7 @@ export default function RegisterScreen(): JSX.Element {
       localStorage.setItem("auth-user", JSON.stringify(user));
     }
 
-    login();
+    login(user ?? null);
     navigate(ROUTES.home);
     toast.success("Registro exitoso. ¡Bienvenido!");
     setIsSubmitting(false);

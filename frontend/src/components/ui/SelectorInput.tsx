@@ -16,6 +16,7 @@ interface SelectInputProps {
   allowCustom?: boolean;
   customPlaceholder?: string;
   isMulti?: boolean;
+  isClearable?: boolean;
   menuPortalTarget?: HTMLElement | null;
 }
 
@@ -29,6 +30,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
   allowCustom = false,
   customPlaceholder = "Escribe...",
   isMulti = false,
+  isClearable = false,
   menuPortalTarget,
 }) => {
   const [customValue, setCustomValue] = useState("");
@@ -37,6 +39,11 @@ const SelectInput: React.FC<SelectInputProps> = ({
   const handleSelect = (
     option: SingleValue<OptionType> | MultiValue<OptionType>,
   ) => {
+    if (!option) {
+      onChange(isMulti ? [] : "");
+      setCustomValue("");
+      return;
+    }
     if (isMulti) {
       const values = (option as MultiValue<OptionType>).map((opt) => opt.value);
       onChange(values);
@@ -81,6 +88,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
         classNamePrefix="react-select"
         isSearchable
         isMulti={isMulti}
+        isClearable={isClearable}
         menuPortalTarget={menuPortalTarget}
         menuPosition={menuPortalTarget ? "fixed" : "absolute"}
         styles={customStyles}

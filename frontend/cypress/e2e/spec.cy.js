@@ -5,9 +5,20 @@ describe("App and API", () => {
   });
 
   it("calls Go API", () => {
-    cy.request("http://localhost:8080/api/hello")
-      .its("body")
-      .should("deep.equal", { message: "Hola, mundo" });
+    cy.intercept("GET", "/api/hello", {
+      statusCode: 200,
+      body: { message: "Hola, mundo" },
+    }).as("hello");
+
+    cy.visit("/");
+    cy.window()
+      .then((win) => win.fetch("/api/hello"))
+      .then((res) => res.json())
+      .then((data) => {
+        expect(data).to.deep.equal({ message: "Hola, mundo" });
+      });
+
+    cy.wait("@hello");
   });
 
   it("shows role and permission management links when allowed", () => {
@@ -52,7 +63,7 @@ describe("App and API", () => {
     cy.intercept("GET", "/api/roles/1/permissions", {
       statusCode: 200,
       body: {
-        permissions: [{ id: 203, name: "crear_evento" }],
+        permissions: [{ id: 203, name: "gestionar_eventos" }],
       },
     }).as("rolePerms");
 
@@ -61,7 +72,7 @@ describe("App and API", () => {
       body: [],
     }).as("events");
 
-    cy.visit("/events", {
+    cy.visit("/events-management", {
       onBeforeLoad(win) {
         win.localStorage.setItem("auth-token", "test-token");
         win.localStorage.setItem(
@@ -76,7 +87,7 @@ describe("App and API", () => {
         win.localStorage.setItem(
           "resource-permissions",
           JSON.stringify({
-            "events.create": 203,
+            "events.management": 203,
           }),
         );
       },

@@ -28,3 +28,12 @@ CREATE UNIQUE INDEX "Usuario_email_key" ON "Usuario"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Roles_nombre_rol_key" ON "Roles"("nombre_rol");
+
+-- Seed default roles
+INSERT INTO "Roles" ("nombre_rol", "descripcion")
+VALUES
+    ('ADMIN', 'Rol Admin'),
+    ('PARTICIPANTE', 'Rol Participante'),
+    ('PONENTE', 'Rol Ponente'),
+    ('COMITE CIENTIFICO', 'Rol Comite Cientifico')
+ON CONFLICT ("nombre_rol") DO NOTHING;

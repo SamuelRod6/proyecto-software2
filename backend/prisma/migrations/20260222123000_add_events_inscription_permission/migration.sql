@@ -1,0 +1,1 @@
+-- Permission seeding removed. Migrations should not create permissions automatically.

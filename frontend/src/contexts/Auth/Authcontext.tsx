@@ -7,11 +7,13 @@ import {
   useRef,
 } from "react";
 import { authReducer, initAuthState } from "./reducer";
+import type { User } from "./reducer";
 import { login as loginAction, logout as logoutAction } from "./actions";
 
 interface AuthContextValue {
   isAuthenticated: boolean;
-  login: () => void;
+  user: User;
+  login: (user: User) => void;
   logout: () => void;
 }
 
@@ -26,9 +28,7 @@ export function AuthProvider({
 }: {
   children: React.ReactNode;
 }): JSX.Element {
-  const [state, dispatch] = useReducer(authReducer, false, () =>
-    initAuthState(Boolean(localStorage.getItem(STORAGE_KEY))),
-  );
+  const [state, dispatch] = useReducer(authReducer, undefined, initAuthState);
   const inactivityTimerRef = useRef<number | null>(null);
 
   // Sync auth state with localStorage
@@ -37,8 +37,13 @@ export function AuthProvider({
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(LAST_ACTIVITY_KEY);
+      return;
     }
-  }, [state.isAuthenticated]);
+
+    if (state.user) {
+      localStorage.setItem(USER_KEY, JSON.stringify(state.user));
+    }
+  }, [state.isAuthenticated, state.user]);
 
   useEffect(() => {
     if (!state.isAuthenticated) return;
@@ -99,10 +104,16 @@ export function AuthProvider({
   const value = useMemo<AuthContextValue>(
     () => ({
       isAuthenticated: state.isAuthenticated,
-      login: () => dispatch(loginAction()),
+      user: state.user,
+      login: (user: User) => {
+        if (user) {
+          localStorage.setItem(USER_KEY, JSON.stringify(user));
+        }
+        dispatch(loginAction(user));
+      },
       logout: () => dispatch(logoutAction()),
     }),
-    [state.isAuthenticated],
+    [state.isAuthenticated, state.user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

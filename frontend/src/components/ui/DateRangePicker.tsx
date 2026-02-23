@@ -10,6 +10,7 @@ interface DateRangePickerProps {
     toLabel?: string;
     className?: string;
     dayPickerProps?: React.ComponentProps<typeof DayPicker>;
+    disabledRanges?: { from: Date; to: Date }[];
 }
 
 const DateRangePicker: React.FC<DateRangePickerProps> = ({
@@ -19,17 +20,22 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
     toLabel = "Hasta",
     className = "",
     dayPickerProps = {},
+    disabledRanges = [],
 }) => {
+    // Disable all dates before tomorrow
+    const disableBeforeTomorrow = { before: new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 1) };
+    // Combine with any additional disabled ranges passed as props
+    const disabled = [disableBeforeTomorrow, ...disabledRanges];
     return (
         <div className={className}>
-                <DayPicker
-                    mode="range"
-                    selected={value}
-                    onSelect={onChange}
-                    locale={es}
-                    disabled={date => date < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 1)}
-                    {...dayPickerProps}
-                />
+            <DayPicker
+                mode="range"
+                selected={value}
+                onSelect={onChange}
+                locale={es}
+                disabled={disabled}
+                {...dayPickerProps}
+            />
             <div className="flex justify-between mt-2 text-sm text-slate-400">
                 <span>{fromLabel}: {value?.from ? value.from.toLocaleDateString() : "-"}</span>
                 <span>{toLabel}: {value?.to ? value.to.toLocaleDateString() : "-"}</span>

@@ -1,15 +1,11 @@
-import { Navigate } from "react-router-dom";
-import { ROUTES } from "./routes";
-import { isAdminUser } from "../utils/accessControl";
+import ResourceRoute from "./ResourceRoute";
 
 export default function AdminRoute({
-    children,
+  resourceKey,
+  children,
 }: {
-    children: JSX.Element;
+  resourceKey: string;
+  children: JSX.Element;
 }): JSX.Element {
-    if (!isAdminUser()) {
-      return <Navigate to={ROUTES.home} replace />;
-    }
-
-    return children;
+  return <ResourceRoute resourceKey={resourceKey}>{children}</ResourceRoute>;
 }

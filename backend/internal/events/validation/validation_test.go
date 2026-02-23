@@ -83,3 +83,18 @@ func TestValidateEventoUbicacion(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateEventoFechasUpdate(t *testing.T) {
+	now := time.Date(2026, 2, 11, 10, 0, 0, 0, time.Local)
+	currentCierre := time.Date(2026, 2, 10, 0, 0, 0, 0, time.Local)
+
+	_, _, _, err := ValidateEventoFechasUpdate("15/02/2026", "20/02/2026", "10/02/2026", now, currentCierre)
+	if err != nil {
+		t.Fatalf("unexpected error for same close date: %v", err)
+	}
+
+	_, _, _, err = ValidateEventoFechasUpdate("15/02/2026", "20/02/2026", "12/02/2026", now, currentCierre)
+	if err == nil {
+		t.Fatalf("expected error when modifying close date after it was reached")
+	}
+}

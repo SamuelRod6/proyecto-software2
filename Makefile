@@ -2,7 +2,7 @@
 
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 FRONTEND_ENV_FILE ?= $(ROOT_DIR).env
-BACKEND_ENV_FILE ?= $(ROOT_DIR).env.local
+BACKEND_ENV_FILE ?= $(ROOT_DIR).env
 ifneq ($(filter local,$(MAKECMDGOALS)),)
 FRONTEND_ENV_FILE = $(ROOT_DIR).env.local
 BACKEND_ENV_FILE = $(ROOT_DIR).env.local

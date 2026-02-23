@@ -7,6 +7,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import { eventRoutes } from "./EventRoutes";
 import { roleManagementRoutes } from "./RoleManagement";
 import { permissionManagementRoutes } from "./PermissionManagement";
+import { inscriptionRoutes } from "./InscriptionRoutes";
 // screens
 import HomeScreen from "../screens/HomeScreen";
 // contexts
@@ -27,6 +28,7 @@ export default function AppRouter(): JSX.Element {
           >
             <Route index element={<HomeScreen />} />
             {eventRoutes}
+            {inscriptionRoutes}
             {roleManagementRoutes}
             {permissionManagementRoutes}
           </Route>

@@ -1,0 +1,192 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	notificationdto "project/backend/internal/notifications/dto"
+	notificationsrv "project/backend/internal/notifications/service"
+	"project/backend/internal/registrations/dto"
+	"project/backend/internal/registrations/repo"
+	"project/backend/prisma/db"
+)
+
+// Define custom errors for service
+var (
+	ErrEventoNotFound        = errors.New("Evento no encontrado")
+	ErrUsuarioNotFound       = errors.New("Usuario no encontrado")
+	ErrInscripcionesCerradas = errors.New("Las inscripciones estan cerradas")
+	ErrYaInscrito            = errors.New("El usuario ya esta inscrito en este evento")
+	ErrInscripcionNotFound   = errors.New("Inscripcion no encontrada")
+	ErrDB                    = errors.New("db error")
+)
+
+type Service struct {
+	repo                *repo.Repository
+	notificationService notificationsrv.NotificationService
+}
+
+func New(repository *repo.Repository, notificationService notificationsrv.NotificationService) *Service {
+	return &Service{
+		repo:                repository,
+		notificationService: notificationService,
+	}
+}
+
+func (s *Service) CreateInscripcion(ctx context.Context, req dto.CreateInscripcionRequest, now time.Time) (*db.InscripcionModel, error) {
+	evento, err := s.repo.FindEventoByID(ctx, req.EventoID)
+
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, ErrEventoNotFound
+		}
+		return nil, ErrDB
+	}
+
+	// Check if inscripciones are open
+	if !isInscripcionesAbiertas(evento, now) {
+		return nil, ErrInscripcionesCerradas
+	}
+
+	_, err = s.repo.FindUsuarioByID(ctx, req.UsuarioID)
+	// Check if user exists
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, ErrUsuarioNotFound
+		}
+		return nil, ErrDB
+	}
+
+	existing, err := s.repo.FindByEventoAndUsuario(ctx, req.EventoID, req.UsuarioID)
+	// Check if user is already inscribed
+	if err != nil {
+		return nil, ErrDB
+	}
+	if len(existing) > 0 {
+		return nil, ErrYaInscrito
+	}
+
+	created, err := s.repo.Create(ctx, req.EventoID, req.UsuarioID, req.EstadoPago, req.Comprobante)
+	if err != nil {
+		return nil, ErrDB
+	}
+
+	mensaje := fmt.Sprintf(
+		notificationdto.MsgInscripcionExitosa,
+		evento.Nombre,
+		evento.FechaInicio.Format("02/01/2006"),
+		evento.FechaFin.Format("02/01/2006"),
+	)
+
+	var notifErr error
+	for i := 1; i <= 3; i++ {
+		_, notifErr = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+			UserID:  req.UsuarioID,
+			EventID: &req.EventoID,
+			Type:    notificationdto.NotificationTypeInscripcion,
+			Message: mensaje,
+		})
+		if notifErr == nil {
+			fmt.Printf("[LOG] Notificación creada exitosamente para usuario: %d (intento %d)\n", req.UsuarioID, i)
+			break
+		} else {
+			fmt.Printf("[ERROR] Error creando notificación (intento %d): %v\n", i, notifErr)
+			time.Sleep(500 * time.Millisecond)
+		}
+	}
+	if notifErr != nil {
+		fmt.Println("[ERROR] No se pudo crear la notificación después de 3 intentos.")
+	}
+
+	return created, nil
+}
+
+func (s *Service) ListInscripciones(ctx context.Context, eventoID, usuarioID int) ([]db.InscripcionModel, error) {
+	if eventoID > 0 && usuarioID > 0 {
+		inscripciones, err := s.repo.FindByEventoAndUsuario(ctx, eventoID, usuarioID)
+		if err != nil {
+			return nil, ErrDB
+		}
+		return inscripciones, nil
+	}
+	if eventoID > 0 {
+		inscripciones, err := s.repo.FindByEventoID(ctx, eventoID)
+		if err != nil {
+			return nil, ErrDB
+		}
+		return inscripciones, nil
+	}
+	if usuarioID > 0 {
+		inscripciones, err := s.repo.FindByUsuarioID(ctx, usuarioID)
+		if err != nil {
+			return nil, ErrDB
+		}
+		return inscripciones, nil
+	}
+	inscripciones, err := s.repo.FindAll(ctx)
+	if err != nil {
+		return nil, ErrDB
+	}
+	return inscripciones, nil
+}
+
+func (s *Service) UpdatePago(ctx context.Context, inscripcionID int, estadoPago bool, comprobante string) (*db.InscripcionModel, error) {
+	_, err := s.repo.FindByID(ctx, inscripcionID)
+	if err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			return nil, ErrInscripcionNotFound
+		}
+		return nil, ErrDB
+	}
+
+	updated, err := s.repo.UpdatePago(ctx, inscripcionID, estadoPago, comprobante)
+	if err != nil {
+		return nil, ErrDB
+	}
+	return updated, nil
+}
+
+func isInscripcionesAbiertas(evento *db.EventoModel, now time.Time) bool {
+	if !evento.InscripcionesAbiertasManual {
+		return false
+	}
+	if !now.Before(evento.FechaCierreInscripcion) {
+		return false
+	}
+	if !now.Before(evento.FechaInicio) {
+		return false
+	}
+	return true
+}
+
+func (s *Service) GetAllEventos(ctx context.Context) ([]db.EventoModel, error) {
+	return s.repo.GetAllEventos(ctx)
+}
+
+func (s *Service) MatchesEventFilters(ev db.EventoModel, filters dto.EventFilters) bool {
+	if filters.SearchTerm != "" && !strings.Contains(strings.ToLower(ev.Nombre), strings.ToLower(filters.SearchTerm)) {
+		return false
+	}
+
+	ubicacionLower := strings.ToLower(ev.Ubicacion)
+	normalizedCountry := strings.ToLower(strings.TrimSpace(filters.CountryTerm))
+	if normalizedCountry != "" && !strings.Contains(ubicacionLower, normalizedCountry) {
+		return false
+	}
+	normalizedCity := strings.ToLower(strings.TrimSpace(filters.CityTerm))
+	if normalizedCity != "" && !strings.Contains(ubicacionLower, normalizedCity) {
+		return false
+	}
+
+	if filters.FromDate != nil && ev.FechaFin.Before(*filters.FromDate) {
+		return false
+	}
+	if filters.ToDate != nil && ev.FechaInicio.After(*filters.ToDate) {
+		return false
+	}
+
+	return true
+}
