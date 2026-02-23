@@ -52,7 +52,7 @@ describe("App and API", () => {
     cy.intercept("GET", "/api/roles/1/permissions", {
       statusCode: 200,
       body: {
-        permissions: [{ id: 203, name: "crear_evento" }],
+        permissions: [{ id: 203, name: "gestionar_eventos" }],
       },
     }).as("rolePerms");
 
@@ -61,7 +61,7 @@ describe("App and API", () => {
       body: [],
     }).as("events");
 
-    cy.visit("/events", {
+    cy.visit("/events-management", {
       onBeforeLoad(win) {
         win.localStorage.setItem("auth-token", "test-token");
         win.localStorage.setItem(
@@ -76,7 +76,7 @@ describe("App and API", () => {
         win.localStorage.setItem(
           "resource-permissions",
           JSON.stringify({
-            "events.create": 203,
+            "events.management": 203,
           }),
         );
       },

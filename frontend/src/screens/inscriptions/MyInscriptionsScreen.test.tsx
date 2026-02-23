@@ -29,6 +29,13 @@ jest.mock("../../services/inscriptionServices", () => ({
     updatePreferences: jest.fn(async () => ({ status: 200, data: { id_usuario: 10, frecuencia: "inmediata", tipos: "estado", habilitado: true } })),
 }));
 
+jest.mock("../../services/inscripcionesServices", () => ({
+  getInscripciones: jest.fn(async () => ({
+    status: 200,
+    data: { eventos_inscritos: [] },
+  })),
+}));
+
 jest.mock("../../contexts/Toast/ToastContext", () => ({
     useToast: () => ({ showToast: jest.fn() }),
 }));

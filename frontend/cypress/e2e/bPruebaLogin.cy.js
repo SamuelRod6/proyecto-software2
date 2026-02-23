@@ -35,6 +35,9 @@ describe('Prueba de Inicio de Sesión', () => {
         // Aquí validamos que NO entramos al home y que aparece un error
         // Ajusta el texto "Error" según lo que devuelva tu backend
         cy.url().should('include', '/login');
-        cy.get('body').should('contain', 'Error');
+        cy.get("p.text-red-300")
+          .should("be.visible")
+          .invoke("text")
+          .should("match", /\S/);
     });
 });

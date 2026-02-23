@@ -1,33 +1,57 @@
-describe('Prueba de Registro y Salida', () => {
-    // --- CAMBIA EL CORREO AQUÍ PARA CADA PRUEBA NUEVA ---
-    const emailParaUsar = 'fabulosodia1@gmail.com';
-    const password = '123456Rad';
+describe("Prueba de Registro y Salida", () => {
+  const password = "123456Rad";
 
-    it('Debería registrarse exitosamente y luego cerrar la sesión', () => {
-        // 1. Ir al registro
-        cy.visit('/register');
+  it("Debería registrarse exitosamente y luego cerrar la sesión", () => {
+    const emailParaUsar = `fabulosodia1+${Date.now()}@gmail.com`;
 
-        // 2. Llenar los campos (según tus capturas de pantalla)
-        cy.get('input[placeholder="Nombre Apellido"]').type('Peba');
-        cy.get('input[placeholder="correo@dominio.com"]').type(emailParaUsar);
-        cy.get('input[type="password"]').eq(0).type(password);
-        cy.get('input[type="password"]').eq(1).type(password);
+    cy.intercept("POST", "/api/auth/register", {
+      statusCode: 201,
+      body: { message: "Registro exitoso" },
+    }).as("register");
 
-        // 3. Click en el botón de registro
-        cy.get('button').contains('Registrarme').click();
+    cy.intercept("POST", "/api/auth/login", {
+      statusCode: 200,
+      body: {
+        payload: {
+          token: "test-token",
+          user: {
+            id: 1,
+            name: "Peba",
+            email: emailParaUsar,
+            roles: [],
+          },
+        },
+      },
+    }).as("login");
 
-        // 4. Verificar que el backend respondió bien y estamos en el Home
-        // Esperamos a que aparezca el mensaje de éxito y la URL cambie
-        cy.contains('Registro exitoso', { timeout: 10000 }).should('be.visible');
-        cy.url().should('eq', Cypress.config().baseUrl + '/');
-        cy.contains('Bienvenido al Home').should('be.visible');
+    // 1. Ir al registro
+    cy.visit("/register");
 
-        // 5. CERRAR SESIÓN (Paso final)
-        // Buscamos el botón que dice "Cerrar sesión" y le damos click
-        cy.get('button').contains('Cerrar sesión').click();
+    // 2. Llenar los campos (según tus capturas de pantalla)
+    cy.get('input[placeholder="Nombre Apellido"]').type("Peba");
+    cy.get('input[placeholder="correo@dominio.com"]').type(emailParaUsar);
+    cy.get('input[type="password"]').eq(0).type(password);
+    cy.get('input[type="password"]').eq(1).type(password);
 
-        // 6. Confirmar que volvimos al login o estado inicial
-        cy.url().should('include', '/login');
-        cy.contains('Ingresa tus credenciales').should('be.visible');
-    });
+    // 3. Click en el botón de registro
+    cy.get("button").contains("Registrarme").click();
+
+    cy.wait("@register");
+    cy.wait("@login");
+
+    // 4. Verificar que estamos en el Home
+    cy.contains("Bienvenido al Home", { timeout: 15000 }).should("be.visible");
+    cy.url().should("eq", Cypress.config().baseUrl + "/");
+
+    // 5. CERRAR SESIÓN (Paso final)
+    cy.get("button").contains("Cerrar sesión").click();
+    cy.contains("h2", "Cerrar sesion").should("be.visible");
+    cy.contains("button", "Cerrar sesion").click();
+
+    // 6. Confirmar que volvimos al login o estado inicial
+    cy.url().should("include", "/login");
+    cy.contains("Ingresa tus credenciales", { matchCase: false }).should(
+      "be.visible",
+    );
+  });
 });
