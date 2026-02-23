@@ -5,9 +5,20 @@ describe("App and API", () => {
   });
 
   it("calls Go API", () => {
-    cy.request("http://localhost:8080/api/hello")
-      .its("body")
-      .should("deep.equal", { message: "Hola, mundo" });
+    cy.intercept("GET", "/api/hello", {
+      statusCode: 200,
+      body: { message: "Hola, mundo" },
+    }).as("hello");
+
+    cy.visit("/");
+    cy.window()
+      .then((win) => win.fetch("/api/hello"))
+      .then((res) => res.json())
+      .then((data) => {
+        expect(data).to.deep.equal({ message: "Hola, mundo" });
+      });
+
+    cy.wait("@hello");
   });
 
   it("shows role and permission management links when allowed", () => {

@@ -4,6 +4,31 @@ describe('Prueba de Inicio de Sesión', () => {
     const passwordCorrecta = '123456Rad';
 
     it('Debería ingresar al sistema con credenciales válidas', () => {
+        cy.intercept("POST", "/api/auth/login", (req) => {
+          const { email, password } = req.body || {};
+          if (email === emailExistente && password === passwordCorrecta) {
+            req.reply({
+              statusCode: 200,
+              body: {
+                payload: {
+                  token: "test-token",
+                  user: {
+                    id: 1,
+                    name: "Usuario",
+                    email: emailExistente,
+                    roles: [],
+                  },
+                },
+              },
+            });
+            return;
+          }
+          req.reply({
+            statusCode: 401,
+            body: { message: "Credenciales invalidas" },
+          });
+        }).as("login");
+
         // 1. Visitar la página de login directamente
         cy.visit('/login');
 
@@ -14,6 +39,7 @@ describe('Prueba de Inicio de Sesión', () => {
 
         // 3. Hacer clic en el botón amarillo "Ingresar"
         cy.get('button').contains('Ingresar').click();
+        cy.wait("@login");
 
         // 4. Verificaciones de éxito
         // Confirmamos que estamos en el Home
@@ -27,10 +53,16 @@ describe('Prueba de Inicio de Sesión', () => {
     });
 
     it('Debería mostrar un error con una contraseña incorrecta', () => {
+        cy.intercept("POST", "/api/auth/login", {
+          statusCode: 401,
+          body: { message: "Credenciales invalidas" },
+        }).as("loginFail");
+
         cy.visit('/login');
         cy.get('input[placeholder="usuario@correo.com"]').type(emailExistente);
         cy.get('input[type="password"]').type('clave_falsa_123');
         cy.get('button').contains('Ingresar').click();
+        cy.wait("@loginFail");
 
         // Aquí validamos que NO entramos al home y que aparece un error
         // Ajusta el texto "Error" según lo que devuelva tu backend
