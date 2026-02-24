@@ -50,10 +50,11 @@ func TestUpdateUserRoleHandler(t *testing.T) {
         }
     })
 
-    t.Run("forbidden without admin role", func(t *testing.T) {
+    t.Run("forbidden without role permission", func(t *testing.T) {
         req := httptest.NewRequest(http.MethodPut, "/api/user/assign-role", nil)
+        req.Header.Set("X-Role", "PONENTE")
         rr := httptest.NewRecorder()
-        h := newHandler(mocks.MockUserRoleService{})
+        h := newHandler(mocks.MockUserRoleService{RoleID: 1})
         h.UpdateUserRoleHandler(rr, req)
         if rr.Code != http.StatusForbidden {
             t.Fatalf("expected %d, got %d", http.StatusForbidden, rr.Code)
@@ -64,7 +65,7 @@ func TestUpdateUserRoleHandler(t *testing.T) {
         req := httptest.NewRequest(http.MethodPut, "/api/user/assign-role", strings.NewReader("{"))
         req.Header.Set("X-Role", "ADMIN")
         rr := httptest.NewRecorder()
-        h := newHandler(mocks.MockUserRoleService{})
+        h := newHandler(mocks.MockUserRoleService{RoleID: 1, HasPermission: true})
         h.UpdateUserRoleHandler(rr, req)
         if rr.Code != http.StatusBadRequest {
             t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
@@ -76,7 +77,7 @@ func TestUpdateUserRoleHandler(t *testing.T) {
         req := httptest.NewRequest(http.MethodPut, "/api/user/assign-role", strings.NewReader(body))
         req.Header.Set("X-Role", "ADMIN")
         rr := httptest.NewRecorder()
-        h := newHandler(mocks.MockUserRoleService{})
+        h := newHandler(mocks.MockUserRoleService{RoleID: 1, HasPermission: true})
         h.UpdateUserRoleHandler(rr, req)
         if rr.Code != http.StatusBadRequest {
             t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
@@ -88,7 +89,7 @@ func TestUpdateUserRoleHandler(t *testing.T) {
         req := httptest.NewRequest(http.MethodPut, "/api/user/assign-role", strings.NewReader(body))
         req.Header.Set("X-Role", "ADMIN")
         rr := httptest.NewRecorder()
-        h := newHandler(mocks.MockUserRoleService{})
+        h := newHandler(mocks.MockUserRoleService{RoleID: 1, HasPermission: true})
         h.UpdateUserRoleHandler(rr, req)
         if rr.Code != http.StatusBadRequest {
             t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
@@ -99,7 +100,7 @@ func TestUpdateUserRoleHandler(t *testing.T) {
         req := httptest.NewRequest(http.MethodPut, "/api/user/assign-role", strings.NewReader(`{"user_id":0,"rol":""}`))
         req.Header.Set("X-Role", "ADMIN")
         rr := httptest.NewRecorder()
-        h := newHandler(mocks.MockUserRoleService{})
+        h := newHandler(mocks.MockUserRoleService{RoleID: 1, HasPermission: true})
         h.UpdateUserRoleHandler(rr, req)
         if rr.Code != http.StatusBadRequest {
             t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
@@ -111,7 +112,7 @@ func TestUpdateUserRoleHandler(t *testing.T) {
         req := httptest.NewRequest(http.MethodPut, "/api/user/assign-role", strings.NewReader(body))
         req.Header.Set("X-Role", "ADMIN")
         rr := httptest.NewRecorder()
-        h := newHandler(mocks.MockUserRoleService{RoleID: 1})
+        h := newHandler(mocks.MockUserRoleService{RoleID: 1, HasPermission: true})
         h.UpdateUserRoleHandler(rr, req)
         if rr.Code != http.StatusOK {
             t.Fatalf("expected %d, got %d", http.StatusOK, rr.Code)
@@ -135,7 +136,7 @@ func TestUpdateUserRoleHandler(t *testing.T) {
         req := httptest.NewRequest(http.MethodPut, "/api/user/assign-role", strings.NewReader(body))
         req.Header.Set("X-Role", "ADMIN")
         rr := httptest.NewRecorder()
-        h := newHandler(mocks.MockUserRoleService{RoleID: 1, UpdateErr: errors.New("boom")})
+        h := newHandler(mocks.MockUserRoleService{RoleID: 1, HasPermission: true, UpdateErr: errors.New("boom")})
         h.UpdateUserRoleHandler(rr, req)
         if rr.Code != http.StatusInternalServerError {
             t.Fatalf("expected %d, got %d", http.StatusInternalServerError, rr.Code)
@@ -206,7 +207,9 @@ func TestUsersListHandler(t *testing.T) {
         users := []db.UsuarioModel{
             {
                 InnerUsuario: db.InnerUsuario{IDUsuario: 1, Nombre: "Juan"},
-                RelationsUsuario: db.RelationsUsuario{Rol: &db.RolesModel{InnerRoles: db.InnerRoles{NombreRol: "ADMIN"}}},
+                RelationsUsuario: db.RelationsUsuario{UsuarioRoles: []db.UsuarioRolesModel{
+                    {RelationsUsuarioRoles: db.RelationsUsuarioRoles{Rol: &db.RolesModel{InnerRoles: db.InnerRoles{NombreRol: "ADMIN"}}}},
+                }},
             },
         }
 

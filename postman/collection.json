@@ -142,6 +142,352 @@
 					"response": []
 				}
 			]
+		},
+				{
+			"name": "Inscripciones",
+			"item": [
+				{ "name": "List Inscripciones", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/inscripciones", "host": ["{{base_url}}"], "path": ["api", "inscripciones"] }, "description": "Returns a list of inscripciones.\nTarget Code: `1000`" }, "response": [] },
+				{ "name": "Create Inscripcion", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n    \"id_evento\": 1,\n    \"id_usuario\": 2\n}" }, "url": { "raw": "{{base_url}}/api/inscripciones", "host": ["{{base_url}}"], "path": ["api", "inscripciones"] }, "description": "Creates a new inscripcion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON" }, "response": [] }
+			]
+		},
+		{
+			"name": "Notifications",
+			"item": [
+				{
+					"name": "List Notifications",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/notifications",
+							"host": ["{{base_url}}"],
+							"path": ["api", "notifications"]
+						},
+						"description": "Returns a list of notifications.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Notification",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id_usuario\": 1,\n    \"mensaje\": \"Notificación de prueba\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/notifications",
+							"host": ["{{base_url}}"],
+							"path": ["api", "notifications"]
+						},
+						"description": "Creates a new notification.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Notification as Read",
+					"request": {
+						"method": "PATCH",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"url": {
+							"raw": "{{base_url}}/api/notifications/read?id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "notifications", "read"],
+							"query": [{ "key": "id", "value": "1" }]
+						},
+						"description": "Marks a notification as read by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Eventos",
+			"item": [
+				{
+					"name": "List Eventos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/eventos",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eventos"]
+						},
+						"description": "Returns a list of eventos.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Evento by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/eventos?id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eventos"],
+							"query": [{ "key": "id", "value": "1" }]
+						},
+						"description": "Returns an evento by ID.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Evento",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"nombre\": \"Evento X\",\n    \"fechaInicio\": \"20/02/2026\",\n    \"fechaFin\": \"21/02/2026\",\n    \"fechaCierreInscripcion\": \"19/02/2026\",\n    \"ubicacion\": \"Caracas\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/eventos",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eventos"]
+						},
+						"description": "Creates a new evento.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Exists"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Evento",
+					"request": {
+						"method": "PUT",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": 1,\n    \"nombre\": \"Evento Actualizado\",\n    \"fechaInicio\": \"20/02/2026\",\n    \"fechaFin\": \"21/02/2026\",\n    \"fechaCierreInscripcion\": \"19/02/2026\",\n    \"ubicacion\": \"Maracaibo\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/eventos",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eventos"]
+						},
+						"description": "Updates an evento.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Exists"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Evento",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/eventos?id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eventos"],
+							"query": [{ "key": "id", "value": "1" }]
+						},
+						"description": "Deletes an evento by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Not Found"
+					},
+					"response": []
+				},
+				{
+					"name": "Fechas Ocupadas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/eventos/fechas-ocupadas",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eventos", "fechas-ocupadas"]
+						},
+						"description": "Returns occupied dates for eventos.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "Cerrar Inscripciones",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/eventos?action=cerrar&id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eventos"],
+							"query": [{ "key": "action", "value": "cerrar" }, { "key": "id", "value": "1" }]
+						},
+						"description": "Closes registrations for an evento.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "Abrir Inscripciones",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/eventos?action=abrir&id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "eventos"],
+							"query": [{ "key": "action", "value": "abrir" }, { "key": "id", "value": "1" }]
+						},
+						"description": "Opens registrations for an evento.\nTarget Code: `1000`"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Paises",
+			"item": [
+				{ "name": "List Paises", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/paises", "host": ["{{base_url}}"], "path": ["api", "paises"] }, "description": "Returns a list of paises.\nTarget Code: `1000`" }, "response": [] },
+				{ "name": "List Ciudades by Pais", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/ciudades?id_pais=1", "host": ["{{base_url}}"], "path": ["api", "ciudades"], "query": [{ "key": "id_pais", "value": "1" }] }, "description": "Returns a list of ciudades for a given pais.\nTarget Code: `1000`" }, "response": [] }
+			]
+		},
+		{
+			"name": "Sesiones",
+			"item": [
+				{
+					"name": "List Sesiones",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones"]
+						},
+						"description": "Returns a list of sesiones.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Sesion by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones?sesion_id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones"],
+							"query": [{ "key": "sesion_id", "value": "1" }]
+						},
+						"description": "Returns a sesion by ID.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Sesion",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones?evento=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones"],
+							"query": [{ "key": "evento", "value": "1" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"titulo\": \"Sesión de prueba\",\n    \"descripcion\": \"Descripción de la sesión\",\n    \"fecha\": \"20/02/2026\"\n}"
+						},
+						"description": "Creates a new sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Sesion",
+					"request": {
+						"method": "PUT",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones?sesion_id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones"],
+							"query": [{ "key": "sesion_id", "value": "1" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"titulo\": \"Sesión actualizada\",\n    \"descripcion\": \"Nueva descripción\",\n    \"fecha\": \"21/02/2026\"\n}"
+						},
+						"description": "Updates a sesion by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Sesion",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones?sesion_id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones"],
+							"query": [{ "key": "sesion_id", "value": "1" }]
+						},
+						"description": "Deletes a sesion by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+					},
+					"response": []
+				},
+				{
+					"name": "Asignar Ponentes",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones/asignar-ponentes?sesion_id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones", "asignar-ponentes"],
+							"query": [{ "key": "sesion_id", "value": "1" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"usuarios\": [2, 3]\n}"
+						},
+						"description": "Assigns ponentes to a sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+					},
+					"response": []
+				},
+				{
+					"name": "Quitar Ponente",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones/quitar-ponente?sesion_id=1&usuario=2",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones", "quitar-ponente"],
+							"query": [{ "key": "sesion_id", "value": "1" }, { "key": "usuario", "value": "2" }]
+						},
+						"description": "Removes a ponente from a sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+					},
+					"response": []
+				},
+				{
+					"name": "List Ponentes",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones/ponentes?sesion_id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones", "ponentes"],
+							"query": [{ "key": "sesion_id", "value": "1" }]
+						},
+						"description": "Returns a list of ponentes for a sesion.\nTarget Code: `1000`"
+					},
+					"response": []
+				},
+				{
+					"name": "List Ponentes Asignables",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/sesiones/ponibles?sesion_id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "sesiones", "ponibles"],
+							"query": [{ "key": "sesion_id", "value": "1" }]
+						},
+						"description": "Returns a list of ponentes that can be assigned to a sesion.\nTarget Code: `1000`"
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
