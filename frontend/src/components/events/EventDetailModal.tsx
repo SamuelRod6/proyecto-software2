@@ -235,7 +235,7 @@ export default function EventDetailModal({
                         </div>
                     </div>
                     <div className="flex-1 flex flex-col gap-4 justify-center p-6 relative">
-                        {!isParticipant && (
+                        {(
                             <div className="flex items-center justify-center gap-2 mb-2 mt-1 md:mt-0 md:mb-0 md:ml-auto md:mr-0">
                                 {eventDetail.inscripciones_abiertas ? (
                                     <>

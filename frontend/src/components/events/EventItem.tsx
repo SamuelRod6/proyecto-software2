@@ -18,7 +18,7 @@ interface EventItemProps {
   fecha_cierre_inscripcion: string;
   inscripciones_abiertas: boolean;
   ubicacion: string;
-  onClick?: () => void;
+	onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
   inscrito?: boolean;
   onDelete?: (id: number) => void;
   onToggleInscripcion?: (id: number, open: boolean) => void;
@@ -78,30 +78,38 @@ const {
 	const { user } = useAuth();
 
 	// role checks
-	const isAdmin = user?.role === "ADMIN";
-	const isOrganizer = user?.role === "COMITE CIENTIFICO";
+	const roleNames = Array.isArray(user?.roles)
+		? user.roles.map((role) => typeof role === "string" ? role : role?.name)
+		: user?.role
+			? [user.role]
+			: [];
+	const isAdmin = roleNames.includes("ADMIN");
+	const isOrganizer = roleNames.includes("COMITE CIENTIFICO");
 	const canOpenDetailModal = !modalState.openModal || modalState.openModal === "EVENT_DETAIL";
 	const isAnyOtherModalOpen = modalState.openModal && modalState.openModal !== "EVENT_DETAIL";
 	 return (
 	 	<div
 	 		className="rounded-lg bg-slate-800 shadow-md p-6 mb-4 flex flex-col md:flex-row md:items-center md:justify-between transition hover:bg-slate-700 cursor-pointer"
-	 		onClick={(e) => {
-	 			if (isAnyOtherModalOpen) {
-	 				return;
-	 			}
-	 			if (canOpenDetailModal) {
-	 				modalDispatch({ type: 'OPEN_MODAL', payload: { modalName: 'EVENT_DETAIL', payload: {
-	 					id_evento,
-	 					nombre,
-	 					fecha_inicio,
-	 					fecha_fin,
-	 					fecha_cierre_inscripcion,
-	 					inscripciones_abiertas,
-	 					ubicacion,
-	 					inscrito,
-	 				} } });
-	 			}
-	 		}}
+			onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+				if (isAnyOtherModalOpen) {
+					return;
+				}
+				if (canOpenDetailModal) {
+					modalDispatch({ type: 'OPEN_MODAL', payload: { modalName: 'EVENT_DETAIL', payload: {
+						id_evento,
+						nombre,
+						fecha_inicio,
+						fecha_fin,
+						fecha_cierre_inscripcion,
+						inscripciones_abiertas,
+						ubicacion,
+						inscrito,
+					} } });
+				}
+				if (props.onClick) {
+					props.onClick(e);
+				}
+			}}
 	 	>
 			<div>
 				<h2 className="text-xl font-semibold text-[#F5E427] mb-2 flex items-center gap-2">
@@ -130,7 +138,7 @@ const {
 				 {(isAdmin || isOrganizer) && (
 					 <div className="mt-4 md:mt-0 md:ml-4 flex-shrink-0 flex gap-2 items-center">
 						 <AddSessionButton
-							 onClick={e => {
+							 onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
 								 e.stopPropagation();
 								 modalDispatch({ type: 'OPEN_MODAL', payload: { modalName: 'CREATE_SESSION', payload: {
 									 event: {
@@ -149,15 +157,14 @@ const {
 						 {onToggleInscripcion && (
 							 <ToggleIconButton
 								 open={!inscripciones_abiertas}
-								 onClick={e => {
-									 e.stopPropagation();
+								 onClick={() => {
 									 setShowConfirm(inscripciones_abiertas ? "cerrar" : "abrir");
 								 }}
 								 title={inscripciones_abiertas ? "Cerrar inscripciones" : "Abrir inscripciones"}
 							 />
 						 )}
 						 {onDelete && (
-							 <DeleteIconButton onClick={e => { e.stopPropagation(); onDelete(id_evento); }} />
+							 <DeleteIconButton onClick={() => { onDelete(id_evento); }} />
 						 )}
 					 </div>
 				 )}
