@@ -26,8 +26,17 @@ export default function UpdateCloseDateModal({ open, onClose, event }: UpdateClo
     // Helper for parse date string DD/MM/YYYY
     function parseDate(dateStr: string): Date | undefined {
         if (!dateStr) return undefined;
-        const [day, month, year] = dateStr.split("/");
-        return new Date(Number(year), Number(month) - 1, Number(day));
+        // Soporta formato DD/MM/YYYY HH:mm:ss
+        const [datePart, timePart] = dateStr.split(" ");
+        const [day, month, year] = datePart.split("/").map(Number);
+        let hours = 0, minutes = 0, seconds = 0;
+        if (timePart) {
+            const [h, m, s] = timePart.split(":").map(Number);
+            hours = h || 0;
+            minutes = m || 0;
+            seconds = s || 0;
+        }
+        return new Date(year, month - 1, day, hours, minutes, seconds);
     }
 
     // Helper to format date to DD/MM/YYYY

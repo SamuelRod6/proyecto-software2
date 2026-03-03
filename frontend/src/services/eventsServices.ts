@@ -1,3 +1,14 @@
+export async function patchEvent(id_evento: number, payload: CreateEventPayload): Promise<{ status: number; data: any }> {
+    try {
+        const response = await axios.put(`/api/eventos?id=${id_evento}`, payload);
+        return { status: response.status, data: response.data };
+    } catch (error: any) {
+        if (error.response) {
+            return { status: error.response.status, data: error.response.data };
+        }
+        return { status: 500, data: { error: "Error de red o desconocido" } };
+    }
+}
 import axios from "axios";
 
 export interface CreateEventPayload {
