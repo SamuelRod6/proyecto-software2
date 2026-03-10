@@ -177,6 +177,7 @@ model Sesion {
   createdAt      DateTime  @default(now())
   cancelado      Boolean   @default(false)
   ponentes       SesionPonente[]
+  historial      SesionHistorial[]
 }
 
 model SesionPonente {
@@ -187,4 +188,17 @@ model SesionPonente {
   usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
 
   @@unique([id_sesion, id_usuario])
+}
+
+model SesionHistorial {
+  id_historial    Int      @id @default(autoincrement())
+  id_sesion       Int
+  accion          String
+  detalle         String?
+  actor           String?
+  fecha_cambio    DateTime @default(now())
+  valores_antes   String?
+  valores_despues String?
+
+  sesion          Sesion   @relation(fields: [id_sesion], references: [id_sesion])
 }

@@ -127,9 +127,8 @@ const {
 					</span>
 					<span className="ml-4">
 						<span className="font-medium">Cierre inscripciones:</span> {(() => {
-							let d = parseDate(fecha_cierre_inscripcion);
+							const d = parseDate(fecha_cierre_inscripcion);
 							if (!d) return "";
-							d = new Date(d.getTime() - 86400000);
 							return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Caracas" });
 						})()}
 					</span>

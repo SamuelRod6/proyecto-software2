@@ -29,6 +29,12 @@ type Service struct {
 	notificationService notificationsrv.NotificationService
 }
 
+var venezuelaLocation = time.FixedZone("VET", -4*60*60)
+
+func formatDateVE(t time.Time) string {
+	return t.In(venezuelaLocation).Format("02/01/2006")
+}
+
 func New(repository *repo.Repository, notificationService notificationsrv.NotificationService) *Service {
 	return &Service{
 		repo:                repository,
@@ -77,8 +83,8 @@ func (s *Service) CreateInscripcion(ctx context.Context, req dto.CreateInscripci
 	mensaje := fmt.Sprintf(
 		notificationdto.MsgInscripcionExitosa,
 		evento.Nombre,
-		evento.FechaInicio.Format("02/01/2006"),
-		evento.FechaFin.Format("02/01/2006"),
+		formatDateVE(evento.FechaInicio),
+		formatDateVE(evento.FechaFin),
 	)
 
 	var notifErr error

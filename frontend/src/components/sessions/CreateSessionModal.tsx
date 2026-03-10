@@ -6,7 +6,7 @@ import SelectorInput from '../ui/SelectorInput';
 import DayPickerSingle from '../ui/DayPickerSingle';
 import TimeRangePicker from '../ui/TimeRangePicker';
 
-import { createSession, getAvailableSpeakers, getEventDetail } from '../../services/sessionsServices';
+import { createSession, getAvailableSpeakers, getEventDetail, assignSpeakersToSession } from '../../services/sessionsServices';
 import { useLoader } from '../../contexts/Loader/LoaderContext';
 import { useToast } from '../../contexts/Toast/ToastContext';
 
@@ -67,6 +67,12 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       }
     };
 
+    const [errors, setErrors] = useState<{
+      titulo?: string;
+      fechaHora?: string;
+      general?: string;
+    }>({});
+
     useEffect(() => {
       setShowPonentePage(false);
       setCreatedSessionId(null);
@@ -78,10 +84,77 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       setHoraInicio('08:00');
       setHoraFin('09:00');
       setUbicacion(event?.ubicacion || '');
+      setErrors({});
     }, [open, event.id]);
+
+  // Helper y validaciones
+  const buildDateTime = (baseDate: Date, timeHHmm: string) => {
+    const [h, m] = timeHHmm.split(":").map(Number);
+    const result = new Date(baseDate);
+    result.setHours(h, m, 0, 0);
+    return result;
+  };
+
+  const validateCreateForm = () => {
+    const nextErrors: { titulo?: string; fechaHora?: string; general?: string } = {};
+
+    const trimmedTitle = titulo.trim();
+    if (!trimmedTitle) {
+      nextErrors.titulo = "El título es obligatorio";
+    } else if (trimmedTitle.length > 100) {
+      nextErrors.titulo = "El título no puede exceder 100 caracteres";
+    }
+
+    if (!fecha) {
+      nextErrors.fechaHora = "Debes seleccionar una fecha para la sesión";
+    } else {
+      const inicio = buildDateTime(fecha, horaInicio);
+      const fin = buildDateTime(fecha, horaFin);
+      const now = new Date();
+
+      if (inicio <= now) {
+        nextErrors.fechaHora = "La fecha/hora de inicio no puede estar en el pasado.";
+      } else if (fin <= inicio) {
+        nextErrors.fechaHora = "La hora de fin debe ser mayor que la hora de inicio.";
+      } else {
+        const duracionMs = fin.getTime() - inicio.getTime();
+        const minMs = 30 * 60 * 1000;
+        const maxMs = 4 * 60 * 60 * 1000;
+        if (duracionMs < minMs || duracionMs > maxMs) {
+          nextErrors.fechaHora = "La duración debe ser entre 30 minutos y 4 horas.";
+        }
+      }
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const parseEventDate = (value?: string): Date | undefined => {
+    if (!value) return undefined;
+
+    // Soporta DD/MM/YYYY y DD/MM/YYYY HH:mm[:ss]
+    if (value.includes('/')) {
+      const [datePart] = value.split(' ');
+      const [d, m, y] = datePart.split('/').map(Number);
+      if (!d || !m || !y) return undefined;
+      return new Date(y, m - 1, d);
+    }
+
+    // Fallback para ISO u otros formatos parseables por Date
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return undefined;
+    return parsed;
+  };
+
+  const atStartOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
   // Primera página: crear sesión
   const handleCreateSession = async () => {
+
+    // Validar antes de enviar
+    if (!validateCreateForm()) return;
+
     showLoader();
     try {
       const fechaInicio = new Date(fecha!);
@@ -91,20 +164,29 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       const [hFin, mFin] = horaFin.split(':');
       fechaFin.setHours(Number(hFin), Number(mFin), 0, 0);
       // Formato local Venezuela: YYYY-MM-DDTHH:mm:ss-04:00
-      function toVenezuelaISOString(date: Date) {
-        // Ajusta a UTC-4
-        const offset = -4;
-        const local = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-        const pad = (n: number) => n.toString().padStart(2, '0');
-        return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}-04:00`;
-      }
+      // function toVenezuelaISOString(date: Date) {
+      //   // Ajusta a UTC-4
+      //   const offset = -4;
+      //   const local = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+      //   const pad = (n: number) => n.toString().padStart(2, '0');
+      //   return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}:${pad(local.getSeconds())}-04:00`;
+      // }
+      // const payload = {
+      //   titulo,
+      //   descripcion,
+      //   fecha_inicio: toVenezuelaISOString(fechaInicio),
+      //   fecha_fin: toVenezuelaISOString(fechaFin),
+      //   ubicacion,
+      // };
+
       const payload = {
         titulo,
         descripcion,
-        fecha_inicio: toVenezuelaISOString(fechaInicio),
-        fecha_fin: toVenezuelaISOString(fechaFin),
+        fecha_inicio: fechaInicio.toISOString(),
+        fecha_fin: fechaFin.toISOString(),
         ubicacion,
       };
+
       const eventId = event?.id_evento || event?.id || event?.idEvento;
       const res = await createSession(eventId, payload);
       if (res.status === 200 && res.data?.id_sesion) {
@@ -149,13 +231,24 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         });
         return;
       }
-      // Aquí deberías llamar al endpoint para asignar ponentes
-      // await assignPonentes(createdSessionId, usuarios);
+
+      const res = await assignSpeakersToSession(createdSessionId, usuarios);
+
+      if (res.status !== 204 && res.status !== 200) {
+        showToast({
+          title: 'Error',
+          message: res.data?.message || 'No se pudo asignar el/los ponente(s).',
+          status: 'error',
+        });
+        return;
+      }
+
       showToast({
         title: 'Ponente asignado',
         message: 'Ponente asignado exitosamente.',
         status: 'success',
       });
+      
       onSessionCreated();
       onClose();
     } catch (e: any) {
@@ -186,7 +279,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
               const selectedIds = ponentesSeleccionados.filter((id, i) => id !== null && i !== idx);
               const options = ponentesDisponibles
                 .filter(p => !selectedIds.includes(p.id_usuario))
-                .map(p => ({ value: String(p.id_usuario), label: p.nombre }));
+                .map(p => ({ value: String(p.id_usuario), label: `${p.nombre} · ${p.email ?? "sin correo"}` }));
               return (
                 <div key={idx} className="flex items-center gap-2">
                   {options.length > 0 && (
@@ -246,56 +339,48 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
           </Button>
         </div>
       ) : (
-        <div className="flex gap-6" onClick={e => e.stopPropagation()}>
-          <div className="bg-white rounded-lg p-6 flex flex-col items-center shadow-md min-w-[260px]">
+        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-start" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-lg p-6 flex flex-col items-center shadow-md min-w-[260px] self-start md:mt-[105px]">
             <DayPickerSingle
               selected={fecha}
               onSelect={setFecha}
               initialMonth={(() => {
                 const fechaInicioStr = eventoDetalle?.fecha_inicio || event.fecha_inicio || event.fechaInicio;
-                if (fechaInicioStr && fechaInicioStr.includes('/')) {
-                  const [d, m, y] = fechaInicioStr.split('/');
-                  return new Date(Number(y), Number(m) - 1, Number(d));
-                } else {
-                  return new Date(fechaInicioStr);
-                }
+                const inicio = parseEventDate(fechaInicioStr);
+                return inicio || new Date();
               })()}
               disabled={date => {
                 // Obtener rango del evento
                 const fechaInicioStr = eventoDetalle?.fecha_inicio || event.fecha_inicio || event.fechaInicio;
                 const fechaFinStr = eventoDetalle?.fecha_fin || event.fecha_fin || event.fechaFin;
-                // Parsear fechas (formato esperado: YYYY-MM-DD o DD/MM/YYYY)
-                let inicio: Date, fin: Date;
-                if (fechaInicioStr && fechaInicioStr.includes('/')) {
-                  // Formato DD/MM/YYYY
-                  const [d, m, y] = fechaInicioStr.split('/');
-                  inicio = new Date(Number(y), Number(m) - 1, Number(d));
-                } else {
-                  inicio = new Date(fechaInicioStr);
-                }
-                if (fechaFinStr && fechaFinStr.includes('/')) {
-                  const [d, m, y] = fechaFinStr.split('/');
-                  fin = new Date(Number(y), Number(m) - 1, Number(d));
-                } else {
-                  fin = new Date(fechaFinStr);
-                }
-                // Restar un día al fin
-                fin.setDate(fin.getDate() - 1);
+
+                const inicio = parseEventDate(fechaInicioStr);
+                const fin = parseEventDate(fechaFinStr);
+
+                // Si no se pueden parsear las fechas, no bloquear para evitar falso positivo.
+                if (!inicio || !fin) return false;
+
+                const day = atStartOfDay(date);
+                const inicioDay = atStartOfDay(inicio);
+                const finDay = atStartOfDay(fin);
+
                 // Limitar solo a rango del evento
-                return date < inicio || date > fin;
+                return day < inicioDay || day > finDay;
               }}
             />
-            <div className="mt-4 w-full">
-              <TimeRangePicker
-                horaInicio={horaInicio}
-                horaFin={horaFin}
-                setHoraInicio={setHoraInicio}
-                setHoraFin={setHoraFin}
-              />
-            </div>
           </div>
           <div className="flex flex-col gap-4 flex-1">
-            <Input label="Título" value={titulo} maxLength={100} onChange={e => setTitulo(e.target.value)} required />
+            <Input 
+              label="Título"
+              value={titulo}
+              maxLength={100}
+              onChange={e => {
+                setTitulo(e.target.value);
+                if (errors.titulo) setErrors(prev => ({ ...prev, titulo: undefined }));
+              }}
+              error={errors.titulo} 
+              required 
+            />
             <Input
               label="Descripción"
               value={descripcion}
@@ -303,6 +388,17 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
               descripcion={true}
               maxLength={300}
             />
+            <div className="rounded-lg border border-slate-700 p-4">
+              <TimeRangePicker
+                horaInicio={horaInicio}
+                horaFin={horaFin}
+                setHoraInicio={setHoraInicio}
+                setHoraFin={setHoraFin}
+              />
+              {errors.fechaHora && (
+                <p className="text-xs text-red-300 mt-2">{errors.fechaHora}</p>
+              )}
+            </div>
             <Input label="Ubicación" value={ubicacion} disabled required />
             <Button
               className="mt-4"

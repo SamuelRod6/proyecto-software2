@@ -22,6 +22,16 @@ const (
 	dbErrorMessage  = "db error"
 )
 
+var venezuelaLocation = time.FixedZone("VET", -4*60*60)
+
+func formatDateVE(t time.Time) string {
+	return t.In(venezuelaLocation).Format(dateLayout)
+}
+
+func formatDateTimeVE(t time.Time) string {
+	return t.In(venezuelaLocation).Format("02/01/2006 15:04")
+}
+
 type Handler struct {
 	svc EventService
 }
@@ -168,8 +178,8 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 				IDSesion:    s.IDSesion,
 				Titulo:      s.Titulo,
 				Descripcion: s.Descripcion,
-				FechaInicio: s.FechaInicio.Format("2006-01-02T15:04:05"),
-				FechaFin:    s.FechaFin.Format("2006-01-02T15:04:05"),
+				FechaInicio: formatDateTimeVE(s.FechaInicio),
+				FechaFin:    formatDateTimeVE(s.FechaFin),
 				Ubicacion:   s.Ubicacion,
 				Ponentes:    ponentesResp,
 			})
@@ -178,9 +188,9 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 		res := dto.EventoResponse{
 			ID:                     evento.IDEvento,
 			Nombre:                 evento.Nombre,
-			FechaInicio:            evento.FechaInicio.Format("02/01/2006 15:04:05"),
-			FechaFin:               evento.FechaFin.Format("02/01/2006 15:04:05"),
-			FechaCierreInscripcion: evento.FechaCierreInscripcion.Format("02/01/2006 15:04:05"),
+			FechaInicio:            formatDateVE(evento.FechaInicio),
+			FechaFin:               formatDateVE(evento.FechaFin),
+			FechaCierreInscripcion: formatDateVE(evento.FechaCierreInscripcion),
 			InscripcionesAbiertas:  isInscripcionesAbiertas(evento, now),
 			Ubicacion:              evento.Ubicacion,
 			Sesiones:               sesionesResp,
@@ -204,9 +214,9 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 		res = append(res, dto.EventoResponse{
 			ID:                     ev.IDEvento,
 			Nombre:                 ev.Nombre,
-			FechaInicio:            ev.FechaInicio.Format(dateLayout),
-			FechaFin:               ev.FechaFin.Format(dateLayout),
-			FechaCierreInscripcion: ev.FechaCierreInscripcion.Format(dateLayout),
+			FechaInicio:            formatDateVE(ev.FechaInicio),
+			FechaFin:               formatDateVE(ev.FechaFin),
+			FechaCierreInscripcion: formatDateVE(ev.FechaCierreInscripcion),
 			InscripcionesAbiertas:  isInscripcionesAbiertas(&ev, now),
 			Ubicacion:              ev.Ubicacion,
 		})
@@ -273,9 +283,9 @@ func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 	res := dto.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
-		FechaInicio:            updated.FechaInicio.Format(dateLayout),
-		FechaFin:               updated.FechaFin.Format(dateLayout),
-		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format(dateLayout),
+		FechaInicio:            formatDateVE(updated.FechaInicio),
+		FechaFin:               formatDateVE(updated.FechaFin),
+		FechaCierreInscripcion: formatDateVE(updated.FechaCierreInscripcion),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(updated, now),
 		Ubicacion:              updated.Ubicacion,
 	}
@@ -356,9 +366,9 @@ func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 	res := dto.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
-		FechaInicio:            updated.FechaInicio.Format(dateLayout),
-		FechaFin:               updated.FechaFin.Format(dateLayout),
-		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format(dateLayout),
+		FechaInicio:            formatDateVE(updated.FechaInicio),
+		FechaFin:               formatDateVE(updated.FechaFin),
+		FechaCierreInscripcion: formatDateVE(updated.FechaCierreInscripcion),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(updated, now),
 		Ubicacion:              updated.Ubicacion,
 	}
@@ -392,9 +402,9 @@ func (h *Handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eve
 	res := dto.EventoResponse{
 		ID:                     updated.IDEvento,
 		Nombre:                 updated.Nombre,
-		FechaInicio:            updated.FechaInicio.Format(dateLayout),
-		FechaFin:               updated.FechaFin.Format(dateLayout),
-		FechaCierreInscripcion: updated.FechaCierreInscripcion.Format(dateLayout),
+		FechaInicio:            formatDateVE(updated.FechaInicio),
+		FechaFin:               formatDateVE(updated.FechaFin),
+		FechaCierreInscripcion: formatDateVE(updated.FechaCierreInscripcion),
 		InscripcionesAbiertas:  isInscripcionesAbiertas(updated, now),
 		Ubicacion:              updated.Ubicacion,
 	}

@@ -26,6 +26,12 @@ type notificationService struct {
 	repo repo.NotificationRepository
 }
 
+var venezuelaLocation = time.FixedZone("VET", -4*60*60)
+
+func formatDateVE(t time.Time) string {
+	return t.In(venezuelaLocation).Format("02/01/2006")
+}
+
 func NewNotificationService(r repo.NotificationRepository) NotificationService {
 	return &notificationService{repo: r}
 }
@@ -68,7 +74,7 @@ func (s *notificationService) NotificarCierreInscripciones(ctx context.Context, 
 			mensaje := fmt.Sprintf(
 				dto.MsgCierreInscripciones,
 				evento.Nombre,
-				evento.FechaCierreInscripcion.Format("02/01/2006"),
+				formatDateVE(evento.FechaCierreInscripcion),
 			)
 			_, notifErr := s.CreateNotification(ctx, dto.CreateNotificationRequest{
 				UserID:  usuario.IDUsuario,
@@ -107,7 +113,7 @@ func (s *notificationService) NotificarRecordatorioEvento(ctx context.Context, e
 			mensaje := fmt.Sprintf(
 				dto.MsgRecordatorioEvento,
 				evento.Nombre,
-				evento.FechaInicio.Format("02/01/2006"),
+				formatDateVE(evento.FechaInicio),
 			)
 			_, notifErr := s.CreateNotification(ctx, dto.CreateNotificationRequest{
 				UserID:  inscripcion.IDUsuario,
@@ -149,7 +155,7 @@ func (s *notificationService) NotificarPagoPendiente(ctx context.Context, evento
 				if exists {
 					continue
 				}
-				mensaje := fmt.Sprintf(dto.MsgRecordatorioPago, evento.Nombre, evento.FechaInicio.Format("02/01/2006"))
+				mensaje := fmt.Sprintf(dto.MsgRecordatorioPago, evento.Nombre, formatDateVE(evento.FechaInicio))
 				_, notifErr := s.CreateNotification(ctx, dto.CreateNotificationRequest{
 					UserID:  insc.IDUsuario,
 					EventID: &evento.IDEvento,
@@ -185,7 +191,7 @@ func (s *notificationService) NotificarAperturaInscripciones(ctx context.Context
 		if exists {
 			continue
 		}
-		mensaje := fmt.Sprintf(dto.MsgAperturaInscripciones, evento.Nombre, evento.FechaCierreInscripcion.Format("02/01/2006"))
+		mensaje := fmt.Sprintf(dto.MsgAperturaInscripciones, evento.Nombre, formatDateVE(evento.FechaCierreInscripcion))
 		_, notifErr := s.CreateNotification(ctx, dto.CreateNotificationRequest{
 			UserID:  usuario.IDUsuario,
 			EventID: &evento.IDEvento,

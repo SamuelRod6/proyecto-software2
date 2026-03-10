@@ -41,12 +41,16 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		if (open) {
 			fetchFechasOcupadas().then(({ status, data }) => {
 				if (status === 200 && Array.isArray(data)) {
-					setDisabledRanges(
-						data.map((r: RangoFechasApi) => ({
+					const ranges = data
+						.map((r: RangoFechasApi) => ({
 							from: parseDate(r.fecha_inicio),
 							to: parseDate(r.fecha_fin),
 						}))
-					);
+						.filter(
+							(range): range is { from: Date; to: Date } =>
+								Boolean(range.from) && Boolean(range.to)
+						);
+					setDisabledRanges(ranges);
 				} else {
 					setDisabledRanges([]);
 				}
@@ -70,11 +74,14 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
  function formatDateWithTime(d: Date, hour: number, minute: number): string {
 	const date = new Date(d);
 	// Set hora en UTC
-	date.setUTCHours(hour, minute, 0, 0);
-	// Formato: DD/MM/AAAA HH:mm:ss (en UTC)
+	// date.setUTCHours(hour, minute, 0, 0);
+	// // Formato: DD/MM/AAAA HH:mm:ss (en UTC)
+	// const pad = (n: number) => n.toString().padStart(2, '0');
+	// return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:00`;
+	date.setHours(hour, minute, 0, 0);
 	const pad = (n: number) => n.toString().padStart(2, '0');
-	return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:00`;
- }
+	return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+}	
 
 	//function to parse date string from API
 	function parseDate(dateStr: string): Date | undefined {
@@ -112,6 +119,14 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		showLoader();
 		try {
 			const payload = getEventPayload();
+			if (!payload) {
+				showToast({
+					title: "Error al crear evento",
+					message: "Faltan datos obligatorios.",
+					status: "error",
+				});
+				return;
+			}
 			const { status, data } = await createEvent(payload);
 			if (status === 200 && data) {
 				showToast({
@@ -192,7 +207,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 							<div>
 								<SelectInput
 									value={country}
-									onChange={setCountry}
+										onChange={(value) => setCountry(Array.isArray(value) ? value[0] ?? "" : value)}
 									options={[{ value: "Venezuela", label: "Venezuela" }]}
 									inputLabel="País"
 									placeholder="Selecciona el país"
@@ -202,7 +217,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 								{country === "Venezuela" && (
 									<SelectInput
 										value={city}
-										onChange={setCity}
+										onChange={(value) => setCity(Array.isArray(value) ? value[0] ?? "" : value)}
 										options={venezuelaCities.map(city => ({ value: city, label: city }))}
 										inputLabel="Ciudad"
 										placeholder="Selecciona o escribe la ciudad"

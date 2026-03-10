@@ -20,6 +20,7 @@ import { hasResourceAccess } from "../../utils/accessControl";
 import { patchInscriptionDate } from "../../services/eventsServices";
 import { getEventDetail } from "../../services/sessionsServices";
 import SessionList from "../sessions/SessionList";
+import SessionsCalendar from "../sessions/SessionsCalendar";
 // interfaces
 import { Evento } from "../../services/eventsServices";
 
@@ -296,10 +297,8 @@ export default function EventDetailModal({
                                     </label>
                                     <Input 
                                         value={(() => {
-                                            let d = parseDate(eventDetail.fecha_cierre_inscripcion);
+                                            const d = parseDate(eventDetail.fecha_cierre_inscripcion);
                                             if (!d) return "";
-                                            // Restar un día
-                                            d = new Date(d.getTime() - 86400000);
                                             return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Caracas" });
                                         })()} 
                                         disabled 
@@ -315,6 +314,7 @@ export default function EventDetailModal({
                                     </Button>
                                 )}
                                 {/* Listado de sesiones debajo del campo de cierre de inscripciones */}
+                                <SessionsCalendar sessions={sessions} />
                                 <SessionList sessions={sessions} />
                             </div>
                         </div>

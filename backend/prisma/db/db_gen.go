@@ -84,38 +84,38 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario      Int       @id @default(autoincrement())
-  nombre          String    @unique
-  email           String    @unique
+  id_usuario      Int                      @id @default(autoincrement())
+  nombre          String                   @unique
+  email           String                   @unique
   password_hash   String
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime                 @default(now())
   inscripciones   Inscripcion[]
-  notificaciones  Notificacion[] @relation("UsuarioNotificaciones")
+  notificaciones  Notificacion[]           @relation("UsuarioNotificaciones")
   sesionesPonente SesionPonente[]
   UsuarioRoles    UsuarioRoles[]
   preferencias    NotificacionPreferencia?
 }
 
 model Roles {
-  id_rol      Int       @id @default(autoincrement())
-  nombre_rol  String    @unique
-  descripcion String
-  createdAt   DateTime  @default(now())
+  id_rol       Int            @id @default(autoincrement())
+  nombre_rol   String         @unique
+  descripcion  String
+  createdAt    DateTime       @default(now())
   UsuarioRoles UsuarioRoles[]
   RolePermisos RolePermisos[]
 }
 
 model Permisos {
-  id_permiso    Int      @id @default(autoincrement())
-  nombre_permiso String  @unique
-  createdAt     DateTime @default(now())
-  RolePermisos RolePermisos[]
+  id_permiso     Int            @id @default(autoincrement())
+  nombre_permiso String         @unique
+  createdAt      DateTime       @default(now())
+  RolePermisos   RolePermisos[]
 }
 
 model RolePermisos {
   id_rol     Int
   id_permiso Int
-  rol        Roles       @relation(fields: [id_rol], references: [id_rol])
+  rol        Roles    @relation(fields: [id_rol], references: [id_rol])
   permiso    Permisos @relation(fields: [id_permiso], references: [id_permiso])
 
   @@id([id_rol, id_permiso])
@@ -131,61 +131,61 @@ model UsuarioRoles {
 }
 
 model Evento {
-  id_evento                     Int      @id @default(autoincrement())
+  id_evento                     Int            @id @default(autoincrement())
   nombre                        String
   fecha_inicio                  DateTime
   fecha_fin                     DateTime
   fecha_cierre_inscripcion      DateTime
-  inscripciones_abiertas_manual Boolean  @default(true)
+  inscripciones_abiertas_manual Boolean        @default(true)
   ubicacion                     String
-  createdAt                     DateTime @default(now())
-  cancelado                     Boolean  @default(false)
+  createdAt                     DateTime       @default(now())
+  cancelado                     Boolean        @default(false)
   inscripciones                 Inscripcion[]
   notificaciones                Notificacion[] @relation("EventoNotificaciones")
   sesiones                      Sesion[]
 }
 
 model Inscripcion {
-  id_inscripcion    Int      @id @default(autoincrement())
-  id_evento         Int
-  id_usuario        Int
-  nombre_participante String  @default("")
-  email             String   @default("")
-  afiliacion        String   @default("")
-  comprobante_pago  String?
-  fecha_inscripcion DateTime @default(now())
-  estado            String   @default("Pendiente")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  fecha             DateTime @default(now())
-  estado_pago       Boolean  @default(false)
-  comprobante       String   @default("")
-  evento            Evento   @relation(fields: [id_evento], references: [id_evento])
-  usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
-  historial         InscripcionHistorial[]
-  notificaciones    Notificacion[]
+  id_inscripcion      Int                    @id @default(autoincrement())
+  id_evento           Int
+  id_usuario          Int
+  nombre_participante String                 @default("")
+  email               String                 @default("")
+  afiliacion          String                 @default("")
+  comprobante_pago    String?
+  fecha_inscripcion   DateTime               @default(now())
+  estado              String                 @default("Pendiente")
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  fecha               DateTime               @default(now())
+  estado_pago         Boolean                @default(false)
+  comprobante         String                 @default("")
+  evento              Evento                 @relation(fields: [id_evento], references: [id_evento])
+  usuario             Usuario                @relation(fields: [id_usuario], references: [id_usuario])
+  historial           InscripcionHistorial[]
+  notificaciones      Notificacion[]
 
   @@unique([id_evento, id_usuario])
 }
 
 model InscripcionHistorial {
-  id_historial    Int      @id @default(autoincrement())
+  id_historial    Int         @id @default(autoincrement())
   id_inscripcion  Int
   estado_anterior String
   estado_nuevo    String
   nota            String?
   actor           String?
-  fecha_cambio    DateTime @default(now())
+  fecha_cambio    DateTime    @default(now())
   inscripcion     Inscripcion @relation(fields: [id_inscripcion], references: [id_inscripcion])
 }
 
 model NotificacionPreferencia {
-  id_preferencia Int      @id @default(autoincrement())
-  id_usuario     Int      @unique
-  frecuencia     String   @default("inmediata")
-  tipos          String   @default("estado")
-  habilitado     Boolean  @default(true)
-  usuario        Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  id_preferencia Int     @id @default(autoincrement())
+  id_usuario     Int     @unique
+  frecuencia     String  @default("inmediata")
+  tipos          String  @default("estado")
+  habilitado     Boolean @default(true)
+  usuario        Usuario @relation(fields: [id_usuario], references: [id_usuario])
 }
 
 model Notificacion {
@@ -202,9 +202,9 @@ model Notificacion {
   estado          String   @default("enviado")
   createdAt       DateTime @default(now())
 
-  usuario         Usuario   @relation("UsuarioNotificaciones", fields: [id_usuario], references: [id_usuario])
-  evento          Evento?   @relation("EventoNotificaciones", fields: [id_evento], references: [id_evento])
-  inscripcion     Inscripcion? @relation(fields: [id_inscripcion], references: [id_inscripcion])
+  usuario     Usuario      @relation("UsuarioNotificaciones", fields: [id_usuario], references: [id_usuario])
+  evento      Evento?      @relation("EventoNotificaciones", fields: [id_evento], references: [id_evento])
+  inscripcion Inscripcion? @relation(fields: [id_inscripcion], references: [id_inscripcion])
 }
 
 model ReporteProgramado {
@@ -218,9 +218,9 @@ model ReporteProgramado {
 }
 
 model JobExecution {
-  id        Int      @id @default(autoincrement())
-  job_name  String   @unique
-  last_run  DateTime
+  id       Int      @id @default(autoincrement())
+  job_name String   @unique
+  last_run DateTime
 }
 
 model Pais {
@@ -241,27 +241,41 @@ model Ciudad {
 }
 
 model Sesion {
-  id_sesion      Int       @id @default(autoincrement())
-  titulo         String
-  descripcion    String
-  fecha_inicio   DateTime
-  fecha_fin      DateTime
-  ubicacion      String
-  id_evento      Int
-  evento         Evento    @relation(fields: [id_evento], references: [id_evento])
-  createdAt      DateTime  @default(now())
-  cancelado      Boolean   @default(false)
-  ponentes       SesionPonente[]
+  id_sesion    Int               @id @default(autoincrement())
+  titulo       String
+  descripcion  String
+  fecha_inicio DateTime
+  fecha_fin    DateTime
+  ubicacion    String
+  id_evento    Int
+  evento       Evento            @relation(fields: [id_evento], references: [id_evento])
+  createdAt    DateTime          @default(now())
+  cancelado    Boolean           @default(false)
+  ponentes     SesionPonente[]
+  historial    SesionHistorial[]
 }
 
 model SesionPonente {
-  id_sesion_ponente Int    @id @default(autoincrement())
+  id_sesion_ponente Int     @id @default(autoincrement())
   id_sesion         Int
   id_usuario        Int
-  sesion            Sesion   @relation(fields: [id_sesion], references: [id_sesion])
-  usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  sesion            Sesion  @relation(fields: [id_sesion], references: [id_sesion])
+  usuario           Usuario @relation(fields: [id_usuario], references: [id_usuario])
 
   @@unique([id_sesion, id_usuario])
+}
+
+model SesionHistorial {
+  id_historial    Int      @id @default(autoincrement())
+  id_sesion       Int
+  accion          String
+  detalle         String?
+  actor           String?
+  fecha_cambio    DateTime @default(now())
+  valores_antes   String?
+  valores_despues String?
+
+  sesion Sesion @relation(fields: [id_sesion], references: [id_sesion])
 }
 `
 const schemaDatasourceURL = ""
@@ -350,6 +364,7 @@ func newClient() *PrismaClient {
 	c.Ciudad = ciudadActions{client: c}
 	c.Sesion = sesionActions{client: c}
 	c.SesionPonente = sesionPonenteActions{client: c}
+	c.SesionHistorial = sesionHistorialActions{client: c}
 
 	c.Prisma = &PrismaActions{
 		Raw: &raw.Raw{Engine: c},
@@ -406,6 +421,8 @@ type PrismaClient struct {
 	Sesion sesionActions
 	// SesionPonente provides access to CRUD methods.
 	SesionPonente sesionPonenteActions
+	// SesionHistorial provides access to CRUD methods.
+	SesionHistorial sesionHistorialActions
 }
 
 // --- template enums.gotpl ---
@@ -589,6 +606,19 @@ const (
 	SesionPonenteScalarFieldEnumIDSesionPonente SesionPonenteScalarFieldEnum = "id_sesion_ponente"
 	SesionPonenteScalarFieldEnumIDSesion        SesionPonenteScalarFieldEnum = "id_sesion"
 	SesionPonenteScalarFieldEnumIDUsuario       SesionPonenteScalarFieldEnum = "id_usuario"
+)
+
+type SesionHistorialScalarFieldEnum string
+
+const (
+	SesionHistorialScalarFieldEnumIDHistorial    SesionHistorialScalarFieldEnum = "id_historial"
+	SesionHistorialScalarFieldEnumIDSesion       SesionHistorialScalarFieldEnum = "id_sesion"
+	SesionHistorialScalarFieldEnumAccion         SesionHistorialScalarFieldEnum = "accion"
+	SesionHistorialScalarFieldEnumDetalle        SesionHistorialScalarFieldEnum = "detalle"
+	SesionHistorialScalarFieldEnumActor          SesionHistorialScalarFieldEnum = "actor"
+	SesionHistorialScalarFieldEnumFechaCambio    SesionHistorialScalarFieldEnum = "fecha_cambio"
+	SesionHistorialScalarFieldEnumValoresAntes   SesionHistorialScalarFieldEnum = "valores_antes"
+	SesionHistorialScalarFieldEnumValoresDespues SesionHistorialScalarFieldEnum = "valores_despues"
 )
 
 type SortOrder string
@@ -907,6 +937,8 @@ const sesionFieldCancelado sesionPrismaFields = "cancelado"
 
 const sesionFieldPonentes sesionPrismaFields = "ponentes"
 
+const sesionFieldHistorial sesionPrismaFields = "historial"
+
 type sesionPonentePrismaFields = prismaFields
 
 const sesionPonenteFieldIDSesionPonente sesionPonentePrismaFields = "id_sesion_ponente"
@@ -918,6 +950,26 @@ const sesionPonenteFieldIDUsuario sesionPonentePrismaFields = "id_usuario"
 const sesionPonenteFieldSesion sesionPonentePrismaFields = "sesion"
 
 const sesionPonenteFieldUsuario sesionPonentePrismaFields = "usuario"
+
+type sesionHistorialPrismaFields = prismaFields
+
+const sesionHistorialFieldIDHistorial sesionHistorialPrismaFields = "id_historial"
+
+const sesionHistorialFieldIDSesion sesionHistorialPrismaFields = "id_sesion"
+
+const sesionHistorialFieldAccion sesionHistorialPrismaFields = "accion"
+
+const sesionHistorialFieldDetalle sesionHistorialPrismaFields = "detalle"
+
+const sesionHistorialFieldActor sesionHistorialPrismaFields = "actor"
+
+const sesionHistorialFieldFechaCambio sesionHistorialPrismaFields = "fecha_cambio"
+
+const sesionHistorialFieldValoresAntes sesionHistorialPrismaFields = "valores_antes"
+
+const sesionHistorialFieldValoresDespues sesionHistorialPrismaFields = "valores_despues"
+
+const sesionHistorialFieldSesion sesionHistorialPrismaFields = "sesion"
 
 // --- template mock.gotpl ---
 func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
@@ -993,6 +1045,10 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.SesionHistorial = sesionHistorialMock{
+		mock: m,
+	}
+
 	return pc, m, m.Ensure
 }
 
@@ -1030,6 +1086,8 @@ type Mock struct {
 	Sesion sesionMock
 
 	SesionPonente sesionPonenteMock
+
+	SesionHistorial sesionHistorialMock
 }
 
 type usuarioMock struct {
@@ -1698,6 +1756,48 @@ func (m *sesionPonenteMockExec) ReturnsMany(v []SesionPonenteModel) {
 }
 
 func (m *sesionPonenteMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type sesionHistorialMock struct {
+	mock *Mock
+}
+
+type SesionHistorialMockExpectParam interface {
+	ExtractQuery() builder.Query
+	sesionHistorialModel()
+}
+
+func (m *sesionHistorialMock) Expect(query SesionHistorialMockExpectParam) *sesionHistorialMockExec {
+	return &sesionHistorialMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type sesionHistorialMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *sesionHistorialMockExec) Returns(v SesionHistorialModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *sesionHistorialMockExec) ReturnsMany(v []SesionHistorialModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *sesionHistorialMockExec) Errors(err error) {
 	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
 		Query:   m.query,
 		WantErr: err,
@@ -2430,8 +2530,9 @@ type RawSesionModel struct {
 
 // RelationsSesion holds the relation data separately
 type RelationsSesion struct {
-	Evento   *EventoModel         `json:"evento,omitempty"`
-	Ponentes []SesionPonenteModel `json:"ponentes,omitempty"`
+	Evento    *EventoModel           `json:"evento,omitempty"`
+	Ponentes  []SesionPonenteModel   `json:"ponentes,omitempty"`
+	Historial []SesionHistorialModel `json:"historial,omitempty"`
 }
 
 func (r SesionModel) Evento() (value *EventoModel) {
@@ -2446,6 +2547,13 @@ func (r SesionModel) Ponentes() (value []SesionPonenteModel) {
 		panic("attempted to access ponentes but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsSesion.Ponentes
+}
+
+func (r SesionModel) Historial() (value []SesionHistorialModel) {
+	if r.RelationsSesion.Historial == nil {
+		panic("attempted to access historial but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsSesion.Historial
 }
 
 // SesionPonenteModel represents the SesionPonente model and is a wrapper for accessing fields and methods
@@ -2486,6 +2594,76 @@ func (r SesionPonenteModel) Usuario() (value *UsuarioModel) {
 		panic("attempted to access usuario but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsSesionPonente.Usuario
+}
+
+// SesionHistorialModel represents the SesionHistorial model and is a wrapper for accessing fields and methods
+type SesionHistorialModel struct {
+	InnerSesionHistorial
+	RelationsSesionHistorial
+}
+
+// InnerSesionHistorial holds the actual data
+type InnerSesionHistorial struct {
+	IDHistorial    int      `json:"id_historial"`
+	IDSesion       int      `json:"id_sesion"`
+	Accion         string   `json:"accion"`
+	Detalle        *string  `json:"detalle,omitempty"`
+	Actor          *string  `json:"actor,omitempty"`
+	FechaCambio    DateTime `json:"fecha_cambio"`
+	ValoresAntes   *string  `json:"valores_antes,omitempty"`
+	ValoresDespues *string  `json:"valores_despues,omitempty"`
+}
+
+// RawSesionHistorialModel is a struct for SesionHistorial when used in raw queries
+type RawSesionHistorialModel struct {
+	IDHistorial    RawInt      `json:"id_historial"`
+	IDSesion       RawInt      `json:"id_sesion"`
+	Accion         RawString   `json:"accion"`
+	Detalle        *RawString  `json:"detalle,omitempty"`
+	Actor          *RawString  `json:"actor,omitempty"`
+	FechaCambio    RawDateTime `json:"fecha_cambio"`
+	ValoresAntes   *RawString  `json:"valores_antes,omitempty"`
+	ValoresDespues *RawString  `json:"valores_despues,omitempty"`
+}
+
+// RelationsSesionHistorial holds the relation data separately
+type RelationsSesionHistorial struct {
+	Sesion *SesionModel `json:"sesion,omitempty"`
+}
+
+func (r SesionHistorialModel) Detalle() (value String, ok bool) {
+	if r.InnerSesionHistorial.Detalle == nil {
+		return value, false
+	}
+	return *r.InnerSesionHistorial.Detalle, true
+}
+
+func (r SesionHistorialModel) Actor() (value String, ok bool) {
+	if r.InnerSesionHistorial.Actor == nil {
+		return value, false
+	}
+	return *r.InnerSesionHistorial.Actor, true
+}
+
+func (r SesionHistorialModel) ValoresAntes() (value String, ok bool) {
+	if r.InnerSesionHistorial.ValoresAntes == nil {
+		return value, false
+	}
+	return *r.InnerSesionHistorial.ValoresAntes, true
+}
+
+func (r SesionHistorialModel) ValoresDespues() (value String, ok bool) {
+	if r.InnerSesionHistorial.ValoresDespues == nil {
+		return value, false
+	}
+	return *r.InnerSesionHistorial.ValoresDespues, true
+}
+
+func (r SesionHistorialModel) Sesion() (value *SesionModel) {
+	if r.RelationsSesionHistorial.Sesion == nil {
+		panic("attempted to access sesion but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsSesionHistorial.Sesion
 }
 
 // --- template query.gotpl ---
@@ -34734,6 +34912,8 @@ type sesionQuery struct {
 	Cancelado sesionQueryCanceladoBoolean
 
 	Ponentes sesionQueryPonentesRelations
+
+	Historial sesionQueryHistorialRelations
 }
 
 func (sesionQuery) Not(params ...SesionWhereParam) sesionDefaultParam {
@@ -37887,6 +38067,178 @@ func (r sesionQueryPonentesSesionPonente) Field() sesionPrismaFields {
 	return sesionFieldPonentes
 }
 
+// base struct
+type sesionQueryHistorialSesionHistorial struct{}
+
+type sesionQueryHistorialRelations struct{}
+
+// Sesion -> Historial
+//
+// @relation
+// @required
+func (sesionQueryHistorialRelations) Some(
+	params ...SesionHistorialWhereParam,
+) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "historial",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Sesion -> Historial
+//
+// @relation
+// @required
+func (sesionQueryHistorialRelations) Every(
+	params ...SesionHistorialWhereParam,
+) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "historial",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Sesion -> Historial
+//
+// @relation
+// @required
+func (sesionQueryHistorialRelations) None(
+	params ...SesionHistorialWhereParam,
+) sesionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionDefaultParam{
+		data: builder.Field{
+			Name: "historial",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (sesionQueryHistorialRelations) Fetch(
+
+	params ...SesionHistorialWhereParam,
+
+) sesionToHistorialFindMany {
+	var v sesionToHistorialFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "historial"
+	v.query.Outputs = sesionHistorialOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r sesionQueryHistorialRelations) Link(
+	params ...SesionHistorialWhereParam,
+) sesionSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionSetParam{
+		data: builder.Field{
+			Name: "historial",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionQueryHistorialRelations) Unlink(
+	params ...SesionHistorialWhereParam,
+) sesionSetParam {
+	var v sesionSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = sesionSetParam{
+		data: builder.Field{
+			Name: "historial",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r sesionQueryHistorialSesionHistorial) Field() sesionPrismaFields {
+	return sesionFieldHistorial
+}
+
 // SesionPonente acts as a namespaces to access query methods for the SesionPonente model
 var SesionPonente = sesionPonenteQuery{}
 
@@ -39353,6 +39705,3218 @@ func (r sesionPonenteQueryUsuarioRelations) Unlink() sesionPonenteWithPrismaUsua
 
 func (r sesionPonenteQueryUsuarioUsuario) Field() sesionPonentePrismaFields {
 	return sesionPonenteFieldUsuario
+}
+
+// SesionHistorial acts as a namespaces to access query methods for the SesionHistorial model
+var SesionHistorial = sesionHistorialQuery{}
+
+// sesionHistorialQuery exposes query functions for the sesionHistorial model
+type sesionHistorialQuery struct {
+
+	// IDHistorial
+	//
+	// @required
+	IDHistorial sesionHistorialQueryIDHistorialInt
+
+	// IDSesion
+	//
+	// @required
+	IDSesion sesionHistorialQueryIDSesionInt
+
+	// Accion
+	//
+	// @required
+	Accion sesionHistorialQueryAccionString
+
+	// Detalle
+	//
+	// @optional
+	Detalle sesionHistorialQueryDetalleString
+
+	// Actor
+	//
+	// @optional
+	Actor sesionHistorialQueryActorString
+
+	// FechaCambio
+	//
+	// @required
+	FechaCambio sesionHistorialQueryFechaCambioDateTime
+
+	// ValoresAntes
+	//
+	// @optional
+	ValoresAntes sesionHistorialQueryValoresAntesString
+
+	// ValoresDespues
+	//
+	// @optional
+	ValoresDespues sesionHistorialQueryValoresDespuesString
+
+	Sesion sesionHistorialQuerySesionRelations
+}
+
+func (sesionHistorialQuery) Not(params ...SesionHistorialWhereParam) sesionHistorialDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (sesionHistorialQuery) Or(params ...SesionHistorialWhereParam) sesionHistorialDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (sesionHistorialQuery) And(params ...SesionHistorialWhereParam) sesionHistorialDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type sesionHistorialQueryIDHistorialInt struct{}
+
+// Set the required value of IDHistorial
+func (r sesionHistorialQueryIDHistorialInt) Set(value int) sesionHistorialSetParam {
+
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name:  "id_historial",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDHistorial dynamically
+func (r sesionHistorialQueryIDHistorialInt) SetIfPresent(value *Int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDHistorial
+func (r sesionHistorialQueryIDHistorialInt) Increment(value int) sesionHistorialSetParam {
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) IncrementIfPresent(value *int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDHistorial
+func (r sesionHistorialQueryIDHistorialInt) Decrement(value int) sesionHistorialSetParam {
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) DecrementIfPresent(value *int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDHistorial
+func (r sesionHistorialQueryIDHistorialInt) Multiply(value int) sesionHistorialSetParam {
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) MultiplyIfPresent(value *int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDHistorial
+func (r sesionHistorialQueryIDHistorialInt) Divide(value int) sesionHistorialSetParam {
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) DivideIfPresent(value *int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Equals(value int) sesionHistorialWithPrismaIDHistorialEqualsUniqueParam {
+
+	return sesionHistorialWithPrismaIDHistorialEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) EqualsIfPresent(value *int) sesionHistorialWithPrismaIDHistorialEqualsUniqueParam {
+	if value == nil {
+		return sesionHistorialWithPrismaIDHistorialEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Order(direction SortOrder) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "id_historial",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Cursor(cursor int) sesionHistorialCursorParam {
+	return sesionHistorialCursorParam{
+		data: builder.Field{
+			Name:  "id_historial",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) In(value []int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) InIfPresent(value []int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) NotIn(value []int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) NotInIfPresent(value []int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Lt(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) LtIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Lte(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) LteIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Gt(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) GtIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Gte(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) GteIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Not(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDHistorialInt) NotIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionHistorialQueryIDHistorialInt) LT(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionHistorialQueryIDHistorialInt) LTIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionHistorialQueryIDHistorialInt) LTE(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionHistorialQueryIDHistorialInt) LTEIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionHistorialQueryIDHistorialInt) GT(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionHistorialQueryIDHistorialInt) GTIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionHistorialQueryIDHistorialInt) GTE(value int) sesionHistorialParamUnique {
+	return sesionHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionHistorialQueryIDHistorialInt) GTEIfPresent(value *int) sesionHistorialParamUnique {
+	if value == nil {
+		return sesionHistorialParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r sesionHistorialQueryIDHistorialInt) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldIDHistorial
+}
+
+// base struct
+type sesionHistorialQueryIDSesionInt struct{}
+
+// Set the required value of IDSesion
+func (r sesionHistorialQueryIDSesionInt) Set(value int) sesionHistorialSetParam {
+
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDSesion dynamically
+func (r sesionHistorialQueryIDSesionInt) SetIfPresent(value *Int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDSesion
+func (r sesionHistorialQueryIDSesionInt) Increment(value int) sesionHistorialSetParam {
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) IncrementIfPresent(value *int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDSesion
+func (r sesionHistorialQueryIDSesionInt) Decrement(value int) sesionHistorialSetParam {
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) DecrementIfPresent(value *int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDSesion
+func (r sesionHistorialQueryIDSesionInt) Multiply(value int) sesionHistorialSetParam {
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) MultiplyIfPresent(value *int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDSesion
+func (r sesionHistorialQueryIDSesionInt) Divide(value int) sesionHistorialSetParam {
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) DivideIfPresent(value *int) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) Equals(value int) sesionHistorialWithPrismaIDSesionEqualsParam {
+
+	return sesionHistorialWithPrismaIDSesionEqualsParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) EqualsIfPresent(value *int) sesionHistorialWithPrismaIDSesionEqualsParam {
+	if value == nil {
+		return sesionHistorialWithPrismaIDSesionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) Order(direction SortOrder) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) Cursor(cursor int) sesionHistorialCursorParam {
+	return sesionHistorialCursorParam{
+		data: builder.Field{
+			Name:  "id_sesion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) In(value []int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) InIfPresent(value []int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) NotIn(value []int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) NotInIfPresent(value []int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) Lt(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) LtIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) Lte(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) LteIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) Gt(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) GtIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) Gte(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) GteIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) Not(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryIDSesionInt) NotIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionHistorialQueryIDSesionInt) LT(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionHistorialQueryIDSesionInt) LTIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionHistorialQueryIDSesionInt) LTE(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionHistorialQueryIDSesionInt) LTEIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionHistorialQueryIDSesionInt) GT(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionHistorialQueryIDSesionInt) GTIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionHistorialQueryIDSesionInt) GTE(value int) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionHistorialQueryIDSesionInt) GTEIfPresent(value *int) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r sesionHistorialQueryIDSesionInt) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldIDSesion
+}
+
+// base struct
+type sesionHistorialQueryAccionString struct{}
+
+// Set the required value of Accion
+func (r sesionHistorialQueryAccionString) Set(value string) sesionHistorialWithPrismaAccionSetParam {
+
+	return sesionHistorialWithPrismaAccionSetParam{
+		data: builder.Field{
+			Name:  "accion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Accion dynamically
+func (r sesionHistorialQueryAccionString) SetIfPresent(value *String) sesionHistorialWithPrismaAccionSetParam {
+	if value == nil {
+		return sesionHistorialWithPrismaAccionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Equals(value string) sesionHistorialWithPrismaAccionEqualsParam {
+
+	return sesionHistorialWithPrismaAccionEqualsParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) EqualsIfPresent(value *string) sesionHistorialWithPrismaAccionEqualsParam {
+	if value == nil {
+		return sesionHistorialWithPrismaAccionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Order(direction SortOrder) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "accion",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) Cursor(cursor string) sesionHistorialCursorParam {
+	return sesionHistorialCursorParam{
+		data: builder.Field{
+			Name:  "accion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) In(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) InIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionHistorialQueryAccionString) NotIn(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) NotInIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionHistorialQueryAccionString) Lt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) LtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Lte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) LteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Gt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) GtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Gte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) GteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Contains(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) ContainsIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r sesionHistorialQueryAccionString) StartsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) StartsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r sesionHistorialQueryAccionString) EndsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) EndsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Mode(value QueryMode) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) ModeIfPresent(value *QueryMode) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Not(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryAccionString) NotIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r sesionHistorialQueryAccionString) HasPrefix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r sesionHistorialQueryAccionString) HasPrefixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r sesionHistorialQueryAccionString) HasSuffix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "accion",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r sesionHistorialQueryAccionString) HasSuffixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r sesionHistorialQueryAccionString) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldAccion
+}
+
+// base struct
+type sesionHistorialQueryDetalleString struct{}
+
+// Set the optional value of Detalle
+func (r sesionHistorialQueryDetalleString) Set(value string) sesionHistorialSetParam {
+
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name:  "detalle",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Detalle dynamically
+func (r sesionHistorialQueryDetalleString) SetIfPresent(value *String) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of Detalle dynamically
+func (r sesionHistorialQueryDetalleString) SetOptional(value *String) sesionHistorialSetParam {
+	if value == nil {
+
+		var v *string
+		return sesionHistorialSetParam{
+			data: builder.Field{
+				Name:  "detalle",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) Equals(value string) sesionHistorialWithPrismaDetalleEqualsParam {
+
+	return sesionHistorialWithPrismaDetalleEqualsParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) EqualsIfPresent(value *string) sesionHistorialWithPrismaDetalleEqualsParam {
+	if value == nil {
+		return sesionHistorialWithPrismaDetalleEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) EqualsOptional(value *String) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) IsNull() sesionHistorialDefaultParam {
+	var str *string = nil
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) Order(direction SortOrder) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "detalle",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) Cursor(cursor string) sesionHistorialCursorParam {
+	return sesionHistorialCursorParam{
+		data: builder.Field{
+			Name:  "detalle",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) In(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) InIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionHistorialQueryDetalleString) NotIn(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) NotInIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionHistorialQueryDetalleString) Lt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) LtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) Lte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) LteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) Gt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) GtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) Gte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) GteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) Contains(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) ContainsIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) StartsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) StartsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) EndsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) EndsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) Mode(value QueryMode) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) ModeIfPresent(value *QueryMode) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) Not(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryDetalleString) NotIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r sesionHistorialQueryDetalleString) HasPrefix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r sesionHistorialQueryDetalleString) HasPrefixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r sesionHistorialQueryDetalleString) HasSuffix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "detalle",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r sesionHistorialQueryDetalleString) HasSuffixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r sesionHistorialQueryDetalleString) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldDetalle
+}
+
+// base struct
+type sesionHistorialQueryActorString struct{}
+
+// Set the optional value of Actor
+func (r sesionHistorialQueryActorString) Set(value string) sesionHistorialSetParam {
+
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name:  "actor",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Actor dynamically
+func (r sesionHistorialQueryActorString) SetIfPresent(value *String) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of Actor dynamically
+func (r sesionHistorialQueryActorString) SetOptional(value *String) sesionHistorialSetParam {
+	if value == nil {
+
+		var v *string
+		return sesionHistorialSetParam{
+			data: builder.Field{
+				Name:  "actor",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionHistorialQueryActorString) Equals(value string) sesionHistorialWithPrismaActorEqualsParam {
+
+	return sesionHistorialWithPrismaActorEqualsParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) EqualsIfPresent(value *string) sesionHistorialWithPrismaActorEqualsParam {
+	if value == nil {
+		return sesionHistorialWithPrismaActorEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionHistorialQueryActorString) EqualsOptional(value *String) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) IsNull() sesionHistorialDefaultParam {
+	var str *string = nil
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) Order(direction SortOrder) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "actor",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) Cursor(cursor string) sesionHistorialCursorParam {
+	return sesionHistorialCursorParam{
+		data: builder.Field{
+			Name:  "actor",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) In(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) InIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionHistorialQueryActorString) NotIn(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) NotInIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionHistorialQueryActorString) Lt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) LtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionHistorialQueryActorString) Lte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) LteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionHistorialQueryActorString) Gt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) GtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionHistorialQueryActorString) Gte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) GteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionHistorialQueryActorString) Contains(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) ContainsIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r sesionHistorialQueryActorString) StartsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) StartsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r sesionHistorialQueryActorString) EndsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) EndsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r sesionHistorialQueryActorString) Mode(value QueryMode) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) ModeIfPresent(value *QueryMode) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r sesionHistorialQueryActorString) Not(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryActorString) NotIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r sesionHistorialQueryActorString) HasPrefix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r sesionHistorialQueryActorString) HasPrefixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r sesionHistorialQueryActorString) HasSuffix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r sesionHistorialQueryActorString) HasSuffixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r sesionHistorialQueryActorString) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldActor
+}
+
+// base struct
+type sesionHistorialQueryFechaCambioDateTime struct{}
+
+// Set the required value of FechaCambio
+func (r sesionHistorialQueryFechaCambioDateTime) Set(value DateTime) sesionHistorialSetParam {
+
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name:  "fecha_cambio",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaCambio dynamically
+func (r sesionHistorialQueryFechaCambioDateTime) SetIfPresent(value *DateTime) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Equals(value DateTime) sesionHistorialWithPrismaFechaCambioEqualsParam {
+
+	return sesionHistorialWithPrismaFechaCambioEqualsParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) EqualsIfPresent(value *DateTime) sesionHistorialWithPrismaFechaCambioEqualsParam {
+	if value == nil {
+		return sesionHistorialWithPrismaFechaCambioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Order(direction SortOrder) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_cambio",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Cursor(cursor DateTime) sesionHistorialCursorParam {
+	return sesionHistorialCursorParam{
+		data: builder.Field{
+			Name:  "fecha_cambio",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) In(value []DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) InIfPresent(value []DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) NotIn(value []DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) NotInIfPresent(value []DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Lt(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) LtIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Lte(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) LteIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Gt(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) GtIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Gte(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) GteIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Not(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) NotIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r sesionHistorialQueryFechaCambioDateTime) Before(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r sesionHistorialQueryFechaCambioDateTime) BeforeIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r sesionHistorialQueryFechaCambioDateTime) After(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r sesionHistorialQueryFechaCambioDateTime) AfterIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r sesionHistorialQueryFechaCambioDateTime) BeforeEquals(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r sesionHistorialQueryFechaCambioDateTime) BeforeEqualsIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r sesionHistorialQueryFechaCambioDateTime) AfterEquals(value DateTime) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r sesionHistorialQueryFechaCambioDateTime) AfterEqualsIfPresent(value *DateTime) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r sesionHistorialQueryFechaCambioDateTime) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldFechaCambio
+}
+
+// base struct
+type sesionHistorialQueryValoresAntesString struct{}
+
+// Set the optional value of ValoresAntes
+func (r sesionHistorialQueryValoresAntesString) Set(value string) sesionHistorialSetParam {
+
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name:  "valores_antes",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of ValoresAntes dynamically
+func (r sesionHistorialQueryValoresAntesString) SetIfPresent(value *String) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of ValoresAntes dynamically
+func (r sesionHistorialQueryValoresAntesString) SetOptional(value *String) sesionHistorialSetParam {
+	if value == nil {
+
+		var v *string
+		return sesionHistorialSetParam{
+			data: builder.Field{
+				Name:  "valores_antes",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Equals(value string) sesionHistorialWithPrismaValoresAntesEqualsParam {
+
+	return sesionHistorialWithPrismaValoresAntesEqualsParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) EqualsIfPresent(value *string) sesionHistorialWithPrismaValoresAntesEqualsParam {
+	if value == nil {
+		return sesionHistorialWithPrismaValoresAntesEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) EqualsOptional(value *String) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) IsNull() sesionHistorialDefaultParam {
+	var str *string = nil
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) Order(direction SortOrder) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "valores_antes",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) Cursor(cursor string) sesionHistorialCursorParam {
+	return sesionHistorialCursorParam{
+		data: builder.Field{
+			Name:  "valores_antes",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) In(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) InIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) NotIn(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) NotInIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Lt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) LtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Lte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) LteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Gt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) GtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Gte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) GteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Contains(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) ContainsIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) StartsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) StartsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) EndsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) EndsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Mode(value QueryMode) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) ModeIfPresent(value *QueryMode) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Not(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresAntesString) NotIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r sesionHistorialQueryValoresAntesString) HasPrefix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r sesionHistorialQueryValoresAntesString) HasPrefixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r sesionHistorialQueryValoresAntesString) HasSuffix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_antes",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r sesionHistorialQueryValoresAntesString) HasSuffixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r sesionHistorialQueryValoresAntesString) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldValoresAntes
+}
+
+// base struct
+type sesionHistorialQueryValoresDespuesString struct{}
+
+// Set the optional value of ValoresDespues
+func (r sesionHistorialQueryValoresDespuesString) Set(value string) sesionHistorialSetParam {
+
+	return sesionHistorialSetParam{
+		data: builder.Field{
+			Name:  "valores_despues",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of ValoresDespues dynamically
+func (r sesionHistorialQueryValoresDespuesString) SetIfPresent(value *String) sesionHistorialSetParam {
+	if value == nil {
+		return sesionHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of ValoresDespues dynamically
+func (r sesionHistorialQueryValoresDespuesString) SetOptional(value *String) sesionHistorialSetParam {
+	if value == nil {
+
+		var v *string
+		return sesionHistorialSetParam{
+			data: builder.Field{
+				Name:  "valores_despues",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Equals(value string) sesionHistorialWithPrismaValoresDespuesEqualsParam {
+
+	return sesionHistorialWithPrismaValoresDespuesEqualsParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) EqualsIfPresent(value *string) sesionHistorialWithPrismaValoresDespuesEqualsParam {
+	if value == nil {
+		return sesionHistorialWithPrismaValoresDespuesEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) EqualsOptional(value *String) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) IsNull() sesionHistorialDefaultParam {
+	var str *string = nil
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Order(direction SortOrder) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "valores_despues",
+			Value: direction,
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Cursor(cursor string) sesionHistorialCursorParam {
+	return sesionHistorialCursorParam{
+		data: builder.Field{
+			Name:  "valores_despues",
+			Value: cursor,
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) In(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) InIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) NotIn(value []string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) NotInIfPresent(value []string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Lt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) LtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Lte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) LteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Gt(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) GtIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Gte(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) GteIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Contains(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) ContainsIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) StartsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) StartsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) EndsWith(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) EndsWithIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Mode(value QueryMode) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) ModeIfPresent(value *QueryMode) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Not(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQueryValoresDespuesString) NotIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r sesionHistorialQueryValoresDespuesString) HasPrefix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r sesionHistorialQueryValoresDespuesString) HasPrefixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r sesionHistorialQueryValoresDespuesString) HasSuffix(value string) sesionHistorialDefaultParam {
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "valores_despues",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r sesionHistorialQueryValoresDespuesString) HasSuffixIfPresent(value *string) sesionHistorialDefaultParam {
+	if value == nil {
+		return sesionHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r sesionHistorialQueryValoresDespuesString) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldValoresDespues
+}
+
+// base struct
+type sesionHistorialQuerySesionSesion struct{}
+
+type sesionHistorialQuerySesionRelations struct{}
+
+// SesionHistorial -> Sesion
+//
+// @relation
+// @required
+func (sesionHistorialQuerySesionRelations) Where(
+	params ...SesionWhereParam,
+) sesionHistorialDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return sesionHistorialDefaultParam{
+		data: builder.Field{
+			Name: "sesion",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (sesionHistorialQuerySesionRelations) Fetch() sesionHistorialToSesionFindUnique {
+	var v sesionHistorialToSesionFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "sesion"
+	v.query.Outputs = sesionOutput
+
+	return v
+}
+
+func (r sesionHistorialQuerySesionRelations) Link(
+	params SesionWhereParam,
+) sesionHistorialWithPrismaSesionSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return sesionHistorialWithPrismaSesionSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return sesionHistorialWithPrismaSesionSetParam{
+		data: builder.Field{
+			Name: "sesion",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r sesionHistorialQuerySesionRelations) Unlink() sesionHistorialWithPrismaSesionSetParam {
+	var v sesionHistorialWithPrismaSesionSetParam
+
+	v = sesionHistorialWithPrismaSesionSetParam{
+		data: builder.Field{
+			Name: "sesion",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r sesionHistorialQuerySesionSesion) Field() sesionHistorialPrismaFields {
+	return sesionHistorialFieldSesion
 }
 
 // --- template actions.gotpl ---
@@ -51159,6 +54723,84 @@ func (p sesionWithPrismaPonentesEqualsUniqueParam) ponentesField() {}
 func (sesionWithPrismaPonentesEqualsUniqueParam) unique() {}
 func (sesionWithPrismaPonentesEqualsUniqueParam) equals() {}
 
+type SesionWithPrismaHistorialEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionModel()
+	historialField()
+}
+
+type SesionWithPrismaHistorialSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	historialField()
+}
+
+type sesionWithPrismaHistorialSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaHistorialSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaHistorialSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaHistorialSetParam) sesionModel() {}
+
+func (p sesionWithPrismaHistorialSetParam) historialField() {}
+
+type SesionWithPrismaHistorialWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionModel()
+	historialField()
+}
+
+type sesionWithPrismaHistorialEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaHistorialEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaHistorialEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaHistorialEqualsParam) sesionModel() {}
+
+func (p sesionWithPrismaHistorialEqualsParam) historialField() {}
+
+func (sesionWithPrismaHistorialSetParam) settable()  {}
+func (sesionWithPrismaHistorialEqualsParam) equals() {}
+
+type sesionWithPrismaHistorialEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionWithPrismaHistorialEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionWithPrismaHistorialEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionWithPrismaHistorialEqualsUniqueParam) sesionModel()    {}
+func (p sesionWithPrismaHistorialEqualsUniqueParam) historialField() {}
+
+func (sesionWithPrismaHistorialEqualsUniqueParam) unique() {}
+func (sesionWithPrismaHistorialEqualsUniqueParam) equals() {}
+
 type sesionPonenteActions struct {
 	// client holds the prisma client
 	client *PrismaClient
@@ -51723,6 +55365,888 @@ func (p sesionPonenteWithPrismaUsuarioEqualsUniqueParam) usuarioField()       {}
 
 func (sesionPonenteWithPrismaUsuarioEqualsUniqueParam) unique() {}
 func (sesionPonenteWithPrismaUsuarioEqualsUniqueParam) equals() {}
+
+type sesionHistorialActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var sesionHistorialOutput = []builder.Output{
+	{Name: "id_historial"},
+	{Name: "id_sesion"},
+	{Name: "accion"},
+	{Name: "detalle"},
+	{Name: "actor"},
+	{Name: "fecha_cambio"},
+	{Name: "valores_antes"},
+	{Name: "valores_despues"},
+}
+
+type SesionHistorialRelationWith interface {
+	getQuery() builder.Query
+	with()
+	sesionHistorialRelation()
+}
+
+type SesionHistorialWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+}
+
+type sesionHistorialDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialDefaultParam) sesionHistorialModel() {}
+
+type SesionHistorialOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+}
+
+type sesionHistorialOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialOrderByParam) sesionHistorialModel() {}
+
+type SesionHistorialCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	isCursor()
+}
+
+type sesionHistorialCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialCursorParam) isCursor() {}
+
+func (p sesionHistorialCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialCursorParam) sesionHistorialModel() {}
+
+type SesionHistorialParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	sesionHistorialModel()
+}
+
+type sesionHistorialParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialParamUnique) sesionHistorialModel() {}
+
+func (sesionHistorialParamUnique) unique() {}
+
+func (p sesionHistorialParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionHistorialEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+}
+
+type sesionHistorialEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialEqualsParam) sesionHistorialModel() {}
+
+func (sesionHistorialEqualsParam) equals() {}
+
+func (p sesionHistorialEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionHistorialEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	sesionHistorialModel()
+}
+
+type sesionHistorialEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialEqualsUniqueParam) sesionHistorialModel() {}
+
+func (sesionHistorialEqualsUniqueParam) unique() {}
+func (sesionHistorialEqualsUniqueParam) equals() {}
+
+func (p sesionHistorialEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type SesionHistorialSetParam interface {
+	field() builder.Field
+	settable()
+	sesionHistorialModel()
+}
+
+type sesionHistorialSetParam struct {
+	data builder.Field
+}
+
+func (sesionHistorialSetParam) settable() {}
+
+func (p sesionHistorialSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialSetParam) sesionHistorialModel() {}
+
+type SesionHistorialWithPrismaIDHistorialEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	idHistorialField()
+}
+
+type SesionHistorialWithPrismaIDHistorialSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	idHistorialField()
+}
+
+type sesionHistorialWithPrismaIDHistorialSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaIDHistorialSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaIDHistorialSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaIDHistorialSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaIDHistorialSetParam) idHistorialField() {}
+
+type SesionHistorialWithPrismaIDHistorialWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	idHistorialField()
+}
+
+type sesionHistorialWithPrismaIDHistorialEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaIDHistorialEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaIDHistorialEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaIDHistorialEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaIDHistorialEqualsParam) idHistorialField() {}
+
+func (sesionHistorialWithPrismaIDHistorialSetParam) settable()  {}
+func (sesionHistorialWithPrismaIDHistorialEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaIDHistorialEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaIDHistorialEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaIDHistorialEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaIDHistorialEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaIDHistorialEqualsUniqueParam) idHistorialField()     {}
+
+func (sesionHistorialWithPrismaIDHistorialEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaIDHistorialEqualsUniqueParam) equals() {}
+
+type SesionHistorialWithPrismaIDSesionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	idSesionField()
+}
+
+type SesionHistorialWithPrismaIDSesionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	idSesionField()
+}
+
+type sesionHistorialWithPrismaIDSesionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaIDSesionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaIDSesionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaIDSesionSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaIDSesionSetParam) idSesionField() {}
+
+type SesionHistorialWithPrismaIDSesionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	idSesionField()
+}
+
+type sesionHistorialWithPrismaIDSesionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaIDSesionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaIDSesionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaIDSesionEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaIDSesionEqualsParam) idSesionField() {}
+
+func (sesionHistorialWithPrismaIDSesionSetParam) settable()  {}
+func (sesionHistorialWithPrismaIDSesionEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaIDSesionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaIDSesionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaIDSesionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaIDSesionEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaIDSesionEqualsUniqueParam) idSesionField()        {}
+
+func (sesionHistorialWithPrismaIDSesionEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaIDSesionEqualsUniqueParam) equals() {}
+
+type SesionHistorialWithPrismaAccionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	accionField()
+}
+
+type SesionHistorialWithPrismaAccionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	accionField()
+}
+
+type sesionHistorialWithPrismaAccionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaAccionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaAccionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaAccionSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaAccionSetParam) accionField() {}
+
+type SesionHistorialWithPrismaAccionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	accionField()
+}
+
+type sesionHistorialWithPrismaAccionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaAccionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaAccionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaAccionEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaAccionEqualsParam) accionField() {}
+
+func (sesionHistorialWithPrismaAccionSetParam) settable()  {}
+func (sesionHistorialWithPrismaAccionEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaAccionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaAccionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaAccionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaAccionEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaAccionEqualsUniqueParam) accionField()          {}
+
+func (sesionHistorialWithPrismaAccionEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaAccionEqualsUniqueParam) equals() {}
+
+type SesionHistorialWithPrismaDetalleEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	detalleField()
+}
+
+type SesionHistorialWithPrismaDetalleSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	detalleField()
+}
+
+type sesionHistorialWithPrismaDetalleSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaDetalleSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaDetalleSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaDetalleSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaDetalleSetParam) detalleField() {}
+
+type SesionHistorialWithPrismaDetalleWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	detalleField()
+}
+
+type sesionHistorialWithPrismaDetalleEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaDetalleEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaDetalleEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaDetalleEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaDetalleEqualsParam) detalleField() {}
+
+func (sesionHistorialWithPrismaDetalleSetParam) settable()  {}
+func (sesionHistorialWithPrismaDetalleEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaDetalleEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaDetalleEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaDetalleEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaDetalleEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaDetalleEqualsUniqueParam) detalleField()         {}
+
+func (sesionHistorialWithPrismaDetalleEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaDetalleEqualsUniqueParam) equals() {}
+
+type SesionHistorialWithPrismaActorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	actorField()
+}
+
+type SesionHistorialWithPrismaActorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	actorField()
+}
+
+type sesionHistorialWithPrismaActorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaActorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaActorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaActorSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaActorSetParam) actorField() {}
+
+type SesionHistorialWithPrismaActorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	actorField()
+}
+
+type sesionHistorialWithPrismaActorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaActorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaActorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaActorEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaActorEqualsParam) actorField() {}
+
+func (sesionHistorialWithPrismaActorSetParam) settable()  {}
+func (sesionHistorialWithPrismaActorEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaActorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaActorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaActorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaActorEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaActorEqualsUniqueParam) actorField()           {}
+
+func (sesionHistorialWithPrismaActorEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaActorEqualsUniqueParam) equals() {}
+
+type SesionHistorialWithPrismaFechaCambioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	fechaCambioField()
+}
+
+type SesionHistorialWithPrismaFechaCambioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	fechaCambioField()
+}
+
+type sesionHistorialWithPrismaFechaCambioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaFechaCambioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaFechaCambioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaFechaCambioSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaFechaCambioSetParam) fechaCambioField() {}
+
+type SesionHistorialWithPrismaFechaCambioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	fechaCambioField()
+}
+
+type sesionHistorialWithPrismaFechaCambioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaFechaCambioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaFechaCambioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaFechaCambioEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaFechaCambioEqualsParam) fechaCambioField() {}
+
+func (sesionHistorialWithPrismaFechaCambioSetParam) settable()  {}
+func (sesionHistorialWithPrismaFechaCambioEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaFechaCambioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaFechaCambioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaFechaCambioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaFechaCambioEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaFechaCambioEqualsUniqueParam) fechaCambioField()     {}
+
+func (sesionHistorialWithPrismaFechaCambioEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaFechaCambioEqualsUniqueParam) equals() {}
+
+type SesionHistorialWithPrismaValoresAntesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	valoresAntesField()
+}
+
+type SesionHistorialWithPrismaValoresAntesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	valoresAntesField()
+}
+
+type sesionHistorialWithPrismaValoresAntesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaValoresAntesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaValoresAntesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaValoresAntesSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaValoresAntesSetParam) valoresAntesField() {}
+
+type SesionHistorialWithPrismaValoresAntesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	valoresAntesField()
+}
+
+type sesionHistorialWithPrismaValoresAntesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaValoresAntesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaValoresAntesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaValoresAntesEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaValoresAntesEqualsParam) valoresAntesField() {}
+
+func (sesionHistorialWithPrismaValoresAntesSetParam) settable()  {}
+func (sesionHistorialWithPrismaValoresAntesEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaValoresAntesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaValoresAntesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaValoresAntesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaValoresAntesEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaValoresAntesEqualsUniqueParam) valoresAntesField()    {}
+
+func (sesionHistorialWithPrismaValoresAntesEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaValoresAntesEqualsUniqueParam) equals() {}
+
+type SesionHistorialWithPrismaValoresDespuesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	valoresDespuesField()
+}
+
+type SesionHistorialWithPrismaValoresDespuesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	valoresDespuesField()
+}
+
+type sesionHistorialWithPrismaValoresDespuesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaValoresDespuesSetParam) valoresDespuesField() {}
+
+type SesionHistorialWithPrismaValoresDespuesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	valoresDespuesField()
+}
+
+type sesionHistorialWithPrismaValoresDespuesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaValoresDespuesEqualsParam) valoresDespuesField() {}
+
+func (sesionHistorialWithPrismaValoresDespuesSetParam) settable()  {}
+func (sesionHistorialWithPrismaValoresDespuesEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaValoresDespuesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaValoresDespuesEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaValoresDespuesEqualsUniqueParam) valoresDespuesField()  {}
+
+func (sesionHistorialWithPrismaValoresDespuesEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaValoresDespuesEqualsUniqueParam) equals() {}
+
+type SesionHistorialWithPrismaSesionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	sesionHistorialModel()
+	sesionField()
+}
+
+type SesionHistorialWithPrismaSesionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	sesionField()
+}
+
+type sesionHistorialWithPrismaSesionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaSesionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaSesionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaSesionSetParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaSesionSetParam) sesionField() {}
+
+type SesionHistorialWithPrismaSesionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	sesionHistorialModel()
+	sesionField()
+}
+
+type sesionHistorialWithPrismaSesionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaSesionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaSesionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaSesionEqualsParam) sesionHistorialModel() {}
+
+func (p sesionHistorialWithPrismaSesionEqualsParam) sesionField() {}
+
+func (sesionHistorialWithPrismaSesionSetParam) settable()  {}
+func (sesionHistorialWithPrismaSesionEqualsParam) equals() {}
+
+type sesionHistorialWithPrismaSesionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p sesionHistorialWithPrismaSesionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p sesionHistorialWithPrismaSesionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialWithPrismaSesionEqualsUniqueParam) sesionHistorialModel() {}
+func (p sesionHistorialWithPrismaSesionEqualsUniqueParam) sesionField()          {}
+
+func (sesionHistorialWithPrismaSesionEqualsUniqueParam) unique() {}
+func (sesionHistorialWithPrismaSesionEqualsUniqueParam) equals() {}
 
 // --- template create.gotpl ---
 
@@ -52853,6 +57377,76 @@ func (r sesionPonenteCreateOne) Exec(ctx context.Context) (*SesionPonenteModel, 
 
 func (r sesionPonenteCreateOne) Tx() SesionPonenteUniqueTxResult {
 	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single sesionHistorial.
+func (r sesionHistorialActions) CreateOne(
+	_accion SesionHistorialWithPrismaAccionSetParam,
+	_sesion SesionHistorialWithPrismaSesionSetParam,
+
+	optional ...SesionHistorialSetParam,
+) sesionHistorialCreateOne {
+	var v sesionHistorialCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "SesionHistorial"
+	v.query.Outputs = sesionHistorialOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _accion.field())
+	fields = append(fields, _sesion.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r sesionHistorialCreateOne) With(params ...SesionHistorialRelationWith) sesionHistorialCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type sesionHistorialCreateOne struct {
+	query builder.Query
+}
+
+func (p sesionHistorialCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p sesionHistorialCreateOne) sesionHistorialModel() {}
+
+func (r sesionHistorialCreateOne) Exec(ctx context.Context) (*SesionHistorialModel, error) {
+	var v SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialCreateOne) Tx() SesionHistorialUniqueTxResult {
+	v := newSesionHistorialUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -77472,6 +82066,560 @@ func (r sesionToPonentesDeleteMany) Tx() SesionManyTxResult {
 	return v
 }
 
+type sesionToHistorialFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionToHistorialFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToHistorialFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToHistorialFindUnique) with()           {}
+func (r sesionToHistorialFindUnique) sesionModel()    {}
+func (r sesionToHistorialFindUnique) sesionRelation() {}
+
+func (r sesionToHistorialFindUnique) With(params ...SesionHistorialRelationWith) sesionToHistorialFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToHistorialFindUnique) Select(params ...sesionPrismaFields) sesionToHistorialFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToHistorialFindUnique) Omit(params ...sesionPrismaFields) sesionToHistorialFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToHistorialFindUnique) Exec(ctx context.Context) (
+	*SesionModel,
+	error,
+) {
+	var v *SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToHistorialFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesion,
+	error,
+) {
+	var v *InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToHistorialFindUnique) Update(params ...SesionSetParam) sesionToHistorialUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Sesion"
+
+	var v sesionToHistorialUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionToHistorialUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionToHistorialUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToHistorialUpdateUnique) sesionModel() {}
+
+func (r sesionToHistorialUpdateUnique) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToHistorialUpdateUnique) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionToHistorialFindUnique) Delete() sesionToHistorialDeleteUnique {
+	var v sesionToHistorialDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Sesion"
+
+	return v
+}
+
+type sesionToHistorialDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionToHistorialDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionToHistorialDeleteUnique) sesionModel() {}
+
+func (r sesionToHistorialDeleteUnique) Exec(ctx context.Context) (*SesionModel, error) {
+	var v SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToHistorialDeleteUnique) Tx() SesionUniqueTxResult {
+	v := newSesionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionToHistorialFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionToHistorialFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToHistorialFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToHistorialFindFirst) with()           {}
+func (r sesionToHistorialFindFirst) sesionModel()    {}
+func (r sesionToHistorialFindFirst) sesionRelation() {}
+
+func (r sesionToHistorialFindFirst) With(params ...SesionHistorialRelationWith) sesionToHistorialFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToHistorialFindFirst) Select(params ...sesionPrismaFields) sesionToHistorialFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToHistorialFindFirst) Omit(params ...sesionPrismaFields) sesionToHistorialFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToHistorialFindFirst) OrderBy(params ...SesionHistorialOrderByParam) sesionToHistorialFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionToHistorialFindFirst) Skip(count int) sesionToHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToHistorialFindFirst) Take(count int) sesionToHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToHistorialFindFirst) Cursor(cursor SesionCursorParam) sesionToHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionToHistorialFindFirst) Exec(ctx context.Context) (
+	*SesionModel,
+	error,
+) {
+	var v *SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionToHistorialFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesion,
+	error,
+) {
+	var v *InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionToHistorialFindMany struct {
+	query builder.Query
+}
+
+func (r sesionToHistorialFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToHistorialFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToHistorialFindMany) with()           {}
+func (r sesionToHistorialFindMany) sesionModel()    {}
+func (r sesionToHistorialFindMany) sesionRelation() {}
+
+func (r sesionToHistorialFindMany) With(params ...SesionHistorialRelationWith) sesionToHistorialFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionToHistorialFindMany) Select(params ...sesionPrismaFields) sesionToHistorialFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToHistorialFindMany) Omit(params ...sesionPrismaFields) sesionToHistorialFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionToHistorialFindMany) OrderBy(params ...SesionHistorialOrderByParam) sesionToHistorialFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionToHistorialFindMany) Skip(count int) sesionToHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToHistorialFindMany) Take(count int) sesionToHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionToHistorialFindMany) Cursor(cursor SesionCursorParam) sesionToHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionToHistorialFindMany) Exec(ctx context.Context) (
+	[]SesionModel,
+	error,
+) {
+	var v []SesionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionToHistorialFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesion,
+	error,
+) {
+	var v []InnerSesion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionToHistorialFindMany) Update(params ...SesionSetParam) sesionToHistorialUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Sesion"
+
+	r.query.Outputs = countOutput
+
+	var v sesionToHistorialUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionToHistorialUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionToHistorialUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionToHistorialUpdateMany) sesionModel() {}
+
+func (r sesionToHistorialUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToHistorialUpdateMany) Tx() SesionManyTxResult {
+	v := newSesionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionToHistorialFindMany) Delete() sesionToHistorialDeleteMany {
+	var v sesionToHistorialDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Sesion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionToHistorialDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionToHistorialDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionToHistorialDeleteMany) sesionModel() {}
+
+func (r sesionToHistorialDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionToHistorialDeleteMany) Tx() SesionManyTxResult {
+	v := newSesionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 type sesionFindUnique struct {
 	query builder.Query
 }
@@ -79880,6 +85028,1210 @@ func (r sesionPonenteDeleteMany) Tx() SesionPonenteManyTxResult {
 	return v
 }
 
+type sesionHistorialToSesionFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionHistorialToSesionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialToSesionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialToSesionFindUnique) with()                    {}
+func (r sesionHistorialToSesionFindUnique) sesionHistorialModel()    {}
+func (r sesionHistorialToSesionFindUnique) sesionHistorialRelation() {}
+
+func (r sesionHistorialToSesionFindUnique) With(params ...SesionRelationWith) sesionHistorialToSesionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindUnique) Select(params ...sesionHistorialPrismaFields) sesionHistorialToSesionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindUnique) Omit(params ...sesionHistorialPrismaFields) sesionHistorialToSesionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindUnique) Exec(ctx context.Context) (
+	*SesionHistorialModel,
+	error,
+) {
+	var v *SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialToSesionFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesionHistorial,
+	error,
+) {
+	var v *InnerSesionHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialToSesionFindUnique) Update(params ...SesionHistorialSetParam) sesionHistorialToSesionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "SesionHistorial"
+
+	var v sesionHistorialToSesionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionHistorialToSesionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionHistorialToSesionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialToSesionUpdateUnique) sesionHistorialModel() {}
+
+func (r sesionHistorialToSesionUpdateUnique) Exec(ctx context.Context) (*SesionHistorialModel, error) {
+	var v SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialToSesionUpdateUnique) Tx() SesionHistorialUniqueTxResult {
+	v := newSesionHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionHistorialToSesionFindUnique) Delete() sesionHistorialToSesionDeleteUnique {
+	var v sesionHistorialToSesionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "SesionHistorial"
+
+	return v
+}
+
+type sesionHistorialToSesionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionHistorialToSesionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionHistorialToSesionDeleteUnique) sesionHistorialModel() {}
+
+func (r sesionHistorialToSesionDeleteUnique) Exec(ctx context.Context) (*SesionHistorialModel, error) {
+	var v SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialToSesionDeleteUnique) Tx() SesionHistorialUniqueTxResult {
+	v := newSesionHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionHistorialToSesionFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionHistorialToSesionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialToSesionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialToSesionFindFirst) with()                    {}
+func (r sesionHistorialToSesionFindFirst) sesionHistorialModel()    {}
+func (r sesionHistorialToSesionFindFirst) sesionHistorialRelation() {}
+
+func (r sesionHistorialToSesionFindFirst) With(params ...SesionRelationWith) sesionHistorialToSesionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindFirst) Select(params ...sesionHistorialPrismaFields) sesionHistorialToSesionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindFirst) Omit(params ...sesionHistorialPrismaFields) sesionHistorialToSesionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindFirst) OrderBy(params ...SesionOrderByParam) sesionHistorialToSesionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindFirst) Skip(count int) sesionHistorialToSesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionHistorialToSesionFindFirst) Take(count int) sesionHistorialToSesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionHistorialToSesionFindFirst) Cursor(cursor SesionHistorialCursorParam) sesionHistorialToSesionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionHistorialToSesionFindFirst) Exec(ctx context.Context) (
+	*SesionHistorialModel,
+	error,
+) {
+	var v *SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialToSesionFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesionHistorial,
+	error,
+) {
+	var v *InnerSesionHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionHistorialToSesionFindMany struct {
+	query builder.Query
+}
+
+func (r sesionHistorialToSesionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialToSesionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialToSesionFindMany) with()                    {}
+func (r sesionHistorialToSesionFindMany) sesionHistorialModel()    {}
+func (r sesionHistorialToSesionFindMany) sesionHistorialRelation() {}
+
+func (r sesionHistorialToSesionFindMany) With(params ...SesionRelationWith) sesionHistorialToSesionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindMany) Select(params ...sesionHistorialPrismaFields) sesionHistorialToSesionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindMany) Omit(params ...sesionHistorialPrismaFields) sesionHistorialToSesionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindMany) OrderBy(params ...SesionOrderByParam) sesionHistorialToSesionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionHistorialToSesionFindMany) Skip(count int) sesionHistorialToSesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionHistorialToSesionFindMany) Take(count int) sesionHistorialToSesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionHistorialToSesionFindMany) Cursor(cursor SesionHistorialCursorParam) sesionHistorialToSesionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionHistorialToSesionFindMany) Exec(ctx context.Context) (
+	[]SesionHistorialModel,
+	error,
+) {
+	var v []SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialToSesionFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesionHistorial,
+	error,
+) {
+	var v []InnerSesionHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialToSesionFindMany) Update(params ...SesionHistorialSetParam) sesionHistorialToSesionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "SesionHistorial"
+
+	r.query.Outputs = countOutput
+
+	var v sesionHistorialToSesionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionHistorialToSesionUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionHistorialToSesionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialToSesionUpdateMany) sesionHistorialModel() {}
+
+func (r sesionHistorialToSesionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialToSesionUpdateMany) Tx() SesionHistorialManyTxResult {
+	v := newSesionHistorialManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionHistorialToSesionFindMany) Delete() sesionHistorialToSesionDeleteMany {
+	var v sesionHistorialToSesionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "SesionHistorial"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionHistorialToSesionDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionHistorialToSesionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionHistorialToSesionDeleteMany) sesionHistorialModel() {}
+
+func (r sesionHistorialToSesionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialToSesionDeleteMany) Tx() SesionHistorialManyTxResult {
+	v := newSesionHistorialManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionHistorialFindUnique struct {
+	query builder.Query
+}
+
+func (r sesionHistorialFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialFindUnique) with()                    {}
+func (r sesionHistorialFindUnique) sesionHistorialModel()    {}
+func (r sesionHistorialFindUnique) sesionHistorialRelation() {}
+
+func (r sesionHistorialActions) FindUnique(
+	params SesionHistorialEqualsUniqueWhereParam,
+) sesionHistorialFindUnique {
+	var v sesionHistorialFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "SesionHistorial"
+	v.query.Outputs = sesionHistorialOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r sesionHistorialFindUnique) With(params ...SesionHistorialRelationWith) sesionHistorialFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionHistorialFindUnique) Select(params ...sesionHistorialPrismaFields) sesionHistorialFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialFindUnique) Omit(params ...sesionHistorialPrismaFields) sesionHistorialFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialFindUnique) Exec(ctx context.Context) (
+	*SesionHistorialModel,
+	error,
+) {
+	var v *SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialFindUnique) ExecInner(ctx context.Context) (
+	*InnerSesionHistorial,
+	error,
+) {
+	var v *InnerSesionHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialFindUnique) Update(params ...SesionHistorialSetParam) sesionHistorialUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "SesionHistorial"
+
+	var v sesionHistorialUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionHistorialUpdateUnique struct {
+	query builder.Query
+}
+
+func (r sesionHistorialUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialUpdateUnique) sesionHistorialModel() {}
+
+func (r sesionHistorialUpdateUnique) Exec(ctx context.Context) (*SesionHistorialModel, error) {
+	var v SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialUpdateUnique) Tx() SesionHistorialUniqueTxResult {
+	v := newSesionHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionHistorialFindUnique) Delete() sesionHistorialDeleteUnique {
+	var v sesionHistorialDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "SesionHistorial"
+
+	return v
+}
+
+type sesionHistorialDeleteUnique struct {
+	query builder.Query
+}
+
+func (r sesionHistorialDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionHistorialDeleteUnique) sesionHistorialModel() {}
+
+func (r sesionHistorialDeleteUnique) Exec(ctx context.Context) (*SesionHistorialModel, error) {
+	var v SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialDeleteUnique) Tx() SesionHistorialUniqueTxResult {
+	v := newSesionHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type sesionHistorialFindFirst struct {
+	query builder.Query
+}
+
+func (r sesionHistorialFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialFindFirst) with()                    {}
+func (r sesionHistorialFindFirst) sesionHistorialModel()    {}
+func (r sesionHistorialFindFirst) sesionHistorialRelation() {}
+
+func (r sesionHistorialActions) FindFirst(
+	params ...SesionHistorialWhereParam,
+) sesionHistorialFindFirst {
+	var v sesionHistorialFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "SesionHistorial"
+	v.query.Outputs = sesionHistorialOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r sesionHistorialFindFirst) With(params ...SesionHistorialRelationWith) sesionHistorialFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionHistorialFindFirst) Select(params ...sesionHistorialPrismaFields) sesionHistorialFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialFindFirst) Omit(params ...sesionHistorialPrismaFields) sesionHistorialFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialFindFirst) OrderBy(params ...SesionHistorialOrderByParam) sesionHistorialFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionHistorialFindFirst) Skip(count int) sesionHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionHistorialFindFirst) Take(count int) sesionHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionHistorialFindFirst) Cursor(cursor SesionHistorialCursorParam) sesionHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionHistorialFindFirst) Exec(ctx context.Context) (
+	*SesionHistorialModel,
+	error,
+) {
+	var v *SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialFindFirst) ExecInner(ctx context.Context) (
+	*InnerSesionHistorial,
+	error,
+) {
+	var v *InnerSesionHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type sesionHistorialFindMany struct {
+	query builder.Query
+}
+
+func (r sesionHistorialFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialFindMany) with()                    {}
+func (r sesionHistorialFindMany) sesionHistorialModel()    {}
+func (r sesionHistorialFindMany) sesionHistorialRelation() {}
+
+func (r sesionHistorialActions) FindMany(
+	params ...SesionHistorialWhereParam,
+) sesionHistorialFindMany {
+	var v sesionHistorialFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "SesionHistorial"
+	v.query.Outputs = sesionHistorialOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r sesionHistorialFindMany) With(params ...SesionHistorialRelationWith) sesionHistorialFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r sesionHistorialFindMany) Select(params ...sesionHistorialPrismaFields) sesionHistorialFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialFindMany) Omit(params ...sesionHistorialPrismaFields) sesionHistorialFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range sesionHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r sesionHistorialFindMany) OrderBy(params ...SesionHistorialOrderByParam) sesionHistorialFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r sesionHistorialFindMany) Skip(count int) sesionHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionHistorialFindMany) Take(count int) sesionHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r sesionHistorialFindMany) Cursor(cursor SesionHistorialCursorParam) sesionHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r sesionHistorialFindMany) Exec(ctx context.Context) (
+	[]SesionHistorialModel,
+	error,
+) {
+	var v []SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialFindMany) ExecInner(ctx context.Context) (
+	[]InnerSesionHistorial,
+	error,
+) {
+	var v []InnerSesionHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r sesionHistorialFindMany) Update(params ...SesionHistorialSetParam) sesionHistorialUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "SesionHistorial"
+
+	r.query.Outputs = countOutput
+
+	var v sesionHistorialUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type sesionHistorialUpdateMany struct {
+	query builder.Query
+}
+
+func (r sesionHistorialUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialUpdateMany) sesionHistorialModel() {}
+
+func (r sesionHistorialUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialUpdateMany) Tx() SesionHistorialManyTxResult {
+	v := newSesionHistorialManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r sesionHistorialFindMany) Delete() sesionHistorialDeleteMany {
+	var v sesionHistorialDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "SesionHistorial"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type sesionHistorialDeleteMany struct {
+	query builder.Query
+}
+
+func (r sesionHistorialDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p sesionHistorialDeleteMany) sesionHistorialModel() {}
+
+func (r sesionHistorialDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialDeleteMany) Tx() SesionHistorialManyTxResult {
+	v := newSesionHistorialManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template transaction.gotpl ---
 
 func newUsuarioUniqueTxResult() UsuarioUniqueTxResult {
@@ -80644,6 +86996,54 @@ func (p SesionPonenteManyTxResult) ExtractQuery() builder.Query {
 func (p SesionPonenteManyTxResult) IsTx() {}
 
 func (r SesionPonenteManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newSesionHistorialUniqueTxResult() SesionHistorialUniqueTxResult {
+	return SesionHistorialUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type SesionHistorialUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p SesionHistorialUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p SesionHistorialUniqueTxResult) IsTx() {}
+
+func (r SesionHistorialUniqueTxResult) Result() (v *SesionHistorialModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newSesionHistorialManyTxResult() SesionHistorialManyTxResult {
+	return SesionHistorialManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type SesionHistorialManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p SesionHistorialManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p SesionHistorialManyTxResult) IsTx() {}
+
+func (r SesionHistorialManyTxResult) Result() (v *BatchResult) {
 	if err := r.result.Get(r.query.TxResult, &v); err != nil {
 		panic(err)
 	}
@@ -82964,6 +89364,149 @@ func (r sesionPonenteUpsertOne) Tx() SesionPonenteUniqueTxResult {
 	return v
 }
 
+type sesionHistorialUpsertOne struct {
+	query builder.Query
+}
+
+func (r sesionHistorialUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialUpsertOne) with()                    {}
+func (r sesionHistorialUpsertOne) sesionHistorialModel()    {}
+func (r sesionHistorialUpsertOne) sesionHistorialRelation() {}
+
+func (r sesionHistorialActions) UpsertOne(
+	params SesionHistorialEqualsUniqueWhereParam,
+) sesionHistorialUpsertOne {
+	var v sesionHistorialUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "SesionHistorial"
+	v.query.Outputs = sesionHistorialOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r sesionHistorialUpsertOne) Create(
+
+	_accion SesionHistorialWithPrismaAccionSetParam,
+	_sesion SesionHistorialWithPrismaSesionSetParam,
+
+	optional ...SesionHistorialSetParam,
+) sesionHistorialUpsertOne {
+	var v sesionHistorialUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _accion.field())
+	fields = append(fields, _sesion.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionHistorialUpsertOne) Update(
+	params ...SesionHistorialSetParam,
+) sesionHistorialUpsertOne {
+	var v sesionHistorialUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionHistorialUpsertOne) CreateOrUpdate(
+
+	_accion SesionHistorialWithPrismaAccionSetParam,
+	_sesion SesionHistorialWithPrismaSesionSetParam,
+
+	optional ...SesionHistorialSetParam,
+) sesionHistorialUpsertOne {
+	var v sesionHistorialUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _accion.field())
+	fields = append(fields, _sesion.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r sesionHistorialUpsertOne) Exec(ctx context.Context) (*SesionHistorialModel, error) {
+	var v SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r sesionHistorialUpsertOne) Tx() SesionHistorialUniqueTxResult {
+	v := newSesionHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template raw.gotpl ---
 
 type usuarioAggregateRaw struct {
@@ -84256,6 +90799,87 @@ func (r sesionPonenteAggregateRaw) Exec(ctx context.Context) ([]SesionPonenteMod
 
 func (r sesionPonenteAggregateRaw) ExecInner(ctx context.Context) ([]InnerSesionPonente, error) {
 	var v []InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type sesionHistorialAggregateRaw struct {
+	query builder.Query
+}
+
+func (r sesionHistorialAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r sesionHistorialAggregateRaw) with()                    {}
+func (r sesionHistorialAggregateRaw) sesionHistorialModel()    {}
+func (r sesionHistorialAggregateRaw) sesionHistorialRelation() {}
+
+func (r sesionHistorialActions) FindRaw(filter interface{}, options ...interface{}) sesionHistorialAggregateRaw {
+	var v sesionHistorialAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "SesionHistorial"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r sesionHistorialActions) AggregateRaw(pipeline []interface{}, options ...interface{}) sesionHistorialAggregateRaw {
+	var v sesionHistorialAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "SesionHistorial"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r sesionHistorialAggregateRaw) Exec(ctx context.Context) ([]SesionHistorialModel, error) {
+	var v []SesionHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r sesionHistorialAggregateRaw) ExecInner(ctx context.Context) ([]InnerSesionHistorial, error) {
+	var v []InnerSesionHistorial
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}

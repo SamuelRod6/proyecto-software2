@@ -8,6 +8,7 @@ const (
 	MsgRecordatorioPago      = "Tienes un pago pendiente para el evento '%s', que inicia el %s. Por favor, regulariza tu situación para asegurar tu participación."
 	MsgAperturaInscripciones = "¡Ya puedes inscribirte al evento '%s'! Las inscripciones están abiertas hasta el %s."
 	MsgCancelacionEvento     = "Lamentamos informarte que el evento '%s' ha sido cancelado. Si ya te habías inscrito, recibirás un reembolso completo. Disculpa las molestias."
+	msgCambioSesion          = "La sesión '%s' del evento '%s' fue actualizada. Nuevo horario: %s - %s."
 )
 
 var NotificationTitles = map[string]string{
@@ -18,6 +19,7 @@ var NotificationTitles = map[string]string{
 	NotificationTypeRecordatorioPago:      "Recordatorio de pago",
 	NotificationTypeAperturaInscripciones: "Apertura de inscripciones",
 	NotificationTypeCancelacionEvento:     "Cancelación de evento",
+	NotificationTypeCambioSesion:          "Cambio en sesión",
 }
 
 func GetNotificationTitle(tipo string) string {
