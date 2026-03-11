@@ -5,6 +5,7 @@ import Input from '../ui/Input';
 import SelectorInput from '../ui/SelectorInput';
 import DayPickerSingle from '../ui/DayPickerSingle';
 import TimeRangePicker from '../ui/TimeRangePicker';
+import Loader from '../ui/Loader';
 
 import { createSession, getAvailableSpeakers, getEventDetail, assignSpeakersToSession } from '../../services/sessionsServices';
 import { useLoader } from '../../contexts/Loader/LoaderContext';
@@ -42,7 +43,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
 
     // Solo cargar ponentes en la segunda página
     const fetchPonentes = async (sessionId: number) => {
-      setLoadingData(true);
+      //setLoadingData(true);
       try {
         const res = await getAvailableSpeakers(sessionId);
         if (res.status !== 200) {
@@ -192,7 +193,9 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       if (res.status === 200 && res.data?.id_sesion) {
         setCreatedSessionId(res.data.id_sesion);
         setShowPonentePage(true);
-        fetchPonentes(res.data.id_sesion);
+        setLoadingData(true);
+        await fetchPonentes(res.data.id_sesion);
+        setLoadingData(false);
         showToast({
           title: 'Sesión creada',
           message: 'Ahora debes asignar un ponente.',
@@ -270,7 +273,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     >
       {loadingData ? (
         <div className="flex justify-center items-center min-h-[300px]">
-          <div className="loader" />
+          <Loader visible={true} />
         </div>
       ) : showPonentePage ? (
         <div className="flex flex-col gap-4" onClick={e => e.stopPropagation()}>
@@ -339,37 +342,50 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-start" onClick={e => e.stopPropagation()}>
-          <div className="bg-white rounded-lg p-6 flex flex-col items-center shadow-md min-w-[260px] self-start md:mt-[105px]">
-            <DayPickerSingle
-              selected={fecha}
-              onSelect={setFecha}
-              initialMonth={(() => {
-                const fechaInicioStr = eventoDetalle?.fecha_inicio || event.fecha_inicio || event.fechaInicio;
-                const inicio = parseEventDate(fechaInicioStr);
-                return inicio || new Date();
-              })()}
-              disabled={date => {
-                // Obtener rango del evento
-                const fechaInicioStr = eventoDetalle?.fecha_inicio || event.fecha_inicio || event.fechaInicio;
-                const fechaFinStr = eventoDetalle?.fecha_fin || event.fecha_fin || event.fechaFin;
+        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-center" onClick={e => e.stopPropagation()}>
+          <div className="flex flex-col gap-4 min-w-[260px]">
+            <div className="bg-white rounded-lg p-6 flex flex-col items-center shadow-md">
+              <DayPickerSingle
+                selected={fecha}
+                onSelect={setFecha}
+                initialMonth={(() => {
+                  const fechaInicioStr = eventoDetalle?.fecha_inicio || event.fecha_inicio || event.fechaInicio;
+                  const inicio = parseEventDate(fechaInicioStr);
+                  return inicio || new Date();
+                })()}
+                disabled={date => {
+                  // Obtener rango del evento
+                  const fechaInicioStr = eventoDetalle?.fecha_inicio || event.fecha_inicio || event.fechaInicio;
+                  const fechaFinStr = eventoDetalle?.fecha_fin || event.fecha_fin || event.fechaFin;
 
-                const inicio = parseEventDate(fechaInicioStr);
-                const fin = parseEventDate(fechaFinStr);
+                  const inicio = parseEventDate(fechaInicioStr);
+                  const fin = parseEventDate(fechaFinStr);
 
-                // Si no se pueden parsear las fechas, no bloquear para evitar falso positivo.
-                if (!inicio || !fin) return false;
+                  // Si no se pueden parsear las fechas, no bloquear para evitar falso positivo.
+                  if (!inicio || !fin) return false;
 
-                const day = atStartOfDay(date);
-                const inicioDay = atStartOfDay(inicio);
-                const finDay = atStartOfDay(fin);
+                  const day = atStartOfDay(date);
+                  const inicioDay = atStartOfDay(inicio);
+                  const finDay = atStartOfDay(fin);
 
-                // Limitar solo a rango del evento
-                return day < inicioDay || day > finDay;
-              }}
-            />
+                  // Limitar solo a rango del evento
+                  return day < inicioDay || day > finDay;
+                }}
+              />
+            </div>
+            <div className="rounded-lg border border-slate-700 p-4">
+              <TimeRangePicker
+                horaInicio={horaInicio}
+                horaFin={horaFin}
+                setHoraInicio={setHoraInicio}
+                setHoraFin={setHoraFin}
+              />
+              {errors.fechaHora && (
+                <p className="text-xs text-red-300 mt-2">{errors.fechaHora}</p>
+              )}
+            </div>
           </div>
-          <div className="flex flex-col gap-4 flex-1">
+          <div className="flex flex-col gap-4 flex-1 justify-center md:min-h-[520px]">
             <Input 
               label="Título"
               value={titulo}
@@ -388,17 +404,6 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
               descripcion={true}
               maxLength={300}
             />
-            <div className="rounded-lg border border-slate-700 p-4">
-              <TimeRangePicker
-                horaInicio={horaInicio}
-                horaFin={horaFin}
-                setHoraInicio={setHoraInicio}
-                setHoraFin={setHoraFin}
-              />
-              {errors.fechaHora && (
-                <p className="text-xs text-red-300 mt-2">{errors.fechaHora}</p>
-              )}
-            </div>
             <Input label="Ubicación" value={ubicacion} disabled required />
             <Button
               className="mt-4"

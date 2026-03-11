@@ -36,6 +36,13 @@ var (
 	ErrInvalid  = errors.New("datos inválidos")
 )
 
+var venezuelaLocation = time.FixedZone("VET", -4*60*60)
+
+func formatDateTimeVE(t time.Time) string {
+	// Normaliza a UTC y aplica UTC-4 para evitar depender de la ubicación original.
+	return t.UTC().In(venezuelaLocation).Format("02/01/2006 15:04")
+}
+
 func (s *Service) CreateSesion(ctx context.Context, eventoID int, req dto.CreateSesionRequest) (*dto.SesionResponse, error) {
 	if req.Titulo == "" || req.FechaInicio == "" || req.FechaFin == "" {
 		println("[CreateSesion] Título o fechas vacíos")
@@ -208,6 +215,29 @@ func (s *Service) UpdateSesion(ctx context.Context, sesionID int, req dto.Update
 		despues,
 	)
 
+	// Notificar a ponentes asignados sobre cambios en la sesión
+	ponentesAsignados, err := s.repo.ListPonentes(ctx, sesionID)
+	if err == nil {
+		for _, p := range ponentesAsignados {
+			eventID := evento.IDEvento
+			_, notifErr := s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+				UserID:  p.IDUsuario,
+				EventID: &eventID,
+				Type:    notificationdto.NotificationTypeCambioSesion,
+				Message: fmt.Sprintf(
+					"La sesión '%s' del evento '%s' ha sido actualizada. Nuevo horario: %s - %s.",
+					sesion.Titulo,
+					evento.Nombre,
+					formatDateTimeVE(sesion.FechaInicio),
+					formatDateTimeVE(sesion.FechaFin),
+				),
+			})
+			if notifErr != nil {
+				fmt.Println("[UpdateSesion] Error notificando cambio de sesión:", notifErr)
+			}
+		}
+	}
+
 	return s.mapSesionToResponse(ctx, sesion), nil
 }
 
@@ -231,8 +261,8 @@ func (svc *Service) mapSesionToResponse(ctx context.Context, sesion *db.SesionMo
 		IDSesion:    sesion.IDSesion,
 		Titulo:      sesion.Titulo,
 		Descripcion: sesion.Descripcion,
-		FechaInicio: sesion.FechaInicio.Format("2006-01-02T15:04:05Z"),
-		FechaFin:    sesion.FechaFin.Format("2006-01-02T15:04:05Z"),
+		FechaInicio: formatDateTimeVE(sesion.FechaInicio),
+		FechaFin:    formatDateTimeVE(sesion.FechaFin),
 		Ubicacion:   sesion.Ubicacion,
 		EventoID:    sesion.IDEvento,
 		Ponentes:    ponentes,
@@ -305,8 +335,8 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 				"Has sido asignado como ponente en la sesión '%s' del evento '%s'. Horario: %s - %s.",
 				sesion.Titulo,
 				evento.Nombre,
-				sesion.FechaInicio.Format("02/01/2006 15:04"),
-				sesion.FechaFin.Format("02/01/2006 15:04"),
+				formatDateTimeVE(sesion.FechaInicio),
+				formatDateTimeVE(sesion.FechaFin),
 			),
 		})
 

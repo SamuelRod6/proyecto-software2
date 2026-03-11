@@ -222,7 +222,7 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
           </div>
         ) : (
           <div className="flex flex-col md:flex-row gap-8 md:gap-10">
-            <div className="flex-1 flex flex-col justify-center items-center">
+            <div className="flex-1 flex flex-col gap-6 justify-center items-center">
               <label className="block mb-2 text-slate-300 font-medium text-lg">
                 Fecha de cierre de inscripciones
               </label>
@@ -234,24 +234,27 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
                   maxDate={dateRange?.from ? new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate() - 1) : undefined}
                 />
               </div>
-              {/* Listado de sesiones componentizado */}
-              <SessionList
-                sessions={sessions}
-                showEditButton={true}
-                onEdit={(sesion) => {
-                  setSelectedSession(sesion);
-                  setShowEditSessionModal(true);
-                }}
-              />
+              <div className="w-full text-slate-300 text-lg">
+                <p>
+                  Selecciona la fecha limite para que los usuarios puedan
+                  inscribirse al evento. Esta fecha debe estar dentro del
+                  rango de fechas del evento.
+                </p>
+              </div>
             </div>
             <div className="flex-1 flex flex-col gap-6 justify-center relative">
               <div className="absolute left-0 top-0">
                 <BackArrow onClick={() => setPage2(false)} />
               </div>
-              <div className="flex flex-col justify-center h-full">
-                <p className="text-slate-300 text-lg mb-4">
-                  Selecciona la fecha límite para que los usuarios puedan inscribirse al evento. Esta fecha debe estar dentro del rango de fechas del evento.
-                </p>
+              <div className="w-full">
+                <SessionList
+                  sessions={sessions}
+                  showEditButton={true}
+                  onEdit={(sesion) => {
+                    setSelectedSession(sesion);
+                    setShowEditSessionModal(true);
+                  }}
+                />
               </div>
               <div className="flex gap-4 mt-8">
                 <Button

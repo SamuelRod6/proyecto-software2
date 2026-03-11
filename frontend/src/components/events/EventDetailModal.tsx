@@ -214,109 +214,108 @@ export default function EventDetailModal({
                 open={open}
                 onClose={handleClose}
                 title="Detalle del evento"
-                className="max-w-screen-lg w-full"
+                className="w-full max-w-4xl max-h-[92vh] overflow-y-auto"
             >
-                <div className="rounded-xl border border-slate-700 bg-slate-800/90 p-10 max-w-[900px] w-full mx-auto shadow-lg flex flex-col md:flex-row gap-8 md:gap-10">
-                    <div className="flex-1 flex flex-col justify-center items-center">
-                        <label className="block mb-2 text-slate-300 font-medium text-lg">
-                            Fechas del evento
-                        </label>
-                        <div className="w-full bg-[#e3e8f0] rounded-xl p-5 flex items-center justify-center">
-                            <DateRangePicker
-                                value={dateRange}
-                                onChange={() => {}}
-                                fromLabel="Inicio"
-                                toLabel="Fin"
-                                className="bg-[#e3e8f0] rounded p-2"
-                                dayPickerProps={{
-                                    disabled: () => true,
-                                    month: dateRange?.from || undefined
-                                }}
+                <div className="rounded-xl border border-slate-700 bg-slate-800/90 p-6 md:p-8 w-full mx-auto shadow-lg grid grid-cols-1 lg:grid-cols-[minmax(320px,420px)_minmax(390px,470px)] gap-6 md:gap-8 lg:gap-9 items-start lg:justify-start">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {eventDetail.inscripciones_abiertas ? (
+                                <>
+                                    <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
+                                        Inscripciones abiertas
+                                    </span>
+                                    <ToggleIconButton 
+                                        open={!eventDetail.inscripciones_abiertas} 
+                                        onClick={() => setShowConfirmModal("cerrar")} 
+                                        className="p-2" 
+                                        title="Cerrar inscripciones"
+                                        iconSize={22}
+                                    />
+                                    <EditIconButton 
+                                        aria-label="Editar evento"
+                                        onClick={() => setShowEditModal(true)}
+                                        color="#94a3b8"
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
+                                        Inscripciones cerradas
+                                    </span>
+                                    <ToggleIconButton 
+                                        open={!eventDetail.inscripciones_abiertas} 
+                                        onClick={() => setShowConfirmModal("abrir")} 
+                                        className="p-2" 
+                                        title="Abrir inscripciones"
+                                        iconSize={22}
+                                    />
+                                    <EditIconButton 
+                                        aria-label="Editar fecha de cierre"
+                                        onClick={() => setShowCloseDateModal(true)}
+                                        color="#94a3b8"
+                                    />
+                                </>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block mb-1 text-slate-300 font-medium">
+                                Nombre del evento
+                            </label>
+                            <Input value={eventDetail.nombre} disabled className="w-full" />
+                        </div>
+                        <div>
+                            <label className="block mb-1 text-slate-300 font-medium">
+                                Ubicación
+                            </label>
+                            <Input value={eventDetail.ubicacion} disabled className="w-full" />
+                        </div>
+                        <div>
+                            <label className="mb-1 text-slate-300 font-medium flex items-center gap-2">
+                                Fecha de cierre de inscripciones
+                            </label>
+                            <Input 
+                                value={(() => {
+                                    const d = parseDate(eventDetail.fecha_cierre_inscripcion);
+                                    if (!d) return "";
+                                    return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Caracas" });
+                                })()} 
+                                disabled 
+                                className="w-full" 
                             />
                         </div>
-                    </div>
-                    <div className="flex-1 flex flex-col gap-4 justify-center p-6 relative">
-                        {(
-                            <div className="flex items-center justify-center gap-2 mb-2 mt-1 md:mt-0 md:mb-0 md:ml-auto md:mr-0">
-                                {eventDetail.inscripciones_abiertas ? (
-                                    <>
-                                        <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
-                                            Inscripciones abiertas
-                                        </span>
-                                        <ToggleIconButton 
-                                            open={!eventDetail.inscripciones_abiertas} 
-                                            onClick={() => setShowConfirmModal("cerrar")} 
-                                            className="p-2" 
-                                            title="Cerrar inscripciones"
-                                            iconSize={22}
-                                        />
-                                        <EditIconButton 
-                                            aria-label="Editar evento"
-                                            onClick={() => setShowEditModal(true)}
-                                            color="#94a3b8"
-                                        />
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
-                                            Inscripciones cerradas
-                                        </span>
-                                        <ToggleIconButton 
-                                            open={!eventDetail.inscripciones_abiertas} 
-                                            onClick={() => setShowConfirmModal("abrir")} 
-                                            className="p-2" 
-                                            title="Abrir inscripciones"
-                                            iconSize={22}
-                                        />
-                                        <EditIconButton 
-                                            aria-label="Editar fecha de cierre"
-                                            onClick={() => setShowCloseDateModal(true)}
-                                            color="#94a3b8"
-                                        />
-                                    </>
-                                )}
-                            </div>
+                        {showInscribirButton && (
+                            <Button
+                                className="bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
+                                onClick={onInscribir}
+                            >
+                                Inscribirme
+                            </Button>
                         )}
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <div className="flex-1">
-                                <div className="mb-2">
-                                    <label className="block mb-1 text-slate-300 font-medium">
-                                        Nombre del evento
-                                    </label>
-                                    <Input value={eventDetail.nombre} disabled className="w-full" />
-                                </div>
-                                <div className="mb-2">
-                                    <label className="block mb-1 text-slate-300 font-medium">
-                                        Ubicación
-                                    </label>
-                                    <Input value={eventDetail.ubicacion} disabled className="w-full" />
-                                </div>
-                                <div className="mb-2">
-                                    <label className="mb-1 text-slate-300 font-medium flex items-center gap-2">
-                                        Fecha de cierre de inscripciones
-                                    </label>
-                                    <Input 
-                                        value={(() => {
-                                            const d = parseDate(eventDetail.fecha_cierre_inscripcion);
-                                            if (!d) return "";
-                                            return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Caracas" });
-                                        })()} 
-                                        disabled 
-                                        className="w-full" 
-                                    />
-                                </div>
-                                {showInscribirButton && (
-                                    <Button
-                                        className="mt-4 bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
-                                        onClick={onInscribir}
-                                    >
-                                        Inscribirme
-                                    </Button>
-                                )}
-                                {/* Listado de sesiones debajo del campo de cierre de inscripciones */}
-                                <SessionsCalendar sessions={sessions} />
-                                <SessionList sessions={sessions} />
+                        <div>
+                            <label className="block mb-2 text-slate-300 font-medium text-lg">
+                                Fechas del evento
+                            </label>
+                            <div className="w-full bg-[#e3e8f0] rounded-xl p-5 flex items-center justify-center">
+                                <DateRangePicker
+                                    value={dateRange}
+                                    onChange={() => {}}
+                                    fromLabel="Inicio"
+                                    toLabel="Fin"
+                                    className="bg-[#e3e8f0] rounded p-2"
+                                    dayPickerProps={{
+                                        disabled: () => true,
+                                        month: dateRange?.from || undefined
+                                    }}
+                                />
                             </div>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-4 lg:items-start lg:pl-5 lg:border-l lg:border-slate-700/70">
+                        <div className="pt-1 w-full lg:max-w-[470px]">
+                            <SessionsCalendar sessions={sessions} />
+                        </div>
+                        <div className="w-full lg:max-w-[470px]">
+                            <SessionList sessions={sessions} />
                         </div>
                     </div>
                 </div>

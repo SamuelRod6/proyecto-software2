@@ -3,7 +3,9 @@ const dropdownStyle = `
 .rc-time-picker-panel {
   margin-top: 14px !important;
   z-index: 9999;
-  min-width: 360px !important;
+  width: min(300px, calc(100vw - 2rem)) !important;
+  min-width: 0 !important;
+  max-width: calc(100vw - 2rem) !important;
 }
 .rc-time-picker-panel-inner {
   background: #1e293b !important;
@@ -11,7 +13,7 @@ const dropdownStyle = `
   border-radius: 0.5rem !important;
   box-shadow: 0 10px 25px rgba(2, 6, 23, 0.45) !important;
   width: 100% !important;
-  min-width: 360px !important;
+  min-width: 0 !important;
 }
 .rc-time-picker-panel-input-wrap {
   border-bottom: 1px solid #334155 !important;

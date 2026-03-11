@@ -205,28 +205,52 @@ const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, sess
 
   return (
     <Modal open={open} onClose={onClose} title="Editar Sesión">
-      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-start" onClick={e => e.stopPropagation()}>
-        <div className="bg-white rounded-lg p-6 flex flex-col items-center shadow-md min-w-[260px] self-start md:mt-[105px]">
-          <DayPickerSingle
-            selected={fecha}
-            onSelect={setFecha}
-            initialMonth={fecha}
-            disabled={date => {
-              // Limitar solo a rango del evento
-              const inicio = parseEventDate(event.fecha_inicio);
-              const fin = parseEventDate(event.fecha_fin);
-              if (!inicio || !fin) return false;
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-center" onClick={e => e.stopPropagation()}>
+        <div className="flex flex-col gap-4 min-w-[260px]">
+          <div className="bg-white rounded-lg p-6 flex flex-col items-center shadow-md">
+            <DayPickerSingle
+              selected={fecha}
+              onSelect={setFecha}
+              initialMonth={fecha}
+              disabled={date => {
+                // Limitar solo a rango del evento
+                const inicio = parseEventDate(event.fecha_inicio);
+                const fin = parseEventDate(event.fecha_fin);
+                if (!inicio || !fin) return false;
 
-              const day = atStartOfDay(date);
-              const inicioDay = atStartOfDay(inicio);
-              const finDay = atStartOfDay(fin);
+                const day = atStartOfDay(date);
+                const inicioDay = atStartOfDay(inicio);
+                const finDay = atStartOfDay(fin);
 
-              return day < inicioDay || day > finDay;
-            }}
-          />
+                return day < inicioDay || day > finDay;
+              }}
+            />
+          </div>
+          <div className="rounded-lg border border-slate-700 p-4">
+            <TimeRangePicker
+              horaInicio={horaInicio}
+              horaFin={horaFin}
+              setHoraInicio={setHoraInicio}
+              setHoraFin={setHoraFin}
+            />
+
+            {errors.fechaHora && (
+              <p className="text-xs text-red-300 mt-2">{errors.fechaHora}</p>
+            )}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 flex-1">
-          <Input label="Título" value={titulo} maxLength={100} onChange={e => setTitulo(e.target.value)} required />
+        <div className="flex flex-col gap-4 flex-1 justify-center md:min-h-[520px]">
+          <Input
+            label="Título"
+            value={titulo}
+            maxLength={100}
+            onChange={e => {
+              setTitulo(e.target.value);
+              if (errors.titulo) setErrors(prev => ({ ...prev, titulo: undefined }));
+            }}
+            error={errors.titulo}
+            required
+          />
           <Input
             label="Descripción"
             value={descripcion}
