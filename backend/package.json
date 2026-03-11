@@ -1,7 +1,4 @@
 {
-  "scripts": {
-    "prisma:studio": "npx dotenv-cli -e ../.env -- prisma studio --schema ./prisma/schema.prisma"
-  },
   "devDependencies": {
     "dotenv-cli": "^7.3.0",
     "prisma": "5.9.1"

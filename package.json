@@ -5,7 +5,13 @@
     "prisma:migrate:neon": "npx dotenv-cli -e ./.env.neon -- npx prisma migrate dev --schema ./backend/prisma/schema.prisma",
     "prisma:studio:env": "npx dotenv-cli -e ./.env -- npx prisma studio --schema ./backend/prisma/schema.prisma",
     "prisma:studio:local": "npx dotenv-cli -e ./.env.local -- npx prisma studio --schema ./backend/prisma/schema.prisma",
-    "prisma:studio:neon": "npx dotenv-cli -e ./.env.neon -- npx prisma studio --schema ./backend/prisma/schema.prisma"
+    "prisma:studio:neon": "npx dotenv-cli -e ./.env.neon -- npx prisma studio --schema ./backend/prisma/schema.prisma",
+    "prisma:status:env": "npx dotenv-cli -e ./.env -- npx prisma migrate status --schema ./backend/prisma/schema.prisma",
+    "prisma:status:local": "npx dotenv-cli -e ./.env.local -- npx prisma migrate status --schema ./backend/prisma/schema.prisma",
+    "prisma:status:neon": "npx dotenv-cli -e ./.env.neon -- npx prisma migrate status --schema ./backend/prisma/schema.prisma",
+    "prisma:reset:env": "npx dotenv-cli -e ./.env -- npx prisma migrate reset --schema ./backend/prisma/schema.prisma",
+    "prisma:reset:local": "npx dotenv-cli -e ./.env.local -- npx prisma migrate reset --schema ./backend/prisma/schema.prisma",
+    "prisma:reset:neon": "npx dotenv-cli -e ./.env.neon -- npx prisma migrate reset --schema ./backend/prisma/schema.prisma"
   },
   "devDependencies": {
     "@types/react": "^19.2.11",

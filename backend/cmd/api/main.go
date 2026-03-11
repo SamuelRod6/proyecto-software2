@@ -16,6 +16,7 @@ import (
 	rolehandler "project/backend/internal/roles/handler"
 	roles "project/backend/internal/roles/service"
 	sesioneshandler "project/backend/internal/sesiones/handler"
+	smtphandler "project/backend/internal/shared/smtp"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
 
@@ -87,6 +88,7 @@ func main() {
 	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)
 	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
 	http.HandleFunc("/api/auth/logout", authHandler.LogoutHandler)
+	http.HandleFunc("/api/smtp/sandbox", smtphandler.SandboxEmailHandler)
 
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
 	http.HandleFunc("/api/users", userHandler.UsersListHandler)
