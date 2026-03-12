@@ -36,6 +36,10 @@ type UserRepository interface {
 	FindPrimaryRoleByUserID(ctx context.Context, userID int) (*db.RolesModel, error)
 	ListRolesByUserID(ctx context.Context, userID int) ([]db.RolesModel, error)
 	UpdatePassword(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error)
+	DeleteActiveRegistrationTemporaryKeysByEmail(ctx context.Context, email string) error
+	CreateRegistrationTemporaryKey(ctx context.Context, name, email, tokenHash string, expiresAt time.Time) error
+	FindValidRegistrationTemporaryKey(ctx context.Context, email, tokenHash string, now time.Time) (*domain.RegistrationTemporaryKey, error)
+	MarkRegistrationTemporaryKeyUsed(ctx context.Context, keyID int) error
 	DeleteActivePasswordRecoveryTokens(ctx context.Context, userID int) error
 	CreatePasswordRecoveryToken(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error
 	FindValidPasswordRecoveryToken(ctx context.Context, email, tokenHash string, now time.Time) (*domain.PasswordRecoveryToken, error)
@@ -59,6 +63,7 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	req.TemporaryKey = service.NormalizeTemporaryKey(req.TemporaryKey)
 
 	if !validation.ValidateUsername(req.Name) {
 		response.WriteError(w, http.StatusBadRequest, response.ErrInvalidUsername)
@@ -72,9 +77,29 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusBadRequest, response.ErrInvalidPassword)
 		return
 	}
+	if req.TemporaryKey == "" {
+		response.WriteError(w, http.StatusBadRequest, response.ErrMissingFields)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
+
+	registrationKey, err := h.Repo.FindValidRegistrationTemporaryKey(
+		ctx,
+		req.Email,
+		service.HashTemporaryKey(req.TemporaryKey),
+		time.Now().UTC(),
+	)
+	if err != nil {
+		response.WriteError(w, http.StatusUnauthorized, response.ErrInvalidCredentials)
+		return
+	}
+
+	if !strings.EqualFold(strings.TrimSpace(registrationKey.Name), req.Name) {
+		response.WriteError(w, http.StatusBadRequest, response.ErrInvalidUsername)
+		return
+	}
 
 	passwordHash, err := service.HashPassword(req.Password)
 	if err != nil {
@@ -88,6 +113,11 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err = h.Repo.MarkRegistrationTemporaryKeyUsed(ctx, registrationKey.ID); err != nil {
+		response.WriteError(w, http.StatusInternalServerError, response.ErrDatabase)
+		return
+	}
+
 	resp := map[string]any{
 		"user": domain.AuthUser{
 			ID:    user.IDUsuario,
@@ -97,6 +127,97 @@ func (h *Handler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	response.WriteSuccess(w, http.StatusCreated, response.SuccessRegister, resp)
+}
+
+func (h *Handler) RequestRegisterTemporaryKeyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.WriteError(w, http.StatusMethodNotAllowed, response.ErrMethodNotAllowed)
+		return
+	}
+
+	var req dto.RegistrationKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, response.ErrInvalidJSON)
+		return
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+
+	if !validation.ValidateUsername(req.Name) {
+		response.WriteError(w, http.StatusBadRequest, response.ErrInvalidUsername)
+		return
+	}
+	if !validation.ValidateEmail(req.Email) {
+		response.WriteError(w, http.StatusBadRequest, response.ErrInvalidEmail)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	if _, err := h.Repo.FindUserByEmail(ctx, req.Email); err == nil {
+		response.WriteError(w, http.StatusBadRequest, response.ErrUserExists)
+		return
+	}
+
+	temporaryKey, err := service.GenerateTemporaryKey(8)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, response.ErrInternalServer)
+		return
+	}
+
+	expiresAt := time.Now().UTC().Add(1 * time.Hour)
+	if err := h.Repo.DeleteActiveRegistrationTemporaryKeysByEmail(ctx, req.Email); err != nil {
+		response.WriteError(w, http.StatusInternalServerError, response.ErrDatabase)
+		return
+	}
+	if err := h.Repo.CreateRegistrationTemporaryKey(ctx, req.Name, req.Email, service.HashTemporaryKey(temporaryKey), expiresAt); err != nil {
+		response.WriteError(w, http.StatusInternalServerError, response.ErrDatabase)
+		return
+	}
+
+	if err := smtp.SendRegistrationTemporaryKeyEmail(ctx, req.Email, temporaryKey, expiresAt); err != nil {
+		log.Printf("registration temporary key email error: %v", err)
+	}
+
+	response.WriteSuccess(w, http.StatusOK, response.SuccessGeneral, map[string]string{
+		"message": "se envio una clave temporal a tu correo para completar el registro",
+	})
+}
+
+func (h *Handler) VerifyRegisterTemporaryKeyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.WriteError(w, http.StatusMethodNotAllowed, response.ErrMethodNotAllowed)
+		return
+	}
+
+	var req dto.RegistrationKeyVerifyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, response.ErrInvalidJSON)
+		return
+	}
+
+	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	req.TemporaryKey = service.NormalizeTemporaryKey(req.TemporaryKey)
+
+	if !validation.ValidateEmail(req.Email) || req.TemporaryKey == "" {
+		response.WriteError(w, http.StatusBadRequest, response.ErrMissingFields)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	_, err := h.Repo.FindValidRegistrationTemporaryKey(ctx, req.Email, service.HashTemporaryKey(req.TemporaryKey), time.Now().UTC())
+	if err != nil {
+		response.WriteError(w, http.StatusUnauthorized, response.ErrInvalidCredentials)
+		return
+	}
+
+	response.WriteSuccess(w, http.StatusOK, response.SuccessGeneral, map[string]any{
+		"valid": true,
+	})
 }
 
 func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {

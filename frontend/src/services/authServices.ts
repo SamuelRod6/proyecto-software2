@@ -4,7 +4,18 @@ export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
+  temporaryKey: string;
   roleId?: number | null;
+}
+
+export interface RegisterKeyRequestPayload {
+  name: string;
+  email: string;
+}
+
+export interface RegisterKeyVerifyPayload {
+  email: string;
+  temporaryKey: string;
 }
 
 export interface AuthUser {
@@ -52,6 +63,37 @@ export async function registerUser(
         }
         return { status: 500, data: { message: "Error de red o desconocido" } };
     }
+}
+
+export async function requestRegisterTemporaryKey(
+  payload: RegisterKeyRequestPayload,
+): Promise<{ status: number; data: any }> {
+  try {
+    const response = await axios.post(
+      "/api/auth/register/request-key",
+      payload,
+    );
+    return { status: response.status, data: response.data };
+  } catch (error: any) {
+    if (error.response) {
+      return { status: error.response.status, data: error.response.data };
+    }
+    return { status: 500, data: { message: "Error de red o desconocido" } };
+  }
+}
+
+export async function verifyRegisterTemporaryKey(
+  payload: RegisterKeyVerifyPayload,
+): Promise<{ status: number; data: any }> {
+  try {
+    const response = await axios.post("/api/auth/register/verify-key", payload);
+    return { status: response.status, data: response.data };
+  } catch (error: any) {
+    if (error.response) {
+      return { status: error.response.status, data: error.response.data };
+    }
+    return { status: 500, data: { message: "Error de red o desconocido" } };
+  }
 }
 
 export async function loginUser(
