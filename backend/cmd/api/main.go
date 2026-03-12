@@ -93,6 +93,7 @@ func main() {
 	http.HandleFunc("/api/auth/password-recovery/verify", authHandler.VerifyPasswordRecoveryHandler)
 	http.HandleFunc("/api/auth/password-recovery/reset", authHandler.ConfirmPasswordRecoveryHandler)
 	http.HandleFunc("/api/auth/logout", authHandler.LogoutHandler)
+	http.HandleFunc("/api/smtp/send", smtphandler.SendEmailHandler)
 	http.HandleFunc("/api/smtp/sandbox", smtphandler.SandboxEmailHandler)
 
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)

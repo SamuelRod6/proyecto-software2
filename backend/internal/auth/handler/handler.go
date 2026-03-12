@@ -177,7 +177,7 @@ func (h *Handler) RequestRegisterTemporaryKeyHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	if err := smtp.SendRegistrationTemporaryKeyEmail(ctx, req.Email, temporaryKey, expiresAt); err != nil {
+	if err := smtp.SendRegistrationTemporaryKeyEmail(ctx, req.Email, temporaryKey); err != nil {
 		log.Printf("registration temporary key email error: %v", err)
 	}
 

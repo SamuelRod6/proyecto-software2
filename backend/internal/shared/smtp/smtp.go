@@ -10,38 +10,38 @@ import (
 	"strings"
 )
 
-type SandboxSendRequest struct {
-	ToEmail string `json:"toEmail"`
-	Subject string `json:"subject"`
-	Text    string `json:"text"`
+type SendEmailRequest struct {
+	ToEmail  string `json:"toEmail"`
+	Subject  string `json:"subject"`
+	Text     string `json:"text"`
 }
 
-type SandboxSendResponse struct {
+type SendEmailResponse struct {
 	StatusCode int             `json:"statusCode"`
 	Body       json.RawMessage `json:"body"`
 }
 
-func SendSandboxEmail(ctx context.Context, input SandboxSendRequest) (*SandboxSendResponse, error) {
-	url := strings.TrimSpace(os.Getenv("EMAIL_SANDBOX_URL"))
+	func SendEmail(ctx context.Context, input SendEmailRequest) (*SendEmailResponse, error) {
+	url := strings.TrimSpace(os.Getenv("EMAIL_API_URL"))
 	if url == "" {
-		return nil, fmt.Errorf("EMAIL_SANDBOX_URL is not set")
+		return nil, fmt.Errorf("EMAIL_API_URL is not set")
 	}
-	token := strings.TrimSpace(os.Getenv("EMAIL_SANDBOX_TOKEN"))
+
+	token := strings.TrimSpace(os.Getenv("EMAIL_API_TOKEN"))
 	if token == "" {
-		return nil, fmt.Errorf("EMAIL_SANDBOX_TOKEN is not set")
+		return nil, fmt.Errorf("EMAIL_API_TOKEN is not set")
 	}
 
 	payloadBody := map[string]any{
 		"from": map[string]string{
 			"email": "hello@example.com",
-			"name":  "Mailtrap Test",
+			"name":  "Mailtrap Test Email",
 		},
 		"to": []map[string]string{{
 			"email": input.ToEmail,
 		}},
 		"subject":  input.Subject,
 		"text":     input.Text,
-		"category": "Integration Test",
 	}
 
 	payloadBytes, err := json.Marshal(payloadBody)
@@ -68,7 +68,7 @@ func SendSandboxEmail(ctx context.Context, input SandboxSendRequest) (*SandboxSe
 		return nil, err
 	}
 
-	return &SandboxSendResponse{
+	return &SendEmailResponse{
 		StatusCode: res.StatusCode,
 		Body:       json.RawMessage(body),
 	}, nil
