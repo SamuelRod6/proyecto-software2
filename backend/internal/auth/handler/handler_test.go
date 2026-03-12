@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"project/backend/internal/auth/domain"
 	"project/backend/internal/auth/dto"
 	"project/backend/internal/auth/service"
 	"project/backend/prisma/db"
@@ -21,6 +23,10 @@ type mockAuthRepo struct {
 	findPrimaryRole func(ctx context.Context, userID int) (*db.RolesModel, error)
 	listRoles       func(ctx context.Context, userID int) ([]db.RolesModel, error)
 	updatePassword  func(ctx context.Context, email, passwordHash string) (*db.UsuarioModel, error)
+	deleteRecoveryTokens func(ctx context.Context, userID int) error
+	createRecoveryToken  func(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error
+	findRecoveryToken    func(ctx context.Context, email, tokenHash string, now time.Time) (*domain.PasswordRecoveryToken, error)
+	markRecoveryToken    func(ctx context.Context, tokenID int) error
 }
 
 func (m mockAuthRepo) FindRoleByID(ctx context.Context, roleID int) (*db.RolesModel, error) {
@@ -64,6 +70,34 @@ func (m mockAuthRepo) UpdatePassword(ctx context.Context, email, passwordHash st
 		return nil, errors.New("not implemented")
 	}
 	return m.updatePassword(ctx, email, passwordHash)
+}
+
+func (m mockAuthRepo) DeleteActivePasswordRecoveryTokens(ctx context.Context, userID int) error {
+	if m.deleteRecoveryTokens == nil {
+		return errors.New("not implemented")
+	}
+	return m.deleteRecoveryTokens(ctx, userID)
+}
+
+func (m mockAuthRepo) CreatePasswordRecoveryToken(ctx context.Context, userID int, tokenHash string, expiresAt time.Time) error {
+	if m.createRecoveryToken == nil {
+		return errors.New("not implemented")
+	}
+	return m.createRecoveryToken(ctx, userID, tokenHash, expiresAt)
+}
+
+func (m mockAuthRepo) FindValidPasswordRecoveryToken(ctx context.Context, email, tokenHash string, now time.Time) (*domain.PasswordRecoveryToken, error) {
+	if m.findRecoveryToken == nil {
+		return nil, errors.New("not implemented")
+	}
+	return m.findRecoveryToken(ctx, email, tokenHash, now)
+}
+
+func (m mockAuthRepo) MarkPasswordRecoveryTokenUsed(ctx context.Context, tokenID int) error {
+	if m.markRecoveryToken == nil {
+		return errors.New("not implemented")
+	}
+	return m.markRecoveryToken(ctx, tokenID)
 }
 
 func TestRegisterHandler(t *testing.T) {
@@ -199,4 +233,66 @@ func TestLogoutHandler(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected %d, got %d", http.StatusOK, rr.Code)
 	}
+}
+
+func TestPasswordRecoveryHandlers(t *testing.T) {
+	t.Run("request invalid email", func(t *testing.T) {
+		reqBody := dto.PasswordRecoveryRequest{Email: "bad"}
+		payload, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/password-recovery/request", bytes.NewBuffer(payload))
+		rr := httptest.NewRecorder()
+
+		h := New(mockAuthRepo{})
+		h.RequestPasswordRecoveryHandler(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected %d, got %d", http.StatusBadRequest, rr.Code)
+		}
+	})
+
+	t.Run("verify success", func(t *testing.T) {
+		reqBody := dto.PasswordRecoveryVerifyRequest{Email: "user@example.com", TemporaryKey: "ABCD1234"}
+		payload, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/password-recovery/verify", bytes.NewBuffer(payload))
+		rr := httptest.NewRecorder()
+
+		repo := mockAuthRepo{
+			findRecoveryToken: func(_ context.Context, email, _ string, _ time.Time) (*domain.PasswordRecoveryToken, error) {
+				return &domain.PasswordRecoveryToken{ID: 10, IDUsuario: 1, Email: email}, nil
+			},
+		}
+
+		h := New(repo)
+		h.VerifyPasswordRecoveryHandler(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected %d, got %d", http.StatusOK, rr.Code)
+		}
+	})
+
+	t.Run("confirm success", func(t *testing.T) {
+		reqBody := dto.PasswordRecoveryResetRequest{Email: "user@example.com", TemporaryKey: "ABCD1234", NewPassword: "Abcdef12"}
+		payload, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/password-recovery/reset", bytes.NewBuffer(payload))
+		rr := httptest.NewRecorder()
+
+		repo := mockAuthRepo{
+			findRecoveryToken: func(_ context.Context, _ string, _ string, _ time.Time) (*domain.PasswordRecoveryToken, error) {
+				return &domain.PasswordRecoveryToken{ID: 77, IDUsuario: 1, Email: "user@example.com"}, nil
+			},
+			updatePassword: func(_ context.Context, _ string, _ string) (*db.UsuarioModel, error) {
+				return &db.UsuarioModel{InnerUsuario: db.InnerUsuario{IDUsuario: 1}}, nil
+			},
+			markRecoveryToken: func(_ context.Context, tokenID int) error {
+				if tokenID != 77 {
+					return errors.New("unexpected token id")
+				}
+				return nil
+			},
+		}
+
+		h := New(repo)
+		h.ConfirmPasswordRecoveryHandler(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected %d, got %d", http.StatusOK, rr.Code)
+		}
+	})
 }

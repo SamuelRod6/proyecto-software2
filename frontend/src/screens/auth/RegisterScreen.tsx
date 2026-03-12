@@ -48,8 +48,6 @@ export default function RegisterScreen(): JSX.Element {
       password,
     });
 
-    console.log("Register result:", registerResult);
-
     if (registerResult.status >= 400) {
       setErrorMessage(registerResult.data?.message || "No se pudo registrar.");
       setIsSubmitting(false);

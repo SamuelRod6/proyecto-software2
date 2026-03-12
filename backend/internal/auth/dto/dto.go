@@ -25,6 +25,21 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
+type PasswordRecoveryRequest struct {
+	Email string `json:"email"`
+}
+
+type PasswordRecoveryVerifyRequest struct {
+	Email        string `json:"email"`
+	TemporaryKey string `json:"temporaryKey"`
+}
+
+type PasswordRecoveryResetRequest struct {
+	Email        string `json:"email"`
+	TemporaryKey string `json:"temporaryKey"`
+	NewPassword  string `json:"newPassword"`
+}
+
 type UpdateRoleRequest struct {
 	UserID int    `json:"user_id"`
 	Rol    string `json:"rol"`

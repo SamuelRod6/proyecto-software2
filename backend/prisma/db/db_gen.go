@@ -84,38 +84,52 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario      Int       @id @default(autoincrement())
-  nombre          String    @unique
-  email           String    @unique
+  id_usuario      Int                      @id @default(autoincrement())
+  nombre          String                   @unique
+  email           String                   @unique
   password_hash   String
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime                 @default(now())
   inscripciones   Inscripcion[]
-  notificaciones  Notificacion[] @relation("UsuarioNotificaciones")
+  notificaciones  Notificacion[]           @relation("UsuarioNotificaciones")
   sesionesPonente SesionPonente[]
   UsuarioRoles    UsuarioRoles[]
   preferencias    NotificacionPreferencia?
+  recoveryTokens  PasswordRecoveryToken[]
+}
+
+model PasswordRecoveryToken {
+  id         Int       @id @default(autoincrement())
+  id_usuario Int
+  token_hash String
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
+  usuario    Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@index([id_usuario])
+  @@index([token_hash])
 }
 
 model Roles {
-  id_rol      Int       @id @default(autoincrement())
-  nombre_rol  String    @unique
-  descripcion String
-  createdAt   DateTime  @default(now())
+  id_rol       Int            @id @default(autoincrement())
+  nombre_rol   String         @unique
+  descripcion  String
+  createdAt    DateTime       @default(now())
   UsuarioRoles UsuarioRoles[]
   RolePermisos RolePermisos[]
 }
 
 model Permisos {
-  id_permiso    Int      @id @default(autoincrement())
-  nombre_permiso String  @unique
-  createdAt     DateTime @default(now())
-  RolePermisos RolePermisos[]
+  id_permiso     Int            @id @default(autoincrement())
+  nombre_permiso String         @unique
+  createdAt      DateTime       @default(now())
+  RolePermisos   RolePermisos[]
 }
 
 model RolePermisos {
   id_rol     Int
   id_permiso Int
-  rol        Roles       @relation(fields: [id_rol], references: [id_rol])
+  rol        Roles    @relation(fields: [id_rol], references: [id_rol])
   permiso    Permisos @relation(fields: [id_permiso], references: [id_permiso])
 
   @@id([id_rol, id_permiso])
@@ -131,61 +145,61 @@ model UsuarioRoles {
 }
 
 model Evento {
-  id_evento                     Int      @id @default(autoincrement())
+  id_evento                     Int            @id @default(autoincrement())
   nombre                        String
   fecha_inicio                  DateTime
   fecha_fin                     DateTime
   fecha_cierre_inscripcion      DateTime
-  inscripciones_abiertas_manual Boolean  @default(true)
+  inscripciones_abiertas_manual Boolean        @default(true)
   ubicacion                     String
-  createdAt                     DateTime @default(now())
-  cancelado                     Boolean  @default(false)
+  createdAt                     DateTime       @default(now())
+  cancelado                     Boolean        @default(false)
   inscripciones                 Inscripcion[]
   notificaciones                Notificacion[] @relation("EventoNotificaciones")
   sesiones                      Sesion[]
 }
 
 model Inscripcion {
-  id_inscripcion    Int      @id @default(autoincrement())
-  id_evento         Int
-  id_usuario        Int
-  nombre_participante String  @default("")
-  email             String   @default("")
-  afiliacion        String   @default("")
-  comprobante_pago  String?
-  fecha_inscripcion DateTime @default(now())
-  estado            String   @default("Pendiente")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  fecha             DateTime @default(now())
-  estado_pago       Boolean  @default(false)
-  comprobante       String   @default("")
-  evento            Evento   @relation(fields: [id_evento], references: [id_evento])
-  usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
-  historial         InscripcionHistorial[]
-  notificaciones    Notificacion[]
+  id_inscripcion      Int                    @id @default(autoincrement())
+  id_evento           Int
+  id_usuario          Int
+  nombre_participante String                 @default("")
+  email               String                 @default("")
+  afiliacion          String                 @default("")
+  comprobante_pago    String?
+  fecha_inscripcion   DateTime               @default(now())
+  estado              String                 @default("Pendiente")
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  fecha               DateTime               @default(now())
+  estado_pago         Boolean                @default(false)
+  comprobante         String                 @default("")
+  evento              Evento                 @relation(fields: [id_evento], references: [id_evento])
+  usuario             Usuario                @relation(fields: [id_usuario], references: [id_usuario])
+  historial           InscripcionHistorial[]
+  notificaciones      Notificacion[]
 
   @@unique([id_evento, id_usuario])
 }
 
 model InscripcionHistorial {
-  id_historial    Int      @id @default(autoincrement())
+  id_historial    Int         @id @default(autoincrement())
   id_inscripcion  Int
   estado_anterior String
   estado_nuevo    String
   nota            String?
   actor           String?
-  fecha_cambio    DateTime @default(now())
+  fecha_cambio    DateTime    @default(now())
   inscripcion     Inscripcion @relation(fields: [id_inscripcion], references: [id_inscripcion])
 }
 
 model NotificacionPreferencia {
-  id_preferencia Int      @id @default(autoincrement())
-  id_usuario     Int      @unique
-  frecuencia     String   @default("inmediata")
-  tipos          String   @default("estado")
-  habilitado     Boolean  @default(true)
-  usuario        Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  id_preferencia Int     @id @default(autoincrement())
+  id_usuario     Int     @unique
+  frecuencia     String  @default("inmediata")
+  tipos          String  @default("estado")
+  habilitado     Boolean @default(true)
+  usuario        Usuario @relation(fields: [id_usuario], references: [id_usuario])
 }
 
 model Notificacion {
@@ -202,9 +216,9 @@ model Notificacion {
   estado          String   @default("enviado")
   createdAt       DateTime @default(now())
 
-  usuario         Usuario   @relation("UsuarioNotificaciones", fields: [id_usuario], references: [id_usuario])
-  evento          Evento?   @relation("EventoNotificaciones", fields: [id_evento], references: [id_evento])
-  inscripcion     Inscripcion? @relation(fields: [id_inscripcion], references: [id_inscripcion])
+  usuario     Usuario      @relation("UsuarioNotificaciones", fields: [id_usuario], references: [id_usuario])
+  evento      Evento?      @relation("EventoNotificaciones", fields: [id_evento], references: [id_evento])
+  inscripcion Inscripcion? @relation(fields: [id_inscripcion], references: [id_inscripcion])
 }
 
 model ReporteProgramado {
@@ -218,9 +232,9 @@ model ReporteProgramado {
 }
 
 model JobExecution {
-  id        Int      @id @default(autoincrement())
-  job_name  String   @unique
-  last_run  DateTime
+  id       Int      @id @default(autoincrement())
+  job_name String   @unique
+  last_run DateTime
 }
 
 model Pais {
@@ -241,25 +255,25 @@ model Ciudad {
 }
 
 model Sesion {
-  id_sesion      Int       @id @default(autoincrement())
-  titulo         String
-  descripcion    String
-  fecha_inicio   DateTime
-  fecha_fin      DateTime
-  ubicacion      String
-  id_evento      Int
-  evento         Evento    @relation(fields: [id_evento], references: [id_evento])
-  createdAt      DateTime  @default(now())
-  cancelado      Boolean   @default(false)
-  ponentes       SesionPonente[]
+  id_sesion    Int             @id @default(autoincrement())
+  titulo       String
+  descripcion  String
+  fecha_inicio DateTime
+  fecha_fin    DateTime
+  ubicacion    String
+  id_evento    Int
+  evento       Evento          @relation(fields: [id_evento], references: [id_evento])
+  createdAt    DateTime        @default(now())
+  cancelado    Boolean         @default(false)
+  ponentes     SesionPonente[]
 }
 
 model SesionPonente {
-  id_sesion_ponente Int    @id @default(autoincrement())
+  id_sesion_ponente Int     @id @default(autoincrement())
   id_sesion         Int
   id_usuario        Int
-  sesion            Sesion   @relation(fields: [id_sesion], references: [id_sesion])
-  usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+  sesion            Sesion  @relation(fields: [id_sesion], references: [id_sesion])
+  usuario           Usuario @relation(fields: [id_usuario], references: [id_usuario])
 
   @@unique([id_sesion, id_usuario])
 }
@@ -335,6 +349,7 @@ func newMockClient(expectations *[]mock.Expectation) *PrismaClient {
 func newClient() *PrismaClient {
 	c := &PrismaClient{}
 	c.Usuario = usuarioActions{client: c}
+	c.PasswordRecoveryToken = passwordRecoveryTokenActions{client: c}
 	c.Roles = rolesActions{client: c}
 	c.Permisos = permisosActions{client: c}
 	c.RolePermisos = rolePermisosActions{client: c}
@@ -376,6 +391,8 @@ type PrismaClient struct {
 
 	// Usuario provides access to CRUD methods.
 	Usuario usuarioActions
+	// PasswordRecoveryToken provides access to CRUD methods.
+	PasswordRecoveryToken passwordRecoveryTokenActions
 	// Roles provides access to CRUD methods.
 	Roles rolesActions
 	// Permisos provides access to CRUD methods.
@@ -427,6 +444,17 @@ const (
 	UsuarioScalarFieldEnumEmail        UsuarioScalarFieldEnum = "email"
 	UsuarioScalarFieldEnumPasswordHash UsuarioScalarFieldEnum = "password_hash"
 	UsuarioScalarFieldEnumCreatedAt    UsuarioScalarFieldEnum = "createdAt"
+)
+
+type PasswordRecoveryTokenScalarFieldEnum string
+
+const (
+	PasswordRecoveryTokenScalarFieldEnumID        PasswordRecoveryTokenScalarFieldEnum = "id"
+	PasswordRecoveryTokenScalarFieldEnumIDUsuario PasswordRecoveryTokenScalarFieldEnum = "id_usuario"
+	PasswordRecoveryTokenScalarFieldEnumTokenHash PasswordRecoveryTokenScalarFieldEnum = "token_hash"
+	PasswordRecoveryTokenScalarFieldEnumExpiresAt PasswordRecoveryTokenScalarFieldEnum = "expires_at"
+	PasswordRecoveryTokenScalarFieldEnumUsedAt    PasswordRecoveryTokenScalarFieldEnum = "used_at"
+	PasswordRecoveryTokenScalarFieldEnumCreatedAt PasswordRecoveryTokenScalarFieldEnum = "created_at"
 )
 
 type RolesScalarFieldEnum string
@@ -664,6 +692,24 @@ const usuarioFieldSesionesPonente usuarioPrismaFields = "sesionesPonente"
 const usuarioFieldUsuarioRoles usuarioPrismaFields = "UsuarioRoles"
 
 const usuarioFieldPreferencias usuarioPrismaFields = "preferencias"
+
+const usuarioFieldRecoveryTokens usuarioPrismaFields = "recoveryTokens"
+
+type passwordRecoveryTokenPrismaFields = prismaFields
+
+const passwordRecoveryTokenFieldID passwordRecoveryTokenPrismaFields = "id"
+
+const passwordRecoveryTokenFieldIDUsuario passwordRecoveryTokenPrismaFields = "id_usuario"
+
+const passwordRecoveryTokenFieldTokenHash passwordRecoveryTokenPrismaFields = "token_hash"
+
+const passwordRecoveryTokenFieldExpiresAt passwordRecoveryTokenPrismaFields = "expires_at"
+
+const passwordRecoveryTokenFieldUsedAt passwordRecoveryTokenPrismaFields = "used_at"
+
+const passwordRecoveryTokenFieldCreatedAt passwordRecoveryTokenPrismaFields = "created_at"
+
+const passwordRecoveryTokenFieldUsuario passwordRecoveryTokenPrismaFields = "usuario"
 
 type rolesPrismaFields = prismaFields
 
@@ -933,6 +979,10 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.PasswordRecoveryToken = passwordRecoveryTokenMock{
+		mock: m,
+	}
+
 	m.Roles = rolesMock{
 		mock: m,
 	}
@@ -1001,6 +1051,8 @@ type Mock struct {
 
 	Usuario usuarioMock
 
+	PasswordRecoveryToken passwordRecoveryTokenMock
+
 	Roles rolesMock
 
 	Permisos permisosMock
@@ -1068,6 +1120,48 @@ func (m *usuarioMockExec) ReturnsMany(v []UsuarioModel) {
 }
 
 func (m *usuarioMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type passwordRecoveryTokenMock struct {
+	mock *Mock
+}
+
+type PasswordRecoveryTokenMockExpectParam interface {
+	ExtractQuery() builder.Query
+	passwordRecoveryTokenModel()
+}
+
+func (m *passwordRecoveryTokenMock) Expect(query PasswordRecoveryTokenMockExpectParam) *passwordRecoveryTokenMockExec {
+	return &passwordRecoveryTokenMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type passwordRecoveryTokenMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *passwordRecoveryTokenMockExec) Returns(v PasswordRecoveryTokenModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *passwordRecoveryTokenMockExec) ReturnsMany(v []PasswordRecoveryTokenModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *passwordRecoveryTokenMockExec) Errors(err error) {
 	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
 		Query:   m.query,
 		WantErr: err,
@@ -1737,6 +1831,7 @@ type RelationsUsuario struct {
 	SesionesPonente []SesionPonenteModel          `json:"sesionesPonente,omitempty"`
 	UsuarioRoles    []UsuarioRolesModel           `json:"UsuarioRoles,omitempty"`
 	Preferencias    *NotificacionPreferenciaModel `json:"preferencias,omitempty"`
+	RecoveryTokens  []PasswordRecoveryTokenModel  `json:"recoveryTokens,omitempty"`
 }
 
 func (r UsuarioModel) Inscripciones() (value []InscripcionModel) {
@@ -1772,6 +1867,58 @@ func (r UsuarioModel) Preferencias() (value *NotificacionPreferenciaModel, ok bo
 		return value, false
 	}
 	return r.RelationsUsuario.Preferencias, true
+}
+
+func (r UsuarioModel) RecoveryTokens() (value []PasswordRecoveryTokenModel) {
+	if r.RelationsUsuario.RecoveryTokens == nil {
+		panic("attempted to access recoveryTokens but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.RecoveryTokens
+}
+
+// PasswordRecoveryTokenModel represents the PasswordRecoveryToken model and is a wrapper for accessing fields and methods
+type PasswordRecoveryTokenModel struct {
+	InnerPasswordRecoveryToken
+	RelationsPasswordRecoveryToken
+}
+
+// InnerPasswordRecoveryToken holds the actual data
+type InnerPasswordRecoveryToken struct {
+	ID        int       `json:"id"`
+	IDUsuario int       `json:"id_usuario"`
+	TokenHash string    `json:"token_hash"`
+	ExpiresAt DateTime  `json:"expires_at"`
+	UsedAt    *DateTime `json:"used_at,omitempty"`
+	CreatedAt DateTime  `json:"created_at"`
+}
+
+// RawPasswordRecoveryTokenModel is a struct for PasswordRecoveryToken when used in raw queries
+type RawPasswordRecoveryTokenModel struct {
+	ID        RawInt       `json:"id"`
+	IDUsuario RawInt       `json:"id_usuario"`
+	TokenHash RawString    `json:"token_hash"`
+	ExpiresAt RawDateTime  `json:"expires_at"`
+	UsedAt    *RawDateTime `json:"used_at,omitempty"`
+	CreatedAt RawDateTime  `json:"created_at"`
+}
+
+// RelationsPasswordRecoveryToken holds the relation data separately
+type RelationsPasswordRecoveryToken struct {
+	Usuario *UsuarioModel `json:"usuario,omitempty"`
+}
+
+func (r PasswordRecoveryTokenModel) UsedAt() (value DateTime, ok bool) {
+	if r.InnerPasswordRecoveryToken.UsedAt == nil {
+		return value, false
+	}
+	return *r.InnerPasswordRecoveryToken.UsedAt, true
+}
+
+func (r PasswordRecoveryTokenModel) Usuario() (value *UsuarioModel) {
+	if r.RelationsPasswordRecoveryToken.Usuario == nil {
+		panic("attempted to access usuario but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsPasswordRecoveryToken.Usuario
 }
 
 // RolesModel represents the Roles model and is a wrapper for accessing fields and methods
@@ -2532,6 +2679,8 @@ type usuarioQuery struct {
 	UsuarioRoles usuarioQueryUsuarioRolesRelations
 
 	Preferencias usuarioQueryPreferenciasRelations
+
+	RecoveryTokens usuarioQueryRecoveryTokensRelations
 }
 
 func (usuarioQuery) Not(params ...UsuarioWhereParam) usuarioDefaultParam {
@@ -5110,6 +5259,2479 @@ func (r usuarioQueryPreferenciasRelations) Unlink() usuarioSetParam {
 
 func (r usuarioQueryPreferenciasNotificacionPreferencia) Field() usuarioPrismaFields {
 	return usuarioFieldPreferencias
+}
+
+// base struct
+type usuarioQueryRecoveryTokensPasswordRecoveryToken struct{}
+
+type usuarioQueryRecoveryTokensRelations struct{}
+
+// Usuario -> RecoveryTokens
+//
+// @relation
+// @required
+func (usuarioQueryRecoveryTokensRelations) Some(
+	params ...PasswordRecoveryTokenWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "recoveryTokens",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> RecoveryTokens
+//
+// @relation
+// @required
+func (usuarioQueryRecoveryTokensRelations) Every(
+	params ...PasswordRecoveryTokenWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "recoveryTokens",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> RecoveryTokens
+//
+// @relation
+// @required
+func (usuarioQueryRecoveryTokensRelations) None(
+	params ...PasswordRecoveryTokenWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "recoveryTokens",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQueryRecoveryTokensRelations) Fetch(
+
+	params ...PasswordRecoveryTokenWhereParam,
+
+) usuarioToRecoveryTokensFindMany {
+	var v usuarioToRecoveryTokensFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "recoveryTokens"
+	v.query.Outputs = passwordRecoveryTokenOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQueryRecoveryTokensRelations) Link(
+	params ...PasswordRecoveryTokenWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "recoveryTokens",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQueryRecoveryTokensRelations) Unlink(
+	params ...PasswordRecoveryTokenWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "recoveryTokens",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQueryRecoveryTokensPasswordRecoveryToken) Field() usuarioPrismaFields {
+	return usuarioFieldRecoveryTokens
+}
+
+// PasswordRecoveryToken acts as a namespaces to access query methods for the PasswordRecoveryToken model
+var PasswordRecoveryToken = passwordRecoveryTokenQuery{}
+
+// passwordRecoveryTokenQuery exposes query functions for the passwordRecoveryToken model
+type passwordRecoveryTokenQuery struct {
+
+	// ID
+	//
+	// @required
+	ID passwordRecoveryTokenQueryIDInt
+
+	// IDUsuario
+	//
+	// @required
+	IDUsuario passwordRecoveryTokenQueryIDUsuarioInt
+
+	// TokenHash
+	//
+	// @required
+	TokenHash passwordRecoveryTokenQueryTokenHashString
+
+	// ExpiresAt
+	//
+	// @required
+	ExpiresAt passwordRecoveryTokenQueryExpiresAtDateTime
+
+	// UsedAt
+	//
+	// @optional
+	UsedAt passwordRecoveryTokenQueryUsedAtDateTime
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt passwordRecoveryTokenQueryCreatedAtDateTime
+
+	Usuario passwordRecoveryTokenQueryUsuarioRelations
+}
+
+func (passwordRecoveryTokenQuery) Not(params ...PasswordRecoveryTokenWhereParam) passwordRecoveryTokenDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (passwordRecoveryTokenQuery) Or(params ...PasswordRecoveryTokenWhereParam) passwordRecoveryTokenDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (passwordRecoveryTokenQuery) And(params ...PasswordRecoveryTokenWhereParam) passwordRecoveryTokenDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type passwordRecoveryTokenQueryIDInt struct{}
+
+// Set the required value of ID
+func (r passwordRecoveryTokenQueryIDInt) Set(value int) passwordRecoveryTokenSetParam {
+
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name:  "id",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of ID dynamically
+func (r passwordRecoveryTokenQueryIDInt) SetIfPresent(value *Int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of ID
+func (r passwordRecoveryTokenQueryIDInt) Increment(value int) passwordRecoveryTokenSetParam {
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) IncrementIfPresent(value *int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of ID
+func (r passwordRecoveryTokenQueryIDInt) Decrement(value int) passwordRecoveryTokenSetParam {
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) DecrementIfPresent(value *int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of ID
+func (r passwordRecoveryTokenQueryIDInt) Multiply(value int) passwordRecoveryTokenSetParam {
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) MultiplyIfPresent(value *int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of ID
+func (r passwordRecoveryTokenQueryIDInt) Divide(value int) passwordRecoveryTokenSetParam {
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) DivideIfPresent(value *int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Equals(value int) passwordRecoveryTokenWithPrismaIDEqualsUniqueParam {
+
+	return passwordRecoveryTokenWithPrismaIDEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) EqualsIfPresent(value *int) passwordRecoveryTokenWithPrismaIDEqualsUniqueParam {
+	if value == nil {
+		return passwordRecoveryTokenWithPrismaIDEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Order(direction SortOrder) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:  "id",
+			Value: direction,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Cursor(cursor int) passwordRecoveryTokenCursorParam {
+	return passwordRecoveryTokenCursorParam{
+		data: builder.Field{
+			Name:  "id",
+			Value: cursor,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) In(value []int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) InIfPresent(value []int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) NotIn(value []int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) NotInIfPresent(value []int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Lt(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) LtIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Lte(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) LteIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Gt(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) GtIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Gte(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) GteIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Not(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDInt) NotIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r passwordRecoveryTokenQueryIDInt) LT(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r passwordRecoveryTokenQueryIDInt) LTIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r passwordRecoveryTokenQueryIDInt) LTE(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r passwordRecoveryTokenQueryIDInt) LTEIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r passwordRecoveryTokenQueryIDInt) GT(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r passwordRecoveryTokenQueryIDInt) GTIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r passwordRecoveryTokenQueryIDInt) GTE(value int) passwordRecoveryTokenParamUnique {
+	return passwordRecoveryTokenParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r passwordRecoveryTokenQueryIDInt) GTEIfPresent(value *int) passwordRecoveryTokenParamUnique {
+	if value == nil {
+		return passwordRecoveryTokenParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDInt) Field() passwordRecoveryTokenPrismaFields {
+	return passwordRecoveryTokenFieldID
+}
+
+// base struct
+type passwordRecoveryTokenQueryIDUsuarioInt struct{}
+
+// Set the required value of IDUsuario
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Set(value int) passwordRecoveryTokenSetParam {
+
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDUsuario dynamically
+func (r passwordRecoveryTokenQueryIDUsuarioInt) SetIfPresent(value *Int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDUsuario
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Increment(value int) passwordRecoveryTokenSetParam {
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) IncrementIfPresent(value *int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDUsuario
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Decrement(value int) passwordRecoveryTokenSetParam {
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) DecrementIfPresent(value *int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDUsuario
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Multiply(value int) passwordRecoveryTokenSetParam {
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) MultiplyIfPresent(value *int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDUsuario
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Divide(value int) passwordRecoveryTokenSetParam {
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) DivideIfPresent(value *int) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Equals(value int) passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam {
+
+	return passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) EqualsIfPresent(value *int) passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam {
+	if value == nil {
+		return passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Order(direction SortOrder) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: direction,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Cursor(cursor int) passwordRecoveryTokenCursorParam {
+	return passwordRecoveryTokenCursorParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: cursor,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) In(value []int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) InIfPresent(value []int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) NotIn(value []int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) NotInIfPresent(value []int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Lt(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) LtIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Lte(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) LteIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Gt(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) GtIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Gte(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) GteIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Not(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) NotIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) LT(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r passwordRecoveryTokenQueryIDUsuarioInt) LTIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) LTE(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r passwordRecoveryTokenQueryIDUsuarioInt) LTEIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) GT(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r passwordRecoveryTokenQueryIDUsuarioInt) GTIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) GTE(value int) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r passwordRecoveryTokenQueryIDUsuarioInt) GTEIfPresent(value *int) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r passwordRecoveryTokenQueryIDUsuarioInt) Field() passwordRecoveryTokenPrismaFields {
+	return passwordRecoveryTokenFieldIDUsuario
+}
+
+// base struct
+type passwordRecoveryTokenQueryTokenHashString struct{}
+
+// Set the required value of TokenHash
+func (r passwordRecoveryTokenQueryTokenHashString) Set(value string) passwordRecoveryTokenWithPrismaTokenHashSetParam {
+
+	return passwordRecoveryTokenWithPrismaTokenHashSetParam{
+		data: builder.Field{
+			Name:  "token_hash",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of TokenHash dynamically
+func (r passwordRecoveryTokenQueryTokenHashString) SetIfPresent(value *String) passwordRecoveryTokenWithPrismaTokenHashSetParam {
+	if value == nil {
+		return passwordRecoveryTokenWithPrismaTokenHashSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Equals(value string) passwordRecoveryTokenWithPrismaTokenHashEqualsParam {
+
+	return passwordRecoveryTokenWithPrismaTokenHashEqualsParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) EqualsIfPresent(value *string) passwordRecoveryTokenWithPrismaTokenHashEqualsParam {
+	if value == nil {
+		return passwordRecoveryTokenWithPrismaTokenHashEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Order(direction SortOrder) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:  "token_hash",
+			Value: direction,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Cursor(cursor string) passwordRecoveryTokenCursorParam {
+	return passwordRecoveryTokenCursorParam{
+		data: builder.Field{
+			Name:  "token_hash",
+			Value: cursor,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) In(value []string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) InIfPresent(value []string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) NotIn(value []string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) NotInIfPresent(value []string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Lt(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) LtIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Lte(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) LteIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Gt(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) GtIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Gte(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) GteIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Contains(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) ContainsIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) StartsWith(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) StartsWithIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) EndsWith(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) EndsWithIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Mode(value QueryMode) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) ModeIfPresent(value *QueryMode) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Not(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) NotIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r passwordRecoveryTokenQueryTokenHashString) HasPrefix(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r passwordRecoveryTokenQueryTokenHashString) HasPrefixIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r passwordRecoveryTokenQueryTokenHashString) HasSuffix(value string) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "token_hash",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r passwordRecoveryTokenQueryTokenHashString) HasSuffixIfPresent(value *string) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r passwordRecoveryTokenQueryTokenHashString) Field() passwordRecoveryTokenPrismaFields {
+	return passwordRecoveryTokenFieldTokenHash
+}
+
+// base struct
+type passwordRecoveryTokenQueryExpiresAtDateTime struct{}
+
+// Set the required value of ExpiresAt
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Set(value DateTime) passwordRecoveryTokenWithPrismaExpiresAtSetParam {
+
+	return passwordRecoveryTokenWithPrismaExpiresAtSetParam{
+		data: builder.Field{
+			Name:  "expires_at",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of ExpiresAt dynamically
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) SetIfPresent(value *DateTime) passwordRecoveryTokenWithPrismaExpiresAtSetParam {
+	if value == nil {
+		return passwordRecoveryTokenWithPrismaExpiresAtSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Equals(value DateTime) passwordRecoveryTokenWithPrismaExpiresAtEqualsParam {
+
+	return passwordRecoveryTokenWithPrismaExpiresAtEqualsParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) EqualsIfPresent(value *DateTime) passwordRecoveryTokenWithPrismaExpiresAtEqualsParam {
+	if value == nil {
+		return passwordRecoveryTokenWithPrismaExpiresAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Order(direction SortOrder) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:  "expires_at",
+			Value: direction,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Cursor(cursor DateTime) passwordRecoveryTokenCursorParam {
+	return passwordRecoveryTokenCursorParam{
+		data: builder.Field{
+			Name:  "expires_at",
+			Value: cursor,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) In(value []DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) InIfPresent(value []DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) NotIn(value []DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) NotInIfPresent(value []DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Lt(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) LtIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Lte(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) LteIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Gt(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) GtIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Gte(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) GteIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Not(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) NotIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Before(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) BeforeIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) After(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) AfterIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) BeforeEquals(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) BeforeEqualsIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) AfterEquals(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "expires_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) AfterEqualsIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r passwordRecoveryTokenQueryExpiresAtDateTime) Field() passwordRecoveryTokenPrismaFields {
+	return passwordRecoveryTokenFieldExpiresAt
+}
+
+// base struct
+type passwordRecoveryTokenQueryUsedAtDateTime struct{}
+
+// Set the optional value of UsedAt
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Set(value DateTime) passwordRecoveryTokenSetParam {
+
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name:  "used_at",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of UsedAt dynamically
+func (r passwordRecoveryTokenQueryUsedAtDateTime) SetIfPresent(value *DateTime) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of UsedAt dynamically
+func (r passwordRecoveryTokenQueryUsedAtDateTime) SetOptional(value *DateTime) passwordRecoveryTokenSetParam {
+	if value == nil {
+
+		var v *DateTime
+		return passwordRecoveryTokenSetParam{
+			data: builder.Field{
+				Name:  "used_at",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Equals(value DateTime) passwordRecoveryTokenWithPrismaUsedAtEqualsParam {
+
+	return passwordRecoveryTokenWithPrismaUsedAtEqualsParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) EqualsIfPresent(value *DateTime) passwordRecoveryTokenWithPrismaUsedAtEqualsParam {
+	if value == nil {
+		return passwordRecoveryTokenWithPrismaUsedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) EqualsOptional(value *DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) IsNull() passwordRecoveryTokenDefaultParam {
+	var str *string = nil
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Order(direction SortOrder) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:  "used_at",
+			Value: direction,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Cursor(cursor DateTime) passwordRecoveryTokenCursorParam {
+	return passwordRecoveryTokenCursorParam{
+		data: builder.Field{
+			Name:  "used_at",
+			Value: cursor,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) In(value []DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) InIfPresent(value []DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) NotIn(value []DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) NotInIfPresent(value []DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Lt(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) LtIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Lte(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) LteIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Gt(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) GtIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Gte(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) GteIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Not(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) NotIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Before(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r passwordRecoveryTokenQueryUsedAtDateTime) BeforeIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) After(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r passwordRecoveryTokenQueryUsedAtDateTime) AfterIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) BeforeEquals(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r passwordRecoveryTokenQueryUsedAtDateTime) BeforeEqualsIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) AfterEquals(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "used_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r passwordRecoveryTokenQueryUsedAtDateTime) AfterEqualsIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r passwordRecoveryTokenQueryUsedAtDateTime) Field() passwordRecoveryTokenPrismaFields {
+	return passwordRecoveryTokenFieldUsedAt
+}
+
+// base struct
+type passwordRecoveryTokenQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Set(value DateTime) passwordRecoveryTokenSetParam {
+
+	return passwordRecoveryTokenSetParam{
+		data: builder.Field{
+			Name:  "created_at",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) SetIfPresent(value *DateTime) passwordRecoveryTokenSetParam {
+	if value == nil {
+		return passwordRecoveryTokenSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Equals(value DateTime) passwordRecoveryTokenWithPrismaCreatedAtEqualsParam {
+
+	return passwordRecoveryTokenWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) passwordRecoveryTokenWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return passwordRecoveryTokenWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Order(direction SortOrder) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name:  "created_at",
+			Value: direction,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Cursor(cursor DateTime) passwordRecoveryTokenCursorParam {
+	return passwordRecoveryTokenCursorParam{
+		data: builder.Field{
+			Name:  "created_at",
+			Value: cursor,
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) In(value []DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) InIfPresent(value []DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) NotIn(value []DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Lt(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) LtIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Lte(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) LteIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Gt(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) GtIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Gte(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) GteIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Not(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) NotIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Before(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) After(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) BeforeEquals(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) AfterEquals(value DateTime) passwordRecoveryTokenDefaultParam {
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "created_at",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) passwordRecoveryTokenDefaultParam {
+	if value == nil {
+		return passwordRecoveryTokenDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r passwordRecoveryTokenQueryCreatedAtDateTime) Field() passwordRecoveryTokenPrismaFields {
+	return passwordRecoveryTokenFieldCreatedAt
+}
+
+// base struct
+type passwordRecoveryTokenQueryUsuarioUsuario struct{}
+
+type passwordRecoveryTokenQueryUsuarioRelations struct{}
+
+// PasswordRecoveryToken -> Usuario
+//
+// @relation
+// @required
+func (passwordRecoveryTokenQueryUsuarioRelations) Where(
+	params ...UsuarioWhereParam,
+) passwordRecoveryTokenDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return passwordRecoveryTokenDefaultParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (passwordRecoveryTokenQueryUsuarioRelations) Fetch() passwordRecoveryTokenToUsuarioFindUnique {
+	var v passwordRecoveryTokenToUsuarioFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "usuario"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r passwordRecoveryTokenQueryUsuarioRelations) Link(
+	params UsuarioWhereParam,
+) passwordRecoveryTokenWithPrismaUsuarioSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return passwordRecoveryTokenWithPrismaUsuarioSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return passwordRecoveryTokenWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r passwordRecoveryTokenQueryUsuarioRelations) Unlink() passwordRecoveryTokenWithPrismaUsuarioSetParam {
+	var v passwordRecoveryTokenWithPrismaUsuarioSetParam
+
+	v = passwordRecoveryTokenWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r passwordRecoveryTokenQueryUsuarioUsuario) Field() passwordRecoveryTokenPrismaFields {
+	return passwordRecoveryTokenFieldUsuario
 }
 
 // Roles acts as a namespaces to access query methods for the Roles model
@@ -40317,6 +42939,808 @@ func (p usuarioWithPrismaPreferenciasEqualsUniqueParam) preferenciasField() {}
 func (usuarioWithPrismaPreferenciasEqualsUniqueParam) unique() {}
 func (usuarioWithPrismaPreferenciasEqualsUniqueParam) equals() {}
 
+type UsuarioWithPrismaRecoveryTokensEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	recoveryTokensField()
+}
+
+type UsuarioWithPrismaRecoveryTokensSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	recoveryTokensField()
+}
+
+type usuarioWithPrismaRecoveryTokensSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaRecoveryTokensSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaRecoveryTokensSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaRecoveryTokensSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaRecoveryTokensSetParam) recoveryTokensField() {}
+
+type UsuarioWithPrismaRecoveryTokensWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	recoveryTokensField()
+}
+
+type usuarioWithPrismaRecoveryTokensEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaRecoveryTokensEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaRecoveryTokensEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaRecoveryTokensEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaRecoveryTokensEqualsParam) recoveryTokensField() {}
+
+func (usuarioWithPrismaRecoveryTokensSetParam) settable()  {}
+func (usuarioWithPrismaRecoveryTokensEqualsParam) equals() {}
+
+type usuarioWithPrismaRecoveryTokensEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaRecoveryTokensEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaRecoveryTokensEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaRecoveryTokensEqualsUniqueParam) usuarioModel()        {}
+func (p usuarioWithPrismaRecoveryTokensEqualsUniqueParam) recoveryTokensField() {}
+
+func (usuarioWithPrismaRecoveryTokensEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaRecoveryTokensEqualsUniqueParam) equals() {}
+
+type passwordRecoveryTokenActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var passwordRecoveryTokenOutput = []builder.Output{
+	{Name: "id"},
+	{Name: "id_usuario"},
+	{Name: "token_hash"},
+	{Name: "expires_at"},
+	{Name: "used_at"},
+	{Name: "created_at"},
+}
+
+type PasswordRecoveryTokenRelationWith interface {
+	getQuery() builder.Query
+	with()
+	passwordRecoveryTokenRelation()
+}
+
+type PasswordRecoveryTokenWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+}
+
+type passwordRecoveryTokenDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenDefaultParam) passwordRecoveryTokenModel() {}
+
+type PasswordRecoveryTokenOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+}
+
+type passwordRecoveryTokenOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenOrderByParam) passwordRecoveryTokenModel() {}
+
+type PasswordRecoveryTokenCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	isCursor()
+}
+
+type passwordRecoveryTokenCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenCursorParam) isCursor() {}
+
+func (p passwordRecoveryTokenCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenCursorParam) passwordRecoveryTokenModel() {}
+
+type PasswordRecoveryTokenParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	passwordRecoveryTokenModel()
+}
+
+type passwordRecoveryTokenParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenParamUnique) passwordRecoveryTokenModel() {}
+
+func (passwordRecoveryTokenParamUnique) unique() {}
+
+func (p passwordRecoveryTokenParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type PasswordRecoveryTokenEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	passwordRecoveryTokenModel()
+}
+
+type passwordRecoveryTokenEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenEqualsParam) passwordRecoveryTokenModel() {}
+
+func (passwordRecoveryTokenEqualsParam) equals() {}
+
+func (p passwordRecoveryTokenEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type PasswordRecoveryTokenEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	passwordRecoveryTokenModel()
+}
+
+type passwordRecoveryTokenEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenEqualsUniqueParam) passwordRecoveryTokenModel() {}
+
+func (passwordRecoveryTokenEqualsUniqueParam) unique() {}
+func (passwordRecoveryTokenEqualsUniqueParam) equals() {}
+
+func (p passwordRecoveryTokenEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type PasswordRecoveryTokenSetParam interface {
+	field() builder.Field
+	settable()
+	passwordRecoveryTokenModel()
+}
+
+type passwordRecoveryTokenSetParam struct {
+	data builder.Field
+}
+
+func (passwordRecoveryTokenSetParam) settable() {}
+
+func (p passwordRecoveryTokenSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenSetParam) passwordRecoveryTokenModel() {}
+
+type PasswordRecoveryTokenWithPrismaIDEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	passwordRecoveryTokenModel()
+	idField()
+}
+
+type PasswordRecoveryTokenWithPrismaIDSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	idField()
+}
+
+type passwordRecoveryTokenWithPrismaIDSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaIDSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDSetParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaIDSetParam) idField() {}
+
+type PasswordRecoveryTokenWithPrismaIDWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	idField()
+}
+
+type passwordRecoveryTokenWithPrismaIDEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaIDEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDEqualsParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaIDEqualsParam) idField() {}
+
+func (passwordRecoveryTokenWithPrismaIDSetParam) settable()  {}
+func (passwordRecoveryTokenWithPrismaIDEqualsParam) equals() {}
+
+type passwordRecoveryTokenWithPrismaIDEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaIDEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDEqualsUniqueParam) passwordRecoveryTokenModel() {}
+func (p passwordRecoveryTokenWithPrismaIDEqualsUniqueParam) idField()                    {}
+
+func (passwordRecoveryTokenWithPrismaIDEqualsUniqueParam) unique() {}
+func (passwordRecoveryTokenWithPrismaIDEqualsUniqueParam) equals() {}
+
+type PasswordRecoveryTokenWithPrismaIDUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	passwordRecoveryTokenModel()
+	idUsuarioField()
+}
+
+type PasswordRecoveryTokenWithPrismaIDUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	idUsuarioField()
+}
+
+type passwordRecoveryTokenWithPrismaIDUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioSetParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioSetParam) idUsuarioField() {}
+
+type PasswordRecoveryTokenWithPrismaIDUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	idUsuarioField()
+}
+
+type passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam) idUsuarioField() {}
+
+func (passwordRecoveryTokenWithPrismaIDUsuarioSetParam) settable()  {}
+func (passwordRecoveryTokenWithPrismaIDUsuarioEqualsParam) equals() {}
+
+type passwordRecoveryTokenWithPrismaIDUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaIDUsuarioEqualsUniqueParam) passwordRecoveryTokenModel() {}
+func (p passwordRecoveryTokenWithPrismaIDUsuarioEqualsUniqueParam) idUsuarioField()             {}
+
+func (passwordRecoveryTokenWithPrismaIDUsuarioEqualsUniqueParam) unique() {}
+func (passwordRecoveryTokenWithPrismaIDUsuarioEqualsUniqueParam) equals() {}
+
+type PasswordRecoveryTokenWithPrismaTokenHashEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	passwordRecoveryTokenModel()
+	tokenHashField()
+}
+
+type PasswordRecoveryTokenWithPrismaTokenHashSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	tokenHashField()
+}
+
+type passwordRecoveryTokenWithPrismaTokenHashSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashSetParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashSetParam) tokenHashField() {}
+
+type PasswordRecoveryTokenWithPrismaTokenHashWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	tokenHashField()
+}
+
+type passwordRecoveryTokenWithPrismaTokenHashEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashEqualsParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashEqualsParam) tokenHashField() {}
+
+func (passwordRecoveryTokenWithPrismaTokenHashSetParam) settable()  {}
+func (passwordRecoveryTokenWithPrismaTokenHashEqualsParam) equals() {}
+
+type passwordRecoveryTokenWithPrismaTokenHashEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaTokenHashEqualsUniqueParam) passwordRecoveryTokenModel() {}
+func (p passwordRecoveryTokenWithPrismaTokenHashEqualsUniqueParam) tokenHashField()             {}
+
+func (passwordRecoveryTokenWithPrismaTokenHashEqualsUniqueParam) unique() {}
+func (passwordRecoveryTokenWithPrismaTokenHashEqualsUniqueParam) equals() {}
+
+type PasswordRecoveryTokenWithPrismaExpiresAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	passwordRecoveryTokenModel()
+	expiresAtField()
+}
+
+type PasswordRecoveryTokenWithPrismaExpiresAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	expiresAtField()
+}
+
+type passwordRecoveryTokenWithPrismaExpiresAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtSetParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtSetParam) expiresAtField() {}
+
+type PasswordRecoveryTokenWithPrismaExpiresAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	expiresAtField()
+}
+
+type passwordRecoveryTokenWithPrismaExpiresAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtEqualsParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtEqualsParam) expiresAtField() {}
+
+func (passwordRecoveryTokenWithPrismaExpiresAtSetParam) settable()  {}
+func (passwordRecoveryTokenWithPrismaExpiresAtEqualsParam) equals() {}
+
+type passwordRecoveryTokenWithPrismaExpiresAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaExpiresAtEqualsUniqueParam) passwordRecoveryTokenModel() {}
+func (p passwordRecoveryTokenWithPrismaExpiresAtEqualsUniqueParam) expiresAtField()             {}
+
+func (passwordRecoveryTokenWithPrismaExpiresAtEqualsUniqueParam) unique() {}
+func (passwordRecoveryTokenWithPrismaExpiresAtEqualsUniqueParam) equals() {}
+
+type PasswordRecoveryTokenWithPrismaUsedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	passwordRecoveryTokenModel()
+	usedAtField()
+}
+
+type PasswordRecoveryTokenWithPrismaUsedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	usedAtField()
+}
+
+type passwordRecoveryTokenWithPrismaUsedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtSetParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtSetParam) usedAtField() {}
+
+type PasswordRecoveryTokenWithPrismaUsedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	usedAtField()
+}
+
+type passwordRecoveryTokenWithPrismaUsedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtEqualsParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtEqualsParam) usedAtField() {}
+
+func (passwordRecoveryTokenWithPrismaUsedAtSetParam) settable()  {}
+func (passwordRecoveryTokenWithPrismaUsedAtEqualsParam) equals() {}
+
+type passwordRecoveryTokenWithPrismaUsedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsedAtEqualsUniqueParam) passwordRecoveryTokenModel() {}
+func (p passwordRecoveryTokenWithPrismaUsedAtEqualsUniqueParam) usedAtField()                {}
+
+func (passwordRecoveryTokenWithPrismaUsedAtEqualsUniqueParam) unique() {}
+func (passwordRecoveryTokenWithPrismaUsedAtEqualsUniqueParam) equals() {}
+
+type PasswordRecoveryTokenWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	passwordRecoveryTokenModel()
+	createdAtField()
+}
+
+type PasswordRecoveryTokenWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	createdAtField()
+}
+
+type passwordRecoveryTokenWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtSetParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type PasswordRecoveryTokenWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	createdAtField()
+}
+
+type passwordRecoveryTokenWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtEqualsParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (passwordRecoveryTokenWithPrismaCreatedAtSetParam) settable()  {}
+func (passwordRecoveryTokenWithPrismaCreatedAtEqualsParam) equals() {}
+
+type passwordRecoveryTokenWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaCreatedAtEqualsUniqueParam) passwordRecoveryTokenModel() {}
+func (p passwordRecoveryTokenWithPrismaCreatedAtEqualsUniqueParam) createdAtField()             {}
+
+func (passwordRecoveryTokenWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (passwordRecoveryTokenWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type PasswordRecoveryTokenWithPrismaUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	passwordRecoveryTokenModel()
+	usuarioField()
+}
+
+type PasswordRecoveryTokenWithPrismaUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	usuarioField()
+}
+
+type passwordRecoveryTokenWithPrismaUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioSetParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioSetParam) usuarioField() {}
+
+type PasswordRecoveryTokenWithPrismaUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	passwordRecoveryTokenModel()
+	usuarioField()
+}
+
+type passwordRecoveryTokenWithPrismaUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioEqualsParam) passwordRecoveryTokenModel() {}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioEqualsParam) usuarioField() {}
+
+func (passwordRecoveryTokenWithPrismaUsuarioSetParam) settable()  {}
+func (passwordRecoveryTokenWithPrismaUsuarioEqualsParam) equals() {}
+
+type passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) passwordRecoveryTokenModel() {}
+func (p passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) usuarioField()               {}
+
+func (passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) unique() {}
+func (passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) equals() {}
+
 type rolesActions struct {
 	// client holds the prisma client
 	client *PrismaClient
@@ -51798,6 +55222,78 @@ func (r usuarioCreateOne) Tx() UsuarioUniqueTxResult {
 	return v
 }
 
+// Creates a single passwordRecoveryToken.
+func (r passwordRecoveryTokenActions) CreateOne(
+	_tokenHash PasswordRecoveryTokenWithPrismaTokenHashSetParam,
+	_expiresAt PasswordRecoveryTokenWithPrismaExpiresAtSetParam,
+	_usuario PasswordRecoveryTokenWithPrismaUsuarioSetParam,
+
+	optional ...PasswordRecoveryTokenSetParam,
+) passwordRecoveryTokenCreateOne {
+	var v passwordRecoveryTokenCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "PasswordRecoveryToken"
+	v.query.Outputs = passwordRecoveryTokenOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _tokenHash.field())
+	fields = append(fields, _expiresAt.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r passwordRecoveryTokenCreateOne) With(params ...PasswordRecoveryTokenRelationWith) passwordRecoveryTokenCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type passwordRecoveryTokenCreateOne struct {
+	query builder.Query
+}
+
+func (p passwordRecoveryTokenCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p passwordRecoveryTokenCreateOne) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenCreateOne) Exec(ctx context.Context) (*PasswordRecoveryTokenModel, error) {
+	var v PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenCreateOne) Tx() PasswordRecoveryTokenUniqueTxResult {
+	v := newPasswordRecoveryTokenUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // Creates a single roles.
 func (r rolesActions) CreateOne(
 	_nombreRol RolesWithPrismaNombreRolSetParam,
@@ -55630,6 +59126,560 @@ func (r usuarioToPreferenciasDeleteMany) Tx() UsuarioManyTxResult {
 	return v
 }
 
+type usuarioToRecoveryTokensFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToRecoveryTokensFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToRecoveryTokensFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToRecoveryTokensFindUnique) with()            {}
+func (r usuarioToRecoveryTokensFindUnique) usuarioModel()    {}
+func (r usuarioToRecoveryTokensFindUnique) usuarioRelation() {}
+
+func (r usuarioToRecoveryTokensFindUnique) With(params ...PasswordRecoveryTokenRelationWith) usuarioToRecoveryTokensFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindUnique) Select(params ...usuarioPrismaFields) usuarioToRecoveryTokensFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindUnique) Omit(params ...usuarioPrismaFields) usuarioToRecoveryTokensFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToRecoveryTokensFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToRecoveryTokensFindUnique) Update(params ...UsuarioSetParam) usuarioToRecoveryTokensUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToRecoveryTokensUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToRecoveryTokensUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToRecoveryTokensUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToRecoveryTokensUpdateUnique) usuarioModel() {}
+
+func (r usuarioToRecoveryTokensUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToRecoveryTokensUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToRecoveryTokensFindUnique) Delete() usuarioToRecoveryTokensDeleteUnique {
+	var v usuarioToRecoveryTokensDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToRecoveryTokensDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToRecoveryTokensDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToRecoveryTokensDeleteUnique) usuarioModel() {}
+
+func (r usuarioToRecoveryTokensDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToRecoveryTokensDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToRecoveryTokensFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToRecoveryTokensFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToRecoveryTokensFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToRecoveryTokensFindFirst) with()            {}
+func (r usuarioToRecoveryTokensFindFirst) usuarioModel()    {}
+func (r usuarioToRecoveryTokensFindFirst) usuarioRelation() {}
+
+func (r usuarioToRecoveryTokensFindFirst) With(params ...PasswordRecoveryTokenRelationWith) usuarioToRecoveryTokensFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindFirst) Select(params ...usuarioPrismaFields) usuarioToRecoveryTokensFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindFirst) Omit(params ...usuarioPrismaFields) usuarioToRecoveryTokensFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindFirst) OrderBy(params ...PasswordRecoveryTokenOrderByParam) usuarioToRecoveryTokensFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindFirst) Skip(count int) usuarioToRecoveryTokensFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindFirst) Take(count int) usuarioToRecoveryTokensFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToRecoveryTokensFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToRecoveryTokensFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToRecoveryTokensFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToRecoveryTokensFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToRecoveryTokensFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToRecoveryTokensFindMany) with()            {}
+func (r usuarioToRecoveryTokensFindMany) usuarioModel()    {}
+func (r usuarioToRecoveryTokensFindMany) usuarioRelation() {}
+
+func (r usuarioToRecoveryTokensFindMany) With(params ...PasswordRecoveryTokenRelationWith) usuarioToRecoveryTokensFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindMany) Select(params ...usuarioPrismaFields) usuarioToRecoveryTokensFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindMany) Omit(params ...usuarioPrismaFields) usuarioToRecoveryTokensFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindMany) OrderBy(params ...PasswordRecoveryTokenOrderByParam) usuarioToRecoveryTokensFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindMany) Skip(count int) usuarioToRecoveryTokensFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindMany) Take(count int) usuarioToRecoveryTokensFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindMany) Cursor(cursor UsuarioCursorParam) usuarioToRecoveryTokensFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToRecoveryTokensFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToRecoveryTokensFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToRecoveryTokensFindMany) Update(params ...UsuarioSetParam) usuarioToRecoveryTokensUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToRecoveryTokensUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToRecoveryTokensUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToRecoveryTokensUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToRecoveryTokensUpdateMany) usuarioModel() {}
+
+func (r usuarioToRecoveryTokensUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToRecoveryTokensUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToRecoveryTokensFindMany) Delete() usuarioToRecoveryTokensDeleteMany {
+	var v usuarioToRecoveryTokensDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToRecoveryTokensDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToRecoveryTokensDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToRecoveryTokensDeleteMany) usuarioModel() {}
+
+func (r usuarioToRecoveryTokensDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToRecoveryTokensDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 type usuarioFindUnique struct {
 	query builder.Query
 }
@@ -56275,6 +60325,1210 @@ func (r usuarioDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
 
 func (r usuarioDeleteMany) Tx() UsuarioManyTxResult {
 	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type passwordRecoveryTokenToUsuarioFindUnique struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) with()                          {}
+func (r passwordRecoveryTokenToUsuarioFindUnique) passwordRecoveryTokenModel()    {}
+func (r passwordRecoveryTokenToUsuarioFindUnique) passwordRecoveryTokenRelation() {}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) With(params ...UsuarioRelationWith) passwordRecoveryTokenToUsuarioFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) Select(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) Omit(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range passwordRecoveryTokenOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) Exec(ctx context.Context) (
+	*PasswordRecoveryTokenModel,
+	error,
+) {
+	var v *PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) ExecInner(ctx context.Context) (
+	*InnerPasswordRecoveryToken,
+	error,
+) {
+	var v *InnerPasswordRecoveryToken
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) Update(params ...PasswordRecoveryTokenSetParam) passwordRecoveryTokenToUsuarioUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "PasswordRecoveryToken"
+
+	var v passwordRecoveryTokenToUsuarioUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type passwordRecoveryTokenToUsuarioUpdateUnique struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenToUsuarioUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenToUsuarioUpdateUnique) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenToUsuarioUpdateUnique) Exec(ctx context.Context) (*PasswordRecoveryTokenModel, error) {
+	var v PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioUpdateUnique) Tx() PasswordRecoveryTokenUniqueTxResult {
+	v := newPasswordRecoveryTokenUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r passwordRecoveryTokenToUsuarioFindUnique) Delete() passwordRecoveryTokenToUsuarioDeleteUnique {
+	var v passwordRecoveryTokenToUsuarioDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "PasswordRecoveryToken"
+
+	return v
+}
+
+type passwordRecoveryTokenToUsuarioDeleteUnique struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenToUsuarioDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p passwordRecoveryTokenToUsuarioDeleteUnique) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenToUsuarioDeleteUnique) Exec(ctx context.Context) (*PasswordRecoveryTokenModel, error) {
+	var v PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioDeleteUnique) Tx() PasswordRecoveryTokenUniqueTxResult {
+	v := newPasswordRecoveryTokenUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type passwordRecoveryTokenToUsuarioFindFirst struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) with()                          {}
+func (r passwordRecoveryTokenToUsuarioFindFirst) passwordRecoveryTokenModel()    {}
+func (r passwordRecoveryTokenToUsuarioFindFirst) passwordRecoveryTokenRelation() {}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) With(params ...UsuarioRelationWith) passwordRecoveryTokenToUsuarioFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) Select(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) Omit(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range passwordRecoveryTokenOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) OrderBy(params ...UsuarioOrderByParam) passwordRecoveryTokenToUsuarioFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) Skip(count int) passwordRecoveryTokenToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) Take(count int) passwordRecoveryTokenToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) Cursor(cursor PasswordRecoveryTokenCursorParam) passwordRecoveryTokenToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) Exec(ctx context.Context) (
+	*PasswordRecoveryTokenModel,
+	error,
+) {
+	var v *PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioFindFirst) ExecInner(ctx context.Context) (
+	*InnerPasswordRecoveryToken,
+	error,
+) {
+	var v *InnerPasswordRecoveryToken
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type passwordRecoveryTokenToUsuarioFindMany struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) with()                          {}
+func (r passwordRecoveryTokenToUsuarioFindMany) passwordRecoveryTokenModel()    {}
+func (r passwordRecoveryTokenToUsuarioFindMany) passwordRecoveryTokenRelation() {}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) With(params ...UsuarioRelationWith) passwordRecoveryTokenToUsuarioFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) Select(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenToUsuarioFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) Omit(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenToUsuarioFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range passwordRecoveryTokenOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) OrderBy(params ...UsuarioOrderByParam) passwordRecoveryTokenToUsuarioFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) Skip(count int) passwordRecoveryTokenToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) Take(count int) passwordRecoveryTokenToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) Cursor(cursor PasswordRecoveryTokenCursorParam) passwordRecoveryTokenToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) Exec(ctx context.Context) (
+	[]PasswordRecoveryTokenModel,
+	error,
+) {
+	var v []PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) ExecInner(ctx context.Context) (
+	[]InnerPasswordRecoveryToken,
+	error,
+) {
+	var v []InnerPasswordRecoveryToken
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) Update(params ...PasswordRecoveryTokenSetParam) passwordRecoveryTokenToUsuarioUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "PasswordRecoveryToken"
+
+	r.query.Outputs = countOutput
+
+	var v passwordRecoveryTokenToUsuarioUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type passwordRecoveryTokenToUsuarioUpdateMany struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenToUsuarioUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenToUsuarioUpdateMany) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenToUsuarioUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioUpdateMany) Tx() PasswordRecoveryTokenManyTxResult {
+	v := newPasswordRecoveryTokenManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r passwordRecoveryTokenToUsuarioFindMany) Delete() passwordRecoveryTokenToUsuarioDeleteMany {
+	var v passwordRecoveryTokenToUsuarioDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "PasswordRecoveryToken"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type passwordRecoveryTokenToUsuarioDeleteMany struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenToUsuarioDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p passwordRecoveryTokenToUsuarioDeleteMany) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenToUsuarioDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenToUsuarioDeleteMany) Tx() PasswordRecoveryTokenManyTxResult {
+	v := newPasswordRecoveryTokenManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type passwordRecoveryTokenFindUnique struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenFindUnique) with()                          {}
+func (r passwordRecoveryTokenFindUnique) passwordRecoveryTokenModel()    {}
+func (r passwordRecoveryTokenFindUnique) passwordRecoveryTokenRelation() {}
+
+func (r passwordRecoveryTokenActions) FindUnique(
+	params PasswordRecoveryTokenEqualsUniqueWhereParam,
+) passwordRecoveryTokenFindUnique {
+	var v passwordRecoveryTokenFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "PasswordRecoveryToken"
+	v.query.Outputs = passwordRecoveryTokenOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r passwordRecoveryTokenFindUnique) With(params ...PasswordRecoveryTokenRelationWith) passwordRecoveryTokenFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindUnique) Select(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindUnique) Omit(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range passwordRecoveryTokenOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindUnique) Exec(ctx context.Context) (
+	*PasswordRecoveryTokenModel,
+	error,
+) {
+	var v *PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenFindUnique) ExecInner(ctx context.Context) (
+	*InnerPasswordRecoveryToken,
+	error,
+) {
+	var v *InnerPasswordRecoveryToken
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenFindUnique) Update(params ...PasswordRecoveryTokenSetParam) passwordRecoveryTokenUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "PasswordRecoveryToken"
+
+	var v passwordRecoveryTokenUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type passwordRecoveryTokenUpdateUnique struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenUpdateUnique) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenUpdateUnique) Exec(ctx context.Context) (*PasswordRecoveryTokenModel, error) {
+	var v PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenUpdateUnique) Tx() PasswordRecoveryTokenUniqueTxResult {
+	v := newPasswordRecoveryTokenUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r passwordRecoveryTokenFindUnique) Delete() passwordRecoveryTokenDeleteUnique {
+	var v passwordRecoveryTokenDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "PasswordRecoveryToken"
+
+	return v
+}
+
+type passwordRecoveryTokenDeleteUnique struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p passwordRecoveryTokenDeleteUnique) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenDeleteUnique) Exec(ctx context.Context) (*PasswordRecoveryTokenModel, error) {
+	var v PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenDeleteUnique) Tx() PasswordRecoveryTokenUniqueTxResult {
+	v := newPasswordRecoveryTokenUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type passwordRecoveryTokenFindFirst struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenFindFirst) with()                          {}
+func (r passwordRecoveryTokenFindFirst) passwordRecoveryTokenModel()    {}
+func (r passwordRecoveryTokenFindFirst) passwordRecoveryTokenRelation() {}
+
+func (r passwordRecoveryTokenActions) FindFirst(
+	params ...PasswordRecoveryTokenWhereParam,
+) passwordRecoveryTokenFindFirst {
+	var v passwordRecoveryTokenFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "PasswordRecoveryToken"
+	v.query.Outputs = passwordRecoveryTokenOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r passwordRecoveryTokenFindFirst) With(params ...PasswordRecoveryTokenRelationWith) passwordRecoveryTokenFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindFirst) Select(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindFirst) Omit(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range passwordRecoveryTokenOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindFirst) OrderBy(params ...PasswordRecoveryTokenOrderByParam) passwordRecoveryTokenFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindFirst) Skip(count int) passwordRecoveryTokenFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenFindFirst) Take(count int) passwordRecoveryTokenFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenFindFirst) Cursor(cursor PasswordRecoveryTokenCursorParam) passwordRecoveryTokenFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenFindFirst) Exec(ctx context.Context) (
+	*PasswordRecoveryTokenModel,
+	error,
+) {
+	var v *PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenFindFirst) ExecInner(ctx context.Context) (
+	*InnerPasswordRecoveryToken,
+	error,
+) {
+	var v *InnerPasswordRecoveryToken
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type passwordRecoveryTokenFindMany struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenFindMany) with()                          {}
+func (r passwordRecoveryTokenFindMany) passwordRecoveryTokenModel()    {}
+func (r passwordRecoveryTokenFindMany) passwordRecoveryTokenRelation() {}
+
+func (r passwordRecoveryTokenActions) FindMany(
+	params ...PasswordRecoveryTokenWhereParam,
+) passwordRecoveryTokenFindMany {
+	var v passwordRecoveryTokenFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "PasswordRecoveryToken"
+	v.query.Outputs = passwordRecoveryTokenOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r passwordRecoveryTokenFindMany) With(params ...PasswordRecoveryTokenRelationWith) passwordRecoveryTokenFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindMany) Select(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindMany) Omit(params ...passwordRecoveryTokenPrismaFields) passwordRecoveryTokenFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range passwordRecoveryTokenOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindMany) OrderBy(params ...PasswordRecoveryTokenOrderByParam) passwordRecoveryTokenFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r passwordRecoveryTokenFindMany) Skip(count int) passwordRecoveryTokenFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenFindMany) Take(count int) passwordRecoveryTokenFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenFindMany) Cursor(cursor PasswordRecoveryTokenCursorParam) passwordRecoveryTokenFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r passwordRecoveryTokenFindMany) Exec(ctx context.Context) (
+	[]PasswordRecoveryTokenModel,
+	error,
+) {
+	var v []PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenFindMany) ExecInner(ctx context.Context) (
+	[]InnerPasswordRecoveryToken,
+	error,
+) {
+	var v []InnerPasswordRecoveryToken
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r passwordRecoveryTokenFindMany) Update(params ...PasswordRecoveryTokenSetParam) passwordRecoveryTokenUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "PasswordRecoveryToken"
+
+	r.query.Outputs = countOutput
+
+	var v passwordRecoveryTokenUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type passwordRecoveryTokenUpdateMany struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenUpdateMany) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenUpdateMany) Tx() PasswordRecoveryTokenManyTxResult {
+	v := newPasswordRecoveryTokenManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r passwordRecoveryTokenFindMany) Delete() passwordRecoveryTokenDeleteMany {
+	var v passwordRecoveryTokenDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "PasswordRecoveryToken"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type passwordRecoveryTokenDeleteMany struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p passwordRecoveryTokenDeleteMany) passwordRecoveryTokenModel() {}
+
+func (r passwordRecoveryTokenDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenDeleteMany) Tx() PasswordRecoveryTokenManyTxResult {
+	v := newPasswordRecoveryTokenManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -79930,6 +85184,54 @@ func (r UsuarioManyTxResult) Result() (v *BatchResult) {
 	return v
 }
 
+func newPasswordRecoveryTokenUniqueTxResult() PasswordRecoveryTokenUniqueTxResult {
+	return PasswordRecoveryTokenUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type PasswordRecoveryTokenUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p PasswordRecoveryTokenUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p PasswordRecoveryTokenUniqueTxResult) IsTx() {}
+
+func (r PasswordRecoveryTokenUniqueTxResult) Result() (v *PasswordRecoveryTokenModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newPasswordRecoveryTokenManyTxResult() PasswordRecoveryTokenManyTxResult {
+	return PasswordRecoveryTokenManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type PasswordRecoveryTokenManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p PasswordRecoveryTokenManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p PasswordRecoveryTokenManyTxResult) IsTx() {}
+
+func (r PasswordRecoveryTokenManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func newRolesUniqueTxResult() RolesUniqueTxResult {
 	return RolesUniqueTxResult{
 		result: &transaction.Result{},
@@ -80794,6 +86096,153 @@ func (r usuarioUpsertOne) Exec(ctx context.Context) (*UsuarioModel, error) {
 
 func (r usuarioUpsertOne) Tx() UsuarioUniqueTxResult {
 	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type passwordRecoveryTokenUpsertOne struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenUpsertOne) with()                          {}
+func (r passwordRecoveryTokenUpsertOne) passwordRecoveryTokenModel()    {}
+func (r passwordRecoveryTokenUpsertOne) passwordRecoveryTokenRelation() {}
+
+func (r passwordRecoveryTokenActions) UpsertOne(
+	params PasswordRecoveryTokenEqualsUniqueWhereParam,
+) passwordRecoveryTokenUpsertOne {
+	var v passwordRecoveryTokenUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "PasswordRecoveryToken"
+	v.query.Outputs = passwordRecoveryTokenOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r passwordRecoveryTokenUpsertOne) Create(
+
+	_tokenHash PasswordRecoveryTokenWithPrismaTokenHashSetParam,
+	_expiresAt PasswordRecoveryTokenWithPrismaExpiresAtSetParam,
+	_usuario PasswordRecoveryTokenWithPrismaUsuarioSetParam,
+
+	optional ...PasswordRecoveryTokenSetParam,
+) passwordRecoveryTokenUpsertOne {
+	var v passwordRecoveryTokenUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _tokenHash.field())
+	fields = append(fields, _expiresAt.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r passwordRecoveryTokenUpsertOne) Update(
+	params ...PasswordRecoveryTokenSetParam,
+) passwordRecoveryTokenUpsertOne {
+	var v passwordRecoveryTokenUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r passwordRecoveryTokenUpsertOne) CreateOrUpdate(
+
+	_tokenHash PasswordRecoveryTokenWithPrismaTokenHashSetParam,
+	_expiresAt PasswordRecoveryTokenWithPrismaExpiresAtSetParam,
+	_usuario PasswordRecoveryTokenWithPrismaUsuarioSetParam,
+
+	optional ...PasswordRecoveryTokenSetParam,
+) passwordRecoveryTokenUpsertOne {
+	var v passwordRecoveryTokenUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _tokenHash.field())
+	fields = append(fields, _expiresAt.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r passwordRecoveryTokenUpsertOne) Exec(ctx context.Context) (*PasswordRecoveryTokenModel, error) {
+	var v PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r passwordRecoveryTokenUpsertOne) Tx() PasswordRecoveryTokenUniqueTxResult {
+	v := newPasswordRecoveryTokenUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -83041,6 +88490,87 @@ func (r usuarioAggregateRaw) Exec(ctx context.Context) ([]UsuarioModel, error) {
 
 func (r usuarioAggregateRaw) ExecInner(ctx context.Context) ([]InnerUsuario, error) {
 	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type passwordRecoveryTokenAggregateRaw struct {
+	query builder.Query
+}
+
+func (r passwordRecoveryTokenAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r passwordRecoveryTokenAggregateRaw) with()                          {}
+func (r passwordRecoveryTokenAggregateRaw) passwordRecoveryTokenModel()    {}
+func (r passwordRecoveryTokenAggregateRaw) passwordRecoveryTokenRelation() {}
+
+func (r passwordRecoveryTokenActions) FindRaw(filter interface{}, options ...interface{}) passwordRecoveryTokenAggregateRaw {
+	var v passwordRecoveryTokenAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "PasswordRecoveryToken"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r passwordRecoveryTokenActions) AggregateRaw(pipeline []interface{}, options ...interface{}) passwordRecoveryTokenAggregateRaw {
+	var v passwordRecoveryTokenAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "PasswordRecoveryToken"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r passwordRecoveryTokenAggregateRaw) Exec(ctx context.Context) ([]PasswordRecoveryTokenModel, error) {
+	var v []PasswordRecoveryTokenModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r passwordRecoveryTokenAggregateRaw) ExecInner(ctx context.Context) ([]InnerPasswordRecoveryToken, error) {
+	var v []InnerPasswordRecoveryToken
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}

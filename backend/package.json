@@ -1,9 +1,9 @@
 {
   "devDependencies": {
     "dotenv-cli": "^7.3.0",
-    "prisma": "5.9.1"
+    "prisma": "6.4.1"
   },
   "dependencies": {
-    "@prisma/client": "5.9.1"
+    "@prisma/client": "6.4.1"
   }
 }

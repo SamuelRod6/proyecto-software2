@@ -25,6 +25,21 @@ export interface LoginResponsePayload {
     token: string;
 }
 
+export interface PasswordRecoveryRequestPayload {
+  email: string;
+}
+
+export interface PasswordRecoveryVerifyPayload {
+  email: string;
+  temporaryKey: string;
+}
+
+export interface PasswordRecoveryResetPayload {
+  email: string;
+  temporaryKey: string;
+  newPassword: string;
+}
+
 export async function registerUser(
     payload: RegisterPayload,
 ): Promise<{ status: number; data: any }> {
@@ -51,4 +66,56 @@ export async function loginUser(
         }
         return { status: 500, data: { message: "Error de red o desconocido" } };
     }
+}
+
+export async function requestPasswordRecovery(
+  payload: PasswordRecoveryRequestPayload,
+): Promise<{ status: number; data: any }> {
+  try {
+    const response = await axios.post(
+      "/api/auth/password-recovery/request",
+      payload,
+    );
+
+    return { status: response.status, data: response.data };
+  } catch (error: any) {
+    if (error.response) {
+      return { status: error.response.status, data: error.response.data };
+    }
+    return { status: 500, data: { message: "Error de red o desconocido" } };
+  }
+}
+
+export async function verifyPasswordRecovery(
+  payload: PasswordRecoveryVerifyPayload,
+): Promise<{ status: number; data: any }> {
+  try {
+    const response = await axios.post(
+      "/api/auth/password-recovery/verify",
+      payload,
+    );
+    return { status: response.status, data: response.data };
+  } catch (error: any) {
+    if (error.response) {
+      return { status: error.response.status, data: error.response.data };
+    }
+    return { status: 500, data: { message: "Error de red o desconocido" } };
+  }
+}
+
+export async function resetPasswordFromRecovery(
+  payload: PasswordRecoveryResetPayload,
+): Promise<{ status: number; data: any }> {
+  try {
+    const response = await axios.post(
+      "/api/auth/password-recovery/reset",
+      payload,
+    );
+    return { status: response.status, data: response.data };
+  } catch (error: any) {
+    if (error.response) {
+      return { status: error.response.status, data: error.response.data };
+    }
+    return { status: 500, data: { message: "Error de red o desconocido" } };
+  }
 }
