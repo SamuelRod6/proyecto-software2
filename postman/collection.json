@@ -1,500 +1,1960 @@
 {
-	"info": {
-		"_postman_id": "b3e04041-3e4b-4b15-9430-664426543886",
-		"name": "Proyecto Software 2 API",
-		"description": "API documentation for User Authentication and Management.\n\n### Response Structure\nAll responses follow this format:\n```json\n{\n  \"status\": \"success|error\",\n  \"code\": 1xxx (Success) | 4xxx (Client Error) | 5xxx (Server Error),\n  \"message\": \"Human readable message\",\n  \"payload\": { ... } // Optional data\n}\n```\n\n### Status Codes\n- **1000**: Success General\n- **1001**: User Registered\n- **1002**: Login Successful\n- **4000**: Invalid JSON\n- **4002**: Invalid Credentials\n- **4003**: Invalid Email\n- **4004**: Invalid Password\n- **4005**: Invalid Username\n- **4006**: User Exists\n- **5000**: Internal Server Error",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "Auth",
-			"item": [
-				{
-					"name": "Register User",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"JohnDoe\",\n    \"email\": \"john@example.com\",\n    \"password\": \"P@ssw0rd123\",\n    \"roleId\": 1\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/auth/register",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"auth",
-								"register"
-							]
-						},
-						"description": "Registers a new user.\n\n**Codes:**\n- `1001`: Success\n- `4005`: Invalid Username\n- `4004`: Weak Password\n- `4006`: Email/User already exists"
-					},
-					"response": []
-				},
-				{
-					"name": "Login User",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"john@example.com\",\n    \"password\": \"P@ssw0rd123\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/auth/login",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"auth",
-								"login"
-							]
-						},
-						"description": "Authenticates a user and returns a JWT.\n\n**Codes:**\n- `1002`: Login Successful\n- `4002`: Invalid Credentials"
-					},
-					"response": []
-				},
-				{
-					"name": "Reset Password",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"john@example.com\",\n    \"new_password\": \"NewP@ssw0rd123\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/auth/reset-password",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"auth",
-								"reset-password"
-							]
-						},
-						"description": "Resets the user's password directly (Basic implementation).\n\n**Codes:**\n- `1000`: Success (always returns success if format is valid to prevent enumeration)"
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Users",
-			"item": [
-				{
-					"name": "Hello World",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/users/hello",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"users",
-								"hello"
-							]
-						},
-						"description": "Simple health check endpoint.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "Count Users",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/users/count",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"users",
-								"count"
-							]
-						},
-						"description": "Returns the total number of registered users.\nTarget Code: `1000`"
-					},
-					"response": []
-				}
-			]
-		},
-				{
-			"name": "Inscripciones",
-			"item": [
-				{ "name": "List Inscripciones", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/inscripciones", "host": ["{{base_url}}"], "path": ["api", "inscripciones"] }, "description": "Returns a list of inscripciones.\nTarget Code: `1000`" }, "response": [] },
-				{ "name": "Create Inscripcion", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n    \"id_evento\": 1,\n    \"id_usuario\": 2\n}" }, "url": { "raw": "{{base_url}}/api/inscripciones", "host": ["{{base_url}}"], "path": ["api", "inscripciones"] }, "description": "Creates a new inscripcion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON" }, "response": [] }
-			]
-		},
-		{
-			"name": "Notifications",
-			"item": [
-				{
-					"name": "List Notifications",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/notifications",
-							"host": ["{{base_url}}"],
-							"path": ["api", "notifications"]
-						},
-						"description": "Returns a list of notifications.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "Create Notification",
-					"request": {
-						"method": "POST",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"id_usuario\": 1,\n    \"mensaje\": \"Notificación de prueba\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/notifications",
-							"host": ["{{base_url}}"],
-							"path": ["api", "notifications"]
-						},
-						"description": "Creates a new notification.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
-					},
-					"response": []
-				},
-				{
-					"name": "Mark Notification as Read",
-					"request": {
-						"method": "PATCH",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
-						"url": {
-							"raw": "{{base_url}}/api/notifications/read?id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "notifications", "read"],
-							"query": [{ "key": "id", "value": "1" }]
-						},
-						"description": "Marks a notification as read by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Eventos",
-			"item": [
-				{
-					"name": "List Eventos",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/eventos",
-							"host": ["{{base_url}}"],
-							"path": ["api", "eventos"]
-						},
-						"description": "Returns a list of eventos.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Evento by ID",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/eventos?id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "eventos"],
-							"query": [{ "key": "id", "value": "1" }]
-						},
-						"description": "Returns an evento by ID.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "Create Evento",
-					"request": {
-						"method": "POST",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"nombre\": \"Evento X\",\n    \"fechaInicio\": \"20/02/2026\",\n    \"fechaFin\": \"21/02/2026\",\n    \"fechaCierreInscripcion\": \"19/02/2026\",\n    \"ubicacion\": \"Caracas\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/eventos",
-							"host": ["{{base_url}}"],
-							"path": ["api", "eventos"]
-						},
-						"description": "Creates a new evento.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Exists"
-					},
-					"response": []
-				},
-				{
-					"name": "Update Evento",
-					"request": {
-						"method": "PUT",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"id\": 1,\n    \"nombre\": \"Evento Actualizado\",\n    \"fechaInicio\": \"20/02/2026\",\n    \"fechaFin\": \"21/02/2026\",\n    \"fechaCierreInscripcion\": \"19/02/2026\",\n    \"ubicacion\": \"Maracaibo\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/api/eventos",
-							"host": ["{{base_url}}"],
-							"path": ["api", "eventos"]
-						},
-						"description": "Updates an evento.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Exists"
-					},
-					"response": []
-				},
-				{
-					"name": "Delete Evento",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/eventos?id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "eventos"],
-							"query": [{ "key": "id", "value": "1" }]
-						},
-						"description": "Deletes an evento by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Not Found"
-					},
-					"response": []
-				},
-				{
-					"name": "Fechas Ocupadas",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/eventos/fechas-ocupadas",
-							"host": ["{{base_url}}"],
-							"path": ["api", "eventos", "fechas-ocupadas"]
-						},
-						"description": "Returns occupied dates for eventos.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "Cerrar Inscripciones",
-					"request": {
-						"method": "PATCH",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/eventos?action=cerrar&id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "eventos"],
-							"query": [{ "key": "action", "value": "cerrar" }, { "key": "id", "value": "1" }]
-						},
-						"description": "Closes registrations for an evento.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "Abrir Inscripciones",
-					"request": {
-						"method": "PATCH",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/eventos?action=abrir&id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "eventos"],
-							"query": [{ "key": "action", "value": "abrir" }, { "key": "id", "value": "1" }]
-						},
-						"description": "Opens registrations for an evento.\nTarget Code: `1000`"
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Paises",
-			"item": [
-				{ "name": "List Paises", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/paises", "host": ["{{base_url}}"], "path": ["api", "paises"] }, "description": "Returns a list of paises.\nTarget Code: `1000`" }, "response": [] },
-				{ "name": "List Ciudades by Pais", "request": { "method": "GET", "header": [], "url": { "raw": "{{base_url}}/api/ciudades?id_pais=1", "host": ["{{base_url}}"], "path": ["api", "ciudades"], "query": [{ "key": "id_pais", "value": "1" }] }, "description": "Returns a list of ciudades for a given pais.\nTarget Code: `1000`" }, "response": [] }
-			]
-		},
-		{
-			"name": "Sesiones",
-			"item": [
-				{
-					"name": "List Sesiones",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones"]
-						},
-						"description": "Returns a list of sesiones.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "Get Sesion by ID",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones?sesion_id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones"],
-							"query": [{ "key": "sesion_id", "value": "1" }]
-						},
-						"description": "Returns a sesion by ID.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "Create Sesion",
-					"request": {
-						"method": "POST",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones?evento=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones"],
-							"query": [{ "key": "evento", "value": "1" }]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"titulo\": \"Sesión de prueba\",\n    \"descripcion\": \"Descripción de la sesión\",\n    \"fecha\": \"20/02/2026\"\n}"
-						},
-						"description": "Creates a new sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
-					},
-					"response": []
-				},
-				{
-					"name": "Update Sesion",
-					"request": {
-						"method": "PUT",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones?sesion_id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones"],
-							"query": [{ "key": "sesion_id", "value": "1" }]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"titulo\": \"Sesión actualizada\",\n    \"descripcion\": \"Nueva descripción\",\n    \"fecha\": \"21/02/2026\"\n}"
-						},
-						"description": "Updates a sesion by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
-					},
-					"response": []
-				},
-				{
-					"name": "Delete Sesion",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones?sesion_id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones"],
-							"query": [{ "key": "sesion_id", "value": "1" }]
-						},
-						"description": "Deletes a sesion by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
-					},
-					"response": []
-				},
-				{
-					"name": "Asignar Ponentes",
-					"request": {
-						"method": "POST",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones/asignar-ponentes?sesion_id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones", "asignar-ponentes"],
-							"query": [{ "key": "sesion_id", "value": "1" }]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"usuarios\": [2, 3]\n}"
-						},
-						"description": "Assigns ponentes to a sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
-					},
-					"response": []
-				},
-				{
-					"name": "Quitar Ponente",
-					"request": {
-						"method": "POST",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones/quitar-ponente?sesion_id=1&usuario=2",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones", "quitar-ponente"],
-							"query": [{ "key": "sesion_id", "value": "1" }, { "key": "usuario", "value": "2" }]
-						},
-						"description": "Removes a ponente from a sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
-					},
-					"response": []
-				},
-				{
-					"name": "List Ponentes",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones/ponentes?sesion_id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones", "ponentes"],
-							"query": [{ "key": "sesion_id", "value": "1" }]
-						},
-						"description": "Returns a list of ponentes for a sesion.\nTarget Code: `1000`"
-					},
-					"response": []
-				},
-				{
-					"name": "List Ponentes Asignables",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/sesiones/ponibles?sesion_id=1",
-							"host": ["{{base_url}}"],
-							"path": ["api", "sesiones", "ponibles"],
-							"query": [{ "key": "sesion_id", "value": "1" }]
-						},
-						"description": "Returns a list of ponentes that can be assigned to a sesion.\nTarget Code: `1000`"
-					},
-					"response": []
-				}
-			]
-		}
-	],
-	"variable": [
-		{
-			"key": "base_url",
-			"value": "http://localhost:8080",
-			"type": "string"
-		}
-	]
+  "info": {
+    "_postman_id": "b3e04041-3e4b-4b15-9430-664426543886",
+    "name": "Proyecto Software 2 API",
+    "description": "API documentation for User Authentication and Management.\n\n### Response Structure\nAll responses follow this format:\n```json\n{\n  \"status\": \"success|error\",\n  \"code\": 1xxx (Success) | 4xxx (Client Error) | 5xxx (Server Error),\n  \"message\": \"Human readable message\",\n  \"payload\": { ... } // Optional data\n}\n```\n\n### Status Codes\n- **1000**: Success General\n- **1001**: User Registered\n- **1002**: Login Successful\n- **4000**: Invalid JSON\n- **4002**: Invalid Credentials\n- **4003**: Invalid Email\n- **4004**: Invalid Password\n- **4005**: Invalid Username\n- **4006**: User Exists\n- **5000**: Internal Server Error",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"JohnDoe\",\n    \"email\": \"john@example.com\",\n    \"password\": \"P@ssw0rd123\",\n    \"roleId\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Registers a new user.\n\n**Codes:**\n- `1001`: Success\n- `4005`: Invalid Username\n- `4004`: Weak Password\n- `4006`: Email/User already exists"
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"john@example.com\",\n    \"password\": \"P@ssw0rd123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Authenticates a user and returns a JWT.\n\n**Codes:**\n- `1002`: Login Successful\n- `4002`: Invalid Credentials"
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"john@example.com\",\n    \"new_password\": \"NewP@ssw0rd123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Resets the user's password directly (Basic implementation).\n\n**Codes:**\n- `1000`: Success (always returns success if format is valid to prevent enumeration)"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"<jwt_token>\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Hello World",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/hello",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "hello"
+              ]
+            },
+            "description": "Simple health check endpoint.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Count Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users/count",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "count"
+              ]
+            },
+            "description": "Returns the total number of registered users.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Hello API",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/hello",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "hello"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user/assign-role",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user",
+                "assign-role"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"roleId\": 2\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Roles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/user/assign-roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "user",
+                "assign-roles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": 1,\n  \"roleIds\": [2, 3]\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Inscripciones",
+      "item": [
+        {
+          "name": "List Inscripciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones"
+              ]
+            },
+            "description": "Returns a list of inscripciones.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Inscripcion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_evento\": 1,\n    \"id_usuario\": 2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones"
+              ]
+            },
+            "description": "Creates a new inscripcion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Estado Inscripcion",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_inscripcion\": 1,\n  \"estado_pago\": \"aprobado\",\n  \"comprobante\": \"https://ejemplo.com/comprobante.pdf\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Historial Inscripciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/historial?usuario_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "historial"
+              ],
+              "query": [
+                {
+                  "key": "usuario_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Preferencias Inscripcion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/preferencias?user_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "preferencias"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Preferencias Inscripcion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/preferencias",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "preferencias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"email\": true,\n  \"sms\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Notificaciones Inscripcion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/notificaciones?user_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "notificaciones"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descargar Comprobante Inscripcion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/comprobante?id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "comprobante"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reportes Inscripciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/reportes?from=2026-01-01&to=2026-12-31",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "reportes"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Programar Reporte Inscripciones",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/reportes/schedule",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "reportes",
+                "schedule"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"inscripciones\",\n  \"frecuencia\": \"semanal\",\n  \"email\": \"admin@example.com\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar Reportes Programados",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/inscripciones/reportes/schedule",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "inscripciones",
+                "reportes",
+                "schedule"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Returns a list of notifications.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_usuario\": 1,\n    \"mensaje\": \"Notificación de prueba\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Creates a new notification.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/read?id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Marks a notification as read by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "List Notifications by User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/user/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "user",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Notification as Read (Path)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/notifications/1/leida",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "1",
+                "leida"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"leida\": true\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Eventos",
+      "item": [
+        {
+          "name": "List Eventos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/eventos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ]
+            },
+            "description": "Returns a list of eventos.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Evento by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/eventos?id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Returns an evento by ID.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Evento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre\": \"Evento X\",\n    \"fechaInicio\": \"20/02/2026\",\n    \"fechaFin\": \"21/02/2026\",\n    \"fechaCierreInscripcion\": \"19/02/2026\",\n    \"ubicacion\": \"Caracas\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/eventos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ]
+            },
+            "description": "Creates a new evento.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Exists"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Evento",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": 1,\n    \"nombre\": \"Evento Actualizado\",\n    \"fechaInicio\": \"20/02/2026\",\n    \"fechaFin\": \"21/02/2026\",\n    \"fechaCierreInscripcion\": \"19/02/2026\",\n    \"ubicacion\": \"Maracaibo\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/eventos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ]
+            },
+            "description": "Updates an evento.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Exists"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Evento",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/eventos?id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Deletes an evento by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON\n- `4006`: Evento Not Found"
+          },
+          "response": []
+        },
+        {
+          "name": "Fechas Ocupadas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/eventos/fechas-ocupadas",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "fechas-ocupadas"
+              ]
+            },
+            "description": "Returns occupied dates for eventos.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Cerrar Inscripciones",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/eventos?action=cerrar&id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "cerrar"
+                },
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Closes registrations for an evento.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Abrir Inscripciones",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/eventos?action=abrir&id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "abrir"
+                },
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Opens registrations for an evento.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Evento Detail by evento_id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/eventos?evento_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ],
+              "query": [
+                {
+                  "key": "evento_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Paises",
+      "item": [
+        {
+          "name": "List Paises",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/paises",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "paises"
+              ]
+            },
+            "description": "Returns a list of paises.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "List Ciudades by Pais",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ciudades?id_pais=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "ciudades"
+              ],
+              "query": [
+                {
+                  "key": "id_pais",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Returns a list of ciudades for a given pais.\nTarget Code: `1000`"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sesiones",
+      "item": [
+        {
+          "name": "List Sesiones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones"
+              ]
+            },
+            "description": "Returns a list of sesiones.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sesion by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones?sesion_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones"
+              ],
+              "query": [
+                {
+                  "key": "sesion_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Returns a sesion by ID.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Sesion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones?evento=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones"
+              ],
+              "query": [
+                {
+                  "key": "evento",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"titulo\": \"Sesión de prueba\",\n    \"descripcion\": \"Descripción de la sesión\",\n    \"fecha\": \"20/02/2026\"\n}"
+            },
+            "description": "Creates a new sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Sesion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones?sesion_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones"
+              ],
+              "query": [
+                {
+                  "key": "sesion_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"titulo\": \"Sesión actualizada\",\n    \"descripcion\": \"Nueva descripción\",\n    \"fecha\": \"21/02/2026\"\n}"
+            },
+            "description": "Updates a sesion by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Sesion",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones?sesion_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones"
+              ],
+              "query": [
+                {
+                  "key": "sesion_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Deletes a sesion by ID.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "Asignar Ponentes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones/asignar-ponentes?sesion_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones",
+                "asignar-ponentes"
+              ],
+              "query": [
+                {
+                  "key": "sesion_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"usuarios\": [2, 3]\n}"
+            },
+            "description": "Assigns ponentes to a sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "Quitar Ponente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones/quitar-ponente?sesion_id=1&usuario=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones",
+                "quitar-ponente"
+              ],
+              "query": [
+                {
+                  "key": "sesion_id",
+                  "value": "1"
+                },
+                {
+                  "key": "usuario",
+                  "value": "2"
+                }
+              ]
+            },
+            "description": "Removes a ponente from a sesion.\n\n**Codes:**\n- `1000`: Success\n- `4000`: Invalid JSON"
+          },
+          "response": []
+        },
+        {
+          "name": "List Ponentes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones/ponentes?sesion_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones",
+                "ponentes"
+              ],
+              "query": [
+                {
+                  "key": "sesion_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Returns a list of ponentes for a sesion.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "List Ponentes Asignables",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones/ponibles?sesion_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones",
+                "ponibles"
+              ],
+              "query": [
+                {
+                  "key": "sesion_id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Returns a list of ponentes that can be assigned to a sesion.\nTarget Code: `1000`"
+          },
+          "response": []
+        },
+        {
+          "name": "List Sesiones by Evento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sesiones?evento=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "sesiones"
+              ],
+              "query": [
+                {
+                  "key": "evento",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Registrations",
+      "item": [
+        {
+          "name": "List Registrations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/registrations?usuario_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "registrations"
+              ],
+              "query": [
+                {
+                  "key": "usuario_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/registrations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "registrations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_evento\": 1,\n  \"id_usuario\": 1\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Registration Pago",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/registrations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "registrations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_inscripcion\": 1,\n  \"estado_pago\": \"aprobado\",\n  \"comprobante\": \"https://ejemplo.com/comprobante.pdf\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "roles"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "roles"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"COORDINADOR\",\n  \"description\": \"Rol de coordinación\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/roles/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"COORDINADOR\",\n  \"description\": \"Descripción actualizada\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Role",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/roles/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Role Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/roles/1/permissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "1",
+                "permissions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Role Permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/roles/1/permissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "1",
+                "permissions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permission_ids\": [1, 2, 3]\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Permissions",
+      "item": [
+        {
+          "name": "List Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/permissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "permissions"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Permission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/permissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "permissions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"VIEW\",\n  \"resource\": \"events.management\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Permission",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/permissions/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "permissions",
+                "1"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"EDIT\",\n  \"resource\": \"events.management\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Permission",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/permissions/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "permissions",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Resources",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/resources",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "resources"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Trabajos Cientificos",
+      "item": [
+        {
+          "name": "List Trabajos Cientificos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos?user_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Trabajo Cientifico",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Version Trabajo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/versiones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "versiones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Versiones Trabajo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/versiones?id_trabajo=1&user_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "versiones"
+              ],
+              "query": [
+                {
+                  "key": "id_trabajo",
+                  "value": "1"
+                },
+                {
+                  "key": "user_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Comparar Versiones Trabajo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/versiones/comparar?id_trabajo=1&user_id=1&from=1&to=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "versiones",
+                "comparar"
+              ],
+              "query": [
+                {
+                  "key": "id_trabajo",
+                  "value": "1"
+                },
+                {
+                  "key": "user_id",
+                  "value": "1"
+                },
+                {
+                  "key": "from",
+                  "value": "1"
+                },
+                {
+                  "key": "to",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Descargar Archivo Trabajo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/archivo?id_version=1&user_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "archivo"
+              ],
+              "query": [
+                {
+                  "key": "id_version",
+                  "value": "1"
+                },
+                {
+                  "key": "user_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Trabajos Comite",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/comite?user_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "comite"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Revisores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/revisores?user_id=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "revisores"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Asignar Revisores",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/comite/asignar-revisores",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "comite",
+                "asignar-revisores"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"id_trabajo\": 1,\n  \"revisores\": [2, 3]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Trabajos Revisor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/revisor/asignados?user_id=2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "revisor",
+                "asignados"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Evaluacion Revisor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/revisor/evaluar",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "revisor",
+                "evaluar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 2,\n  \"id_trabajo\": 1,\n  \"recomendacion\": \"ACEPTAR\",\n  \"puntaje\": 9,\n  \"comentarios\": \"Buen trabajo\",\n  \"fortalezas\": \"Metodología\",\n  \"debilidades\": \"Muestra\",\n  \"recomendaciones\": \"Ampliar validación\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Evaluaciones Trabajo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/comite/evaluaciones?user_id=1&id_trabajo=1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "comite",
+                "evaluaciones"
+              ],
+              "query": [
+                {
+                  "key": "user_id",
+                  "value": "1"
+                },
+                {
+                  "key": "id_trabajo",
+                  "value": "1"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Decision Comite Trabajo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/trabajos-cientificos/comite/decision",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "trabajos-cientificos",
+                "comite",
+                "decision"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 1,\n  \"id_trabajo\": 1,\n  \"decision_comite\": \"APROBADO\",\n  \"comentario_comite\": \"Aprobado con observaciones menores\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
 }

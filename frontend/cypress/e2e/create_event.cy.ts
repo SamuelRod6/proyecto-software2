@@ -2,60 +2,93 @@
 
 describe('Crear Evento Spec', () => {
     beforeEach(() => {
-        // Bypass client-side auth using onBeforeLoad
-        cy.visit('http://localhost:5173/events', {
+        let created = false;
+        let createdEventName = 'Evento Test Cypress';
+
+        cy.intercept('GET', '/api/eventos/fechas-ocupadas', {
+            statusCode: 200,
+            body: [],
+        }).as('occupiedDates');
+
+        cy.intercept('GET', '/api/eventos', (req) => {
+            req.reply({
+                statusCode: 200,
+                body: created
+                    ? [{
+                        id_evento: 700,
+                        nombre: createdEventName,
+                        fecha_inicio: '10/03/2026',
+                        fecha_fin: '12/03/2026',
+                        fecha_cierre_inscripcion: '09/03/2026',
+                        inscripciones_abiertas: true,
+                        ubicacion: 'Caracas, Venezuela',
+                    }]
+                    : [],
+            });
+        }).as('events');
+
+        cy.intercept('POST', '/api/eventos', (req) => {
+            created = true;
+            createdEventName = req.body?.nombre || createdEventName;
+            req.reply({ statusCode: 200, body: { message: 'ok' } });
+        }).as('createEvent');
+
+        cy.visit('http://localhost:5173/events-management', {
             onBeforeLoad: (win) => {
-                win.localStorage.setItem("auth-demo", "true");
+                win.localStorage.setItem('auth-token', 'test-token');
+                win.localStorage.setItem(
+                    'auth-user',
+                    JSON.stringify({
+                        id: 1,
+                        name: 'Admin',
+                        email: 'admin@example.com',
+                        roles: [{ id: 1, name: 'ADMIN' }],
+                    }),
+                );
             }
         });
+
+        cy.wait('@events');
     });
 
     it('should create a new event successfully', () => {
-        // Verify we are on the events page (auth bypass worked)
-        cy.url().should('include', '/events');
+        cy.url().should('include', '/events-management');
 
-        // 1. Open the modal
         cy.contains('button', /Crear evento/i, { timeout: 10000 }).should('be.visible').click();
+        cy.wait('@occupiedDates');
 
-        // 2. Check modal is open and form visible
         cy.get('h2').contains('Crear evento').should('be.visible');
         cy.get('form').should('be.visible');
 
-        // 3. Fill the form
-
-        // Name
         const uniqueName = `Evento Test ${Date.now()}`;
         cy.get('input[placeholder="Ej: Expo de galaxias"]').should('be.visible').type(uniqueName);
 
-        // Date Range - Find the calendar more robustly
-        cy.get('body').then($body => {
-            if ($body.find('.rdp').length === 0) {
-                cy.log('Calendar .rdp not found, looking for alternative...');
-                cy.contains(/inicio/i).should('be.visible');
-            } else {
-                cy.get('.rdp').should('be.visible');
-                cy.get('.rdp-day_today').first().click();
-                cy.get('.rdp-day_today').first().click();
-            }
-        });
+        cy.contains('Selecciona el país').click({ force: true });
+        cy.contains('Venezuela').click({ force: true });
+        cy.contains('Selecciona o escribe la ciudad').click({ force: true });
+        cy.contains('Caracas').click({ force: true });
 
-        // Country (React Select)
-        cy.contains('label', /País/i).should('be.visible');
-        cy.contains('label', /País/i).parent().find('.react-select__control').click();
-        cy.get('.react-select__menu', { timeout: 10000 }).should('be.visible');
-        cy.get('.react-select__option').contains('Venezuela').click();
+        cy.get('table[role="grid"] button')
+            .filter(':not([disabled])')
+            .eq(0)
+            .click();
+        cy.get('table[role="grid"] button')
+            .filter(':not([disabled])')
+            .eq(2)
+            .click();
 
-        // City (React Select)
-        cy.contains('label', /Ciudad/i).should('be.visible');
-        cy.contains('label', /Ciudad/i).parent().find('.react-select__control').click();
-        cy.get('.react-select__menu', { timeout: 10000 }).should('be.visible');
-        cy.get('.react-select__option').contains('Caracas').click();
+        cy.contains('button', 'Siguiente').click({ force: true });
 
-        // 4. Submit
-        cy.get('form').find('button[type="submit"]').contains(/Crear evento/i).click();
+        cy.get('table[role="grid"] button')
+            .filter(':not([disabled])')
+            .first()
+            .click();
 
-        // 5. Verify success
-        cy.contains('div', 'El evento ha sido creado exitosamente.').should('be.visible');
-        cy.contains(uniqueName).should('be.visible');
+        cy.contains('button', 'Cancelar').prev('button').click({ force: true });
+
+        cy.wait('@createEvent');
+        cy.wait('@events');
+        cy.contains('El evento ha sido creado exitosamente.', { timeout: 10000 }).should('be.visible');
+        cy.contains(uniqueName, { timeout: 10000 }).should('exist');
     });
 });
