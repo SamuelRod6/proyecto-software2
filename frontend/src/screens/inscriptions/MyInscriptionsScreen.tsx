@@ -28,6 +28,17 @@ interface Evento {
   ubicacion: string;
 }
 
+function parseTypes(tipos: string): string[] {
+  return tipos
+    .split(/[,;|\s]+/)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function serializeTypes(values: string[]): string {
+  return Array.from(new Set(values.map((value) => value.trim().toLowerCase()).filter(Boolean))).join(",");
+}
+
 function getAuthUser() {
   const raw = localStorage.getItem("auth-user");
   if (!raw) return null;
@@ -64,7 +75,13 @@ export default function MyInscriptionsScreen(): JSX.Element {
     { value: "semanal", label: "Semanal" },
   ];
 
-  const typeOptions = [{ value: "estado", label: "Cambios de estado" }];
+  const typeOptions = [
+    { value: "estado", label: "Todos los cambios de estado" },
+    { value: "aceptado", label: "Aceptado" },
+    { value: "rechazado", label: "Rechazado" },
+    { value: "pagado", label: "Pago validado" },
+    { value: "aprobado", label: "Aprobado administrativo" },
+  ];
 
   const authUser = getAuthUser();
 
@@ -113,6 +130,7 @@ export default function MyInscriptionsScreen(): JSX.Element {
   }, [canLoad]);
 
   const grouped = useMemo(() => items, [items]);
+  const selectedTypes = useMemo(() => parseTypes(types), [types]);
 
   const mergedNotifications = useMemo(() => {
     const inscriptionNotifications = notifications.map((notif) => ({
@@ -210,10 +228,20 @@ export default function MyInscriptionsScreen(): JSX.Element {
 
   const handleSavePreferences = async () => {
     if (!authUser?.id) return;
+    const normalizedTypes = serializeTypes(selectedTypes);
+    if (!normalizedTypes) {
+      showToast({
+        title: "Tipos requeridos",
+        message: "Selecciona al menos un tipo de cambio para recibir notificaciones.",
+        status: "error",
+      });
+      return;
+    }
+
     const { status, data } = await updatePreferences({
       id_usuario: authUser.id,
       frecuencia: frequency.trim(),
-      tipos: types.trim(),
+      tipos: normalizedTypes,
       habilitado: enabled,
     });
 
@@ -382,14 +410,15 @@ export default function MyInscriptionsScreen(): JSX.Element {
               allowCustom={false}
             />
             <SelectInput
-              value={types}
+              value={selectedTypes}
               onChange={(value) =>
-                setTypes(Array.isArray(value) ? (value[0] ?? "") : value)
+                setTypes(serializeTypes(Array.isArray(value) ? value : [value]))
               }
               options={typeOptions}
               inputLabel="Tipos de cambios"
               placeholder="Selecciona"
               allowCustom={false}
+              isMulti
             />
             <label className="flex items-center gap-2 text-sm text-slate-200">
               <input
