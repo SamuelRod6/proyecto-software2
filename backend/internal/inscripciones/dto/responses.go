@@ -19,6 +19,7 @@ type HistorialResponse struct {
 	IDInscripcion  int    `json:"id_inscripcion"`
 	EstadoAnterior string `json:"estado_anterior"`
 	EstadoNuevo    string `json:"estado_nuevo"`
+	TipoCambio     string `json:"tipo_cambio"`
 	Nota           string `json:"nota"`
 	Actor          string `json:"actor"`
 	FechaCambio    string `json:"fecha_cambio"`

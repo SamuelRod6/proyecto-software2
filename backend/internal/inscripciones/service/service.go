@@ -165,8 +165,8 @@ func (s *Service) UpdateEstado(ctx context.Context, req dto.UpdateEstadoRequest)
 	return nil
 }
 
-func (s *Service) Historial(ctx context.Context, inscripcionID int) ([]repo.HistorialRow, error) {
-	rows, err := s.repo.ListHistorial(ctx, inscripcionID)
+func (s *Service) Historial(ctx context.Context, filters map[string]interface{}) ([]repo.HistorialRow, error) {
+	rows, err := s.repo.ListHistorial(ctx, filters)
 	if err != nil {
 		return nil, ErrDB
 	}

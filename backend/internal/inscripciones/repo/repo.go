@@ -36,6 +36,7 @@ type HistorialRow struct {
 	IDInscripcion  int    `json:"id_inscripcion"`
 	EstadoAnterior string `json:"estado_anterior"`
 	EstadoNuevo    string `json:"estado_nuevo"`
+	TipoCambio     string `json:"tipo_cambio"`
 	Nota           string `json:"nota"`
 	Actor          string `json:"actor"`
 	FechaCambio    string `json:"fecha_cambio"`
@@ -169,14 +170,64 @@ func (r *Repository) InsertHistorial(ctx context.Context, inscripcionID int, ant
 	return err
 }
 
-func (r *Repository) ListHistorial(ctx context.Context, inscripcionID int) ([]HistorialRow, error) {
-	query := `SELECT "id_historial", "id_inscripcion", "estado_anterior", "estado_nuevo", COALESCE("nota", '') AS "nota", COALESCE("actor", '') AS "actor",
+func (r *Repository) ListHistorial(ctx context.Context, filters map[string]interface{}) ([]HistorialRow, error) {
+	query := `SELECT "id_historial", "id_inscripcion", "estado_anterior", "estado_nuevo",
+		CASE
+			WHEN LOWER(COALESCE("actor", '')) = 'system' THEN 'Automático'
+			WHEN TRIM(COALESCE("nota", '')) <> '' THEN 'Retroalimentación'
+			ELSE 'Manual'
+		END AS "tipo_cambio",
+		COALESCE("nota", '') AS "nota", COALESCE("actor", '') AS "actor",
 		to_char("fecha_cambio", 'DD/MM/YYYY') AS "fecha_cambio"
 		FROM "InscripcionHistorial"
-		WHERE "id_inscripcion" = $1
-		ORDER BY "fecha_cambio" DESC`
+		WHERE 1=1`
+
+	params := make([]interface{}, 0)
+	addCond := func(format string, value interface{}) {
+		params = append(params, value)
+		query += fmt.Sprintf(format, len(params))
+	}
+
+	if inscripcionID, ok := filters["id_inscripcion"].(int); ok && inscripcionID > 0 {
+		addCond(" AND \"id_inscripcion\" = $%d", inscripcionID)
+	}
+
+	if estado, ok := filters["estado"].(string); ok && strings.TrimSpace(estado) != "" {
+		normalized := strings.TrimSpace(estado)
+		params = append(params, normalized)
+		idx := len(params)
+		query += fmt.Sprintf(" AND (\"estado_anterior\" = $%d OR \"estado_nuevo\" = $%d)", idx, idx)
+	}
+
+	if tipoCambio, ok := filters["tipo_cambio"].(string); ok && strings.TrimSpace(tipoCambio) != "" {
+		addCond(` AND (
+			CASE
+				WHEN LOWER(COALESCE("actor", '')) = 'system' THEN 'Automático'
+				WHEN TRIM(COALESCE("nota", '')) <> '' THEN 'Retroalimentación'
+				ELSE 'Manual'
+			END
+		) = $%d`, strings.TrimSpace(tipoCambio))
+	}
+
+	if q, ok := filters["q"].(string); ok && strings.TrimSpace(q) != "" {
+		term := "%" + strings.TrimSpace(q) + "%"
+		params = append(params, term)
+		idx := len(params)
+		query += fmt.Sprintf(" AND (\"estado_anterior\" ILIKE $%d OR \"estado_nuevo\" ILIKE $%d OR COALESCE(\"nota\", '') ILIKE $%d OR COALESCE(\"actor\", '') ILIKE $%d)", idx, idx, idx, idx)
+	}
+
+	if desde, ok := filters["desde"].(time.Time); ok && !desde.IsZero() {
+		addCond(" AND \"fecha_cambio\" >= $%d", desde)
+	}
+
+	if hasta, ok := filters["hasta"].(time.Time); ok && !hasta.IsZero() {
+		addCond(" AND \"fecha_cambio\" <= $%d", hasta)
+	}
+
+	query += " ORDER BY \"fecha_cambio\" DESC"
+
 	var rows []HistorialRow
-	if err := r.client.Prisma.Raw.QueryRaw(query, inscripcionID).Exec(ctx, &rows); err != nil {
+	if err := r.client.Prisma.Raw.QueryRaw(query, params...).Exec(ctx, &rows); err != nil {
 		return nil, err
 	}
 	return rows, nil

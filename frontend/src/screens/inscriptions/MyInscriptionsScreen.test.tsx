@@ -25,6 +25,25 @@ jest.mock("../../services/inscriptionServices", () => ({
         data: { id_usuario: 10, frecuencia: "inmediata", tipos: "estado", habilitado: true },
     })),
     getNotifications: jest.fn(async () => ({ status: 200, data: [] })),
+    getInscriptionHistory: jest.fn(async () => ({
+        status: 200,
+        data: [
+            {
+                id_historial: 33,
+                id_inscripcion: 1,
+                estado_anterior: "Pendiente",
+                estado_nuevo: "Aprobado",
+                tipo_cambio: "Retroalimentación",
+                nota: "Ajustes solicitados",
+                actor: "admin",
+                fecha_cambio: "21/02/2026",
+            },
+        ],
+    })),
+    downloadInscriptionHistoryPDF: jest.fn(async () => ({
+        status: 200,
+        data: new Blob(["pdf"], { type: "application/pdf" }),
+    })),
     downloadReceipt: jest.fn(async () => ({ status: 200, data: new Blob(["pdf"], { type: "application/pdf" }) })),
     updatePreferences: jest.fn(async () => ({ status: 200, data: { id_usuario: 10, frecuencia: "inmediata", tipos: "estado", habilitado: true } })),
 }));
@@ -50,6 +69,9 @@ beforeEach(() => {
     }
     if (!window.URL.revokeObjectURL) {
         window.URL.revokeObjectURL = jest.fn();
+    }
+    if (!window.open) {
+        window.open = jest.fn();
     }
 });
 
@@ -78,5 +100,62 @@ describe("MyInscriptionsScreen", () => {
         });
 
         fireEvent.click(screen.getByText("Descargar comprobante"));
+    });
+
+    it("shows change history fields", async () => {
+        render(<MyInscriptionsScreen />);
+
+        await waitFor(() => {
+            expect(screen.getByText("Ver historial de cambios")).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText("Ver historial de cambios"));
+
+        await waitFor(() => {
+            expect(screen.getByText("Historial de cambios del trabajo científico")).toBeInTheDocument();
+            expect(screen.getByText("21/02/2026")).toBeInTheDocument();
+            expect(screen.getAllByText("Pendiente").length).toBeGreaterThan(0);
+            expect(screen.getByText("Aprobado")).toBeInTheDocument();
+            expect(screen.getByText("Retroalimentación")).toBeInTheDocument();
+            expect(screen.getByText("Ajustes solicitados")).toBeInTheDocument();
+        });
+    });
+
+    it("applies history filters and search", async () => {
+        const { getInscriptionHistory } = jest.requireMock("../../services/inscriptionServices");
+        render(<MyInscriptionsScreen />);
+
+        await waitFor(() => {
+            expect(screen.getByText("Ver historial de cambios")).toBeInTheDocument();
+        });
+
+        fireEvent.click(screen.getByText("Ver historial de cambios"));
+
+        await waitFor(() => {
+            expect(screen.getByLabelText("Buscar")).toBeInTheDocument();
+        });
+
+        fireEvent.change(screen.getByLabelText("Buscar"), {
+            target: { value: "Ajustes" },
+        });
+        fireEvent.change(screen.getByLabelText("Fecha desde"), {
+            target: { value: "2026-02-01" },
+        });
+        fireEvent.change(screen.getByLabelText("Fecha hasta"), {
+            target: { value: "2026-02-28" },
+        });
+
+        fireEvent.click(screen.getByText("Aplicar filtros"));
+
+        await waitFor(() => {
+            expect(getInscriptionHistory).toHaveBeenCalledWith(
+                1,
+                expect.objectContaining({
+                    q: "Ajustes",
+                    desde: "01/02/2026",
+                    hasta: "28/02/2026",
+                }),
+            );
+        });
     });
 });
