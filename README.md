@@ -59,19 +59,24 @@ Pasos recomendados:
 
 Este backend usa Prisma Client Go con Postgres.
 
-Setup (desde `backend/`):
+Comandos Prisma (desde la raiz del proyecto):
 
 ```bash
-npm i -D prisma@5.9.1
-go install github.com/steebchen/prisma-client-go@latest
-PATH="$PATH:$GOPATH/bin" npx prisma generate
-npx prisma migrate dev --name init
-```
+npm run prisma:migrate:env    # usa .env
+npm run prisma:migrate:local  # usa .env.local
+npm run prisma:migrate:neon   # usa .env.neon
 
-Correr visor Prisma (desde `backend/`):
+npm run prisma:studio:env     # Prisma Studio con .env
+npm run prisma:studio:local   # Prisma Studio con .env.local
+npm run prisma:studio:neon    # Prisma Studio con .env.neon
 
-```bash
-npm run prisma:studio
+npm run prisma:status:env     # estado de migraciones con .env
+npm run prisma:status:local   # estado de migraciones con .env.local
+npm run prisma:status:neon    # estado de migraciones con .env.neon
+
+npm run prisma:reset:env      # reset DB con .env
+npm run prisma:reset:local    # reset DB con .env.local
+npm run prisma:reset:neon     # reset DB con .env.neon
 ```
 
 ## Makefile (atajos)
