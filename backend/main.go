@@ -8,6 +8,7 @@ import (
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
 	inscripcioneshandler "project/backend/internal/inscripciones/handler"
+	mensajeshandler "project/backend/internal/mensajes/handler"
 	paishandler "project/backend/internal/pais/handler"
 	permissionhandler "project/backend/internal/permissions/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
@@ -57,6 +58,7 @@ func main() {
 	registrationsHandler := registrationhandler.New(prismaClient)
 	notificationHandler := notificationhandler.New(prismaClient)
 	notificationcron.StartCierreInscripcionesScheduler(prismaClient)
+	mensajesHandler := mensajeshandler.New(prismaClient)
 	sesionesHandler := sesioneshandler.New(prismaClient)
 	rolesHandler := rolehandler.New(prismaClient)
 	permissionsHandler := permissionhandler.New(prismaClient)
@@ -92,6 +94,12 @@ func main() {
 	http.Handle("/api/registrations/", registrationsHandler)
 	http.Handle("/api/notifications", notificationHandler)
 	http.Handle("/api/notifications/", notificationHandler)
+	http.Handle("/api/mensajes/conversaciones", mensajesHandler)
+	http.Handle("/api/mensajes/conversaciones/", mensajesHandler)
+	http.HandleFunc("/api/mensajes/usuarios/buscar", mensajesHandler.SearchUsuariosHandler)
+	http.HandleFunc("/api/mensajes/adjuntos", mensajesHandler.UploadAdjuntoHandler)
+	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
+
 	http.Handle("/api/paises", paisesHandler)
 	http.Handle("/api/sesiones", sesionesHandler)
 	http.Handle("/api/sesiones/", sesionesHandler)

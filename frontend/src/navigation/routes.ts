@@ -11,4 +11,6 @@ export const ROUTES = {
   myInscriptions: "/inscriptions/mine",
   inscriptionsAdmin: "/inscriptions/admin",
   inscriptionsReports: "/inscriptions/reports",
+  mensajes: "/mensajes",
+  conversacion: (id: string = ":conversacionId"): string => `/mensajes/${id}`,
 };

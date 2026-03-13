@@ -19,6 +19,8 @@ model Usuario {
   sesionesPonente SesionPonente[]
   UsuarioRoles    UsuarioRoles[]
   preferencias    NotificacionPreferencia?
+  participaciones  ConversacionParticipante[]
+  mensajesEnviados Mensaje[] @relation("MensajesEnviados")
 }
 
 model Roles {
@@ -187,4 +189,35 @@ model SesionPonente {
   usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
 
   @@unique([id_sesion, id_usuario])
+}
+
+model Conversacion {
+  id_conversacion Int       @id @default(autoincrement())
+  asunto          String    @default("")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  mensajes        Mensaje[]
+  participantes   ConversacionParticipante[]
+}
+
+model ConversacionParticipante {
+  id_conversacion Int
+  id_usuario      Int
+  unido_en        DateTime     @default(now())
+  conversacion    Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
+  usuario         Usuario      @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@id([id_conversacion, id_usuario])
+}
+
+model Mensaje {
+  id_mensaje      Int          @id @default(autoincrement())
+  id_conversacion Int
+  id_remitente    Int
+  cuerpo          String
+  adjunto_url     String?
+  adjunto_nombre  String?
+  createdAt       DateTime     @default(now())
+  conversacion    Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
+  remitente       Usuario      @relation("MensajesEnviados", fields: [id_remitente], references: [id_usuario])
 }
