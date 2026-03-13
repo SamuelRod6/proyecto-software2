@@ -52,3 +52,63 @@ type CompareVersionsResponse struct {
     To        VersionResponse `json:"to"`
     Resumen   []string        `json:"resumen"`
 }
+
+type TrabajoComiteFilter struct {
+    UserID      int
+    Query       string
+    Autor       string
+    Estado      string
+    IDEvento    int
+}
+
+type TrabajoComiteItem struct {
+  IDTrabajo        int    `json:"id_trabajo"`
+  IDEvento         int    `json:"id_evento"`
+  IDAutor          int    `json:"id_autor"`
+  Autor            string `json:"autor"`
+  Titulo           string `json:"titulo"`
+  Resumen          string `json:"resumen"`
+  Estado           string `json:"estado"`
+  DecisionComite   string `json:"decision_comite"`
+  FechaUltimoEnvio string `json:"fecha_ultimo_envio"`
+  VersionActual    int    `json:"version_actual"`
+  ArchivoActual    *VersionResponse `json:"archivo_actual,omitempty"`
+}
+
+type AssignReviewersRequest struct {
+    UserID    int   `json:"user_id"`
+    IDTrabajo int   `json:"id_trabajo"`
+    Revisores []int `json:"revisores"`
+}
+
+type ReviewerListItem struct {
+  IDUsuario int    `json:"id_usuario"`
+  Nombre    string `json:"nombre"`
+  Email     string `json:"email"`
+}
+
+type SubmitEvaluationRequest struct {
+  UserID        int    `json:"user_id"`
+  IDTrabajo     int    `json:"id_trabajo"`
+  Recomendacion string `json:"recomendacion"` // ACEPTAR, RECHAZAR, PENDIENTE
+  Puntaje       *int   `json:"puntaje"`
+  Comentarios   string `json:"comentarios"`
+}
+
+type EvaluationItem struct {
+  IDEvaluacion  int     `json:"id_evaluacion"`
+  IDTrabajo     int     `json:"id_trabajo"`
+  IDRevisor     int     `json:"id_revisor"`
+  Revisor       string  `json:"revisor"`
+  Recomendacion string  `json:"recomendacion"`
+  Puntaje       *int    `json:"puntaje"`
+  Comentarios   string  `json:"comentarios"`
+  UpdatedAt     string  `json:"updated_at"`
+}
+
+type DecisionRequest struct {
+  UserID           int    `json:"user_id"`
+  IDTrabajo        int    `json:"id_trabajo"`
+  DecisionComite   string `json:"decision_comite"` // ACEPTADO, RECHAZADO, PENDIENTE_REVISION
+  ComentarioComite string `json:"comentario_comite"`
+}

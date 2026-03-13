@@ -9,6 +9,13 @@ const (
 	MsgAperturaInscripciones = "¡Ya puedes inscribirte al evento '%s'! Las inscripciones están abiertas hasta el %s."
 	MsgCancelacionEvento     = "Lamentamos informarte que el evento '%s' ha sido cancelado. Si ya te habías inscrito, recibirás un reembolso completo. Disculpa las molestias."
 	msgCambioSesion          = "La sesión '%s' del evento '%s' fue actualizada. Nuevo horario: %s - %s."
+	MsgTrabajoRecibido       = "Tu trabajo científico '%s' fue recibido correctamente."
+	MsgTrabajoNuevo          = "Se recibió un nuevo trabajo científico: '%s'."
+	MsgTrabajoActualizado    = "El trabajo '%s' fue actualizado a la versión %d."
+	MsgTrabajoAsignado       = "Se te asignó el trabajo científico '%s' para evaluación."
+	MsgEvaluacionRecibida    = "El revisor %s envió una evaluación del trabajo '%s'."
+	MsgEstadoTrabajo         = "El estado de tu trabajo científico '%s' fue actualizado a: %s."
+	MsgEstadoTrabajoConComentario = "El estado de tu trabajo científico '%s' fue actualizado a: %s. Comentario del comité: %s"
 )
 
 var NotificationTitles = map[string]string{
@@ -20,6 +27,12 @@ var NotificationTitles = map[string]string{
 	NotificationTypeAperturaInscripciones: "Apertura de inscripciones",
 	NotificationTypeCancelacionEvento:     "Cancelación de evento",
 	NotificationTypeCambioSesion:          "Cambio en sesión",
+	NotificationTypeTrabajoRecibido:       "Trabajo recibido",
+	NotificationTypeTrabajoNuevo:          "Trabajo nuevo",
+	NotificationTypeTrabajoActualizado:    "Trabajo actualizado",
+	NotificationTypeTrabajoAsignado:       "Trabajo asignado",
+	NotificationTypeEvaluacionRecibida:    "Evaluación recibida",
+	NotificationTypeEstadoTrabajo:         "Estado trabajo científico",
 }
 
 func GetNotificationTitle(tipo string) string {

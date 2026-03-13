@@ -84,17 +84,20 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario          Int                      @id @default(autoincrement())
-  nombre              String                   @unique
-  email               String                   @unique
-  password_hash       String
-  createdAt           DateTime                 @default(now())
-  inscripciones       Inscripcion[]
-  notificaciones      Notificacion[]           @relation("UsuarioNotificaciones")
-  sesionesPonente     SesionPonente[]
-  UsuarioRoles        UsuarioRoles[]
-  preferencias        NotificacionPreferencia?
-  trabajosCientificos TrabajoCientifico[]
+  id_usuario               Int                         @id @default(autoincrement())
+  nombre                   String                      @unique
+  email                    String                      @unique
+  password_hash            String
+  createdAt                DateTime                    @default(now())
+  inscripciones            Inscripcion[]
+  notificaciones           Notificacion[]              @relation("UsuarioNotificaciones")
+  sesionesPonente          SesionPonente[]
+  UsuarioRoles             UsuarioRoles[]
+  preferencias             NotificacionPreferencia?
+  trabajosCientificos      TrabajoCientifico[]
+  trabajosAsignadosRevisor TrabajoRevisionAsignacion[] @relation("AsignacionesRevisor")
+  trabajosAsignadosComite  TrabajoRevisionAsignacion[] @relation("AsignacionesComite")
+  evaluacionesRevisor      TrabajoEvaluacion[]         @relation("EvaluacionesRevisor")
 }
 
 model Roles {
@@ -292,9 +295,15 @@ model TrabajoCientifico {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  evento    Evento                     @relation(fields: [id_evento], references: [id_evento])
-  usuario   Usuario                    @relation(fields: [id_usuario], references: [id_usuario])
-  versiones TrabajoCientificoVersion[]
+  decision_comite   String    @default("PENDIENTE REVISION")
+  comentario_comite String?
+  fecha_decision    DateTime?
+
+  evento       Evento                      @relation(fields: [id_evento], references: [id_evento])
+  usuario      Usuario                     @relation(fields: [id_usuario], references: [id_usuario])
+  versiones    TrabajoCientificoVersion[]
+  asignaciones TrabajoRevisionAsignacion[]
+  evaluaciones TrabajoEvaluacion[]
 
   @@unique([id_evento, titulo_normalizado])
 }
@@ -314,6 +323,36 @@ model TrabajoCientificoVersion {
   trabajo TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
 
   @@unique([id_trabajo, numero_version])
+}
+
+model TrabajoRevisionAsignacion {
+  id_asignacion Int      @id @default(autoincrement())
+  id_trabajo    Int
+  id_revisor    Int
+  id_asignador  Int
+  createdAt     DateTime @default(now())
+
+  trabajo   TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+  revisor   Usuario           @relation("AsignacionesRevisor", fields: [id_revisor], references: [id_usuario])
+  asignador Usuario           @relation("AsignacionesComite", fields: [id_asignador], references: [id_usuario])
+
+  @@unique([id_trabajo, id_revisor])
+}
+
+model TrabajoEvaluacion {
+  id_evaluacion Int      @id @default(autoincrement())
+  id_trabajo    Int
+  id_revisor    Int
+  recomendacion String   @default("PENDIENTE")
+  puntaje       Int?
+  comentarios   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  trabajo TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+  revisor Usuario           @relation("EvaluacionesRevisor", fields: [id_revisor], references: [id_usuario])
+
+  @@unique([id_trabajo, id_revisor])
 }
 `
 const schemaDatasourceURL = ""
@@ -405,6 +444,8 @@ func newClient() *PrismaClient {
 	c.SesionHistorial = sesionHistorialActions{client: c}
 	c.TrabajoCientifico = trabajoCientificoActions{client: c}
 	c.TrabajoCientificoVersion = trabajoCientificoVersionActions{client: c}
+	c.TrabajoRevisionAsignacion = trabajoRevisionAsignacionActions{client: c}
+	c.TrabajoEvaluacion = trabajoEvaluacionActions{client: c}
 
 	c.Prisma = &PrismaActions{
 		Raw: &raw.Raw{Engine: c},
@@ -467,6 +508,10 @@ type PrismaClient struct {
 	TrabajoCientifico trabajoCientificoActions
 	// TrabajoCientificoVersion provides access to CRUD methods.
 	TrabajoCientificoVersion trabajoCientificoVersionActions
+	// TrabajoRevisionAsignacion provides access to CRUD methods.
+	TrabajoRevisionAsignacion trabajoRevisionAsignacionActions
+	// TrabajoEvaluacion provides access to CRUD methods.
+	TrabajoEvaluacion trabajoEvaluacionActions
 }
 
 // --- template enums.gotpl ---
@@ -678,6 +723,9 @@ const (
 	TrabajoCientificoScalarFieldEnumEstado            TrabajoCientificoScalarFieldEnum = "estado"
 	TrabajoCientificoScalarFieldEnumCreatedAt         TrabajoCientificoScalarFieldEnum = "createdAt"
 	TrabajoCientificoScalarFieldEnumUpdatedAt         TrabajoCientificoScalarFieldEnum = "updatedAt"
+	TrabajoCientificoScalarFieldEnumDecisionComite    TrabajoCientificoScalarFieldEnum = "decision_comite"
+	TrabajoCientificoScalarFieldEnumComentarioComite  TrabajoCientificoScalarFieldEnum = "comentario_comite"
+	TrabajoCientificoScalarFieldEnumFechaDecision     TrabajoCientificoScalarFieldEnum = "fecha_decision"
 )
 
 type TrabajoCientificoVersionScalarFieldEnum string
@@ -693,6 +741,29 @@ const (
 	TrabajoCientificoVersionScalarFieldEnumDescripcionCambios TrabajoCientificoVersionScalarFieldEnum = "descripcion_cambios"
 	TrabajoCientificoVersionScalarFieldEnumEsActual           TrabajoCientificoVersionScalarFieldEnum = "es_actual"
 	TrabajoCientificoVersionScalarFieldEnumFechaEnvio         TrabajoCientificoVersionScalarFieldEnum = "fecha_envio"
+)
+
+type TrabajoRevisionAsignacionScalarFieldEnum string
+
+const (
+	TrabajoRevisionAsignacionScalarFieldEnumIDAsignacion TrabajoRevisionAsignacionScalarFieldEnum = "id_asignacion"
+	TrabajoRevisionAsignacionScalarFieldEnumIDTrabajo    TrabajoRevisionAsignacionScalarFieldEnum = "id_trabajo"
+	TrabajoRevisionAsignacionScalarFieldEnumIDRevisor    TrabajoRevisionAsignacionScalarFieldEnum = "id_revisor"
+	TrabajoRevisionAsignacionScalarFieldEnumIDAsignador  TrabajoRevisionAsignacionScalarFieldEnum = "id_asignador"
+	TrabajoRevisionAsignacionScalarFieldEnumCreatedAt    TrabajoRevisionAsignacionScalarFieldEnum = "createdAt"
+)
+
+type TrabajoEvaluacionScalarFieldEnum string
+
+const (
+	TrabajoEvaluacionScalarFieldEnumIDEvaluacion  TrabajoEvaluacionScalarFieldEnum = "id_evaluacion"
+	TrabajoEvaluacionScalarFieldEnumIDTrabajo     TrabajoEvaluacionScalarFieldEnum = "id_trabajo"
+	TrabajoEvaluacionScalarFieldEnumIDRevisor     TrabajoEvaluacionScalarFieldEnum = "id_revisor"
+	TrabajoEvaluacionScalarFieldEnumRecomendacion TrabajoEvaluacionScalarFieldEnum = "recomendacion"
+	TrabajoEvaluacionScalarFieldEnumPuntaje       TrabajoEvaluacionScalarFieldEnum = "puntaje"
+	TrabajoEvaluacionScalarFieldEnumComentarios   TrabajoEvaluacionScalarFieldEnum = "comentarios"
+	TrabajoEvaluacionScalarFieldEnumCreatedAt     TrabajoEvaluacionScalarFieldEnum = "createdAt"
+	TrabajoEvaluacionScalarFieldEnumUpdatedAt     TrabajoEvaluacionScalarFieldEnum = "updatedAt"
 )
 
 type SortOrder string
@@ -770,6 +841,12 @@ const usuarioFieldUsuarioRoles usuarioPrismaFields = "UsuarioRoles"
 const usuarioFieldPreferencias usuarioPrismaFields = "preferencias"
 
 const usuarioFieldTrabajosCientificos usuarioPrismaFields = "trabajosCientificos"
+
+const usuarioFieldTrabajosAsignadosRevisor usuarioPrismaFields = "trabajosAsignadosRevisor"
+
+const usuarioFieldTrabajosAsignadosComite usuarioPrismaFields = "trabajosAsignadosComite"
+
+const usuarioFieldEvaluacionesRevisor usuarioPrismaFields = "evaluacionesRevisor"
 
 type rolesPrismaFields = prismaFields
 
@@ -1071,11 +1148,21 @@ const trabajoCientificoFieldCreatedAt trabajoCientificoPrismaFields = "createdAt
 
 const trabajoCientificoFieldUpdatedAt trabajoCientificoPrismaFields = "updatedAt"
 
+const trabajoCientificoFieldDecisionComite trabajoCientificoPrismaFields = "decision_comite"
+
+const trabajoCientificoFieldComentarioComite trabajoCientificoPrismaFields = "comentario_comite"
+
+const trabajoCientificoFieldFechaDecision trabajoCientificoPrismaFields = "fecha_decision"
+
 const trabajoCientificoFieldEvento trabajoCientificoPrismaFields = "evento"
 
 const trabajoCientificoFieldUsuario trabajoCientificoPrismaFields = "usuario"
 
 const trabajoCientificoFieldVersiones trabajoCientificoPrismaFields = "versiones"
+
+const trabajoCientificoFieldAsignaciones trabajoCientificoPrismaFields = "asignaciones"
+
+const trabajoCientificoFieldEvaluaciones trabajoCientificoPrismaFields = "evaluaciones"
 
 type trabajoCientificoVersionPrismaFields = prismaFields
 
@@ -1100,6 +1187,46 @@ const trabajoCientificoVersionFieldEsActual trabajoCientificoVersionPrismaFields
 const trabajoCientificoVersionFieldFechaEnvio trabajoCientificoVersionPrismaFields = "fecha_envio"
 
 const trabajoCientificoVersionFieldTrabajo trabajoCientificoVersionPrismaFields = "trabajo"
+
+type trabajoRevisionAsignacionPrismaFields = prismaFields
+
+const trabajoRevisionAsignacionFieldIDAsignacion trabajoRevisionAsignacionPrismaFields = "id_asignacion"
+
+const trabajoRevisionAsignacionFieldIDTrabajo trabajoRevisionAsignacionPrismaFields = "id_trabajo"
+
+const trabajoRevisionAsignacionFieldIDRevisor trabajoRevisionAsignacionPrismaFields = "id_revisor"
+
+const trabajoRevisionAsignacionFieldIDAsignador trabajoRevisionAsignacionPrismaFields = "id_asignador"
+
+const trabajoRevisionAsignacionFieldCreatedAt trabajoRevisionAsignacionPrismaFields = "createdAt"
+
+const trabajoRevisionAsignacionFieldTrabajo trabajoRevisionAsignacionPrismaFields = "trabajo"
+
+const trabajoRevisionAsignacionFieldRevisor trabajoRevisionAsignacionPrismaFields = "revisor"
+
+const trabajoRevisionAsignacionFieldAsignador trabajoRevisionAsignacionPrismaFields = "asignador"
+
+type trabajoEvaluacionPrismaFields = prismaFields
+
+const trabajoEvaluacionFieldIDEvaluacion trabajoEvaluacionPrismaFields = "id_evaluacion"
+
+const trabajoEvaluacionFieldIDTrabajo trabajoEvaluacionPrismaFields = "id_trabajo"
+
+const trabajoEvaluacionFieldIDRevisor trabajoEvaluacionPrismaFields = "id_revisor"
+
+const trabajoEvaluacionFieldRecomendacion trabajoEvaluacionPrismaFields = "recomendacion"
+
+const trabajoEvaluacionFieldPuntaje trabajoEvaluacionPrismaFields = "puntaje"
+
+const trabajoEvaluacionFieldComentarios trabajoEvaluacionPrismaFields = "comentarios"
+
+const trabajoEvaluacionFieldCreatedAt trabajoEvaluacionPrismaFields = "createdAt"
+
+const trabajoEvaluacionFieldUpdatedAt trabajoEvaluacionPrismaFields = "updatedAt"
+
+const trabajoEvaluacionFieldTrabajo trabajoEvaluacionPrismaFields = "trabajo"
+
+const trabajoEvaluacionFieldRevisor trabajoEvaluacionPrismaFields = "revisor"
 
 // --- template mock.gotpl ---
 func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
@@ -1187,6 +1314,14 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.TrabajoRevisionAsignacion = trabajoRevisionAsignacionMock{
+		mock: m,
+	}
+
+	m.TrabajoEvaluacion = trabajoEvaluacionMock{
+		mock: m,
+	}
+
 	return pc, m, m.Ensure
 }
 
@@ -1230,6 +1365,10 @@ type Mock struct {
 	TrabajoCientifico trabajoCientificoMock
 
 	TrabajoCientificoVersion trabajoCientificoVersionMock
+
+	TrabajoRevisionAsignacion trabajoRevisionAsignacionMock
+
+	TrabajoEvaluacion trabajoEvaluacionMock
 }
 
 type usuarioMock struct {
@@ -2030,6 +2169,90 @@ func (m *trabajoCientificoVersionMockExec) Errors(err error) {
 	})
 }
 
+type trabajoRevisionAsignacionMock struct {
+	mock *Mock
+}
+
+type TrabajoRevisionAsignacionMockExpectParam interface {
+	ExtractQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+}
+
+func (m *trabajoRevisionAsignacionMock) Expect(query TrabajoRevisionAsignacionMockExpectParam) *trabajoRevisionAsignacionMockExec {
+	return &trabajoRevisionAsignacionMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type trabajoRevisionAsignacionMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *trabajoRevisionAsignacionMockExec) Returns(v TrabajoRevisionAsignacionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoRevisionAsignacionMockExec) ReturnsMany(v []TrabajoRevisionAsignacionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoRevisionAsignacionMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type trabajoEvaluacionMock struct {
+	mock *Mock
+}
+
+type TrabajoEvaluacionMockExpectParam interface {
+	ExtractQuery() builder.Query
+	trabajoEvaluacionModel()
+}
+
+func (m *trabajoEvaluacionMock) Expect(query TrabajoEvaluacionMockExpectParam) *trabajoEvaluacionMockExec {
+	return &trabajoEvaluacionMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type trabajoEvaluacionMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *trabajoEvaluacionMockExec) Returns(v TrabajoEvaluacionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoEvaluacionMockExec) ReturnsMany(v []TrabajoEvaluacionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoEvaluacionMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
 // --- template models.gotpl ---
 
 // UsuarioModel represents the Usuario model and is a wrapper for accessing fields and methods
@@ -2058,12 +2281,15 @@ type RawUsuarioModel struct {
 
 // RelationsUsuario holds the relation data separately
 type RelationsUsuario struct {
-	Inscripciones       []InscripcionModel            `json:"inscripciones,omitempty"`
-	Notificaciones      []NotificacionModel           `json:"notificaciones,omitempty"`
-	SesionesPonente     []SesionPonenteModel          `json:"sesionesPonente,omitempty"`
-	UsuarioRoles        []UsuarioRolesModel           `json:"UsuarioRoles,omitempty"`
-	Preferencias        *NotificacionPreferenciaModel `json:"preferencias,omitempty"`
-	TrabajosCientificos []TrabajoCientificoModel      `json:"trabajosCientificos,omitempty"`
+	Inscripciones            []InscripcionModel               `json:"inscripciones,omitempty"`
+	Notificaciones           []NotificacionModel              `json:"notificaciones,omitempty"`
+	SesionesPonente          []SesionPonenteModel             `json:"sesionesPonente,omitempty"`
+	UsuarioRoles             []UsuarioRolesModel              `json:"UsuarioRoles,omitempty"`
+	Preferencias             *NotificacionPreferenciaModel    `json:"preferencias,omitempty"`
+	TrabajosCientificos      []TrabajoCientificoModel         `json:"trabajosCientificos,omitempty"`
+	TrabajosAsignadosRevisor []TrabajoRevisionAsignacionModel `json:"trabajosAsignadosRevisor,omitempty"`
+	TrabajosAsignadosComite  []TrabajoRevisionAsignacionModel `json:"trabajosAsignadosComite,omitempty"`
+	EvaluacionesRevisor      []TrabajoEvaluacionModel         `json:"evaluacionesRevisor,omitempty"`
 }
 
 func (r UsuarioModel) Inscripciones() (value []InscripcionModel) {
@@ -2106,6 +2332,27 @@ func (r UsuarioModel) TrabajosCientificos() (value []TrabajoCientificoModel) {
 		panic("attempted to access trabajosCientificos but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsUsuario.TrabajosCientificos
+}
+
+func (r UsuarioModel) TrabajosAsignadosRevisor() (value []TrabajoRevisionAsignacionModel) {
+	if r.RelationsUsuario.TrabajosAsignadosRevisor == nil {
+		panic("attempted to access trabajosAsignadosRevisor but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.TrabajosAsignadosRevisor
+}
+
+func (r UsuarioModel) TrabajosAsignadosComite() (value []TrabajoRevisionAsignacionModel) {
+	if r.RelationsUsuario.TrabajosAsignadosComite == nil {
+		panic("attempted to access trabajosAsignadosComite but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.TrabajosAsignadosComite
+}
+
+func (r UsuarioModel) EvaluacionesRevisor() (value []TrabajoEvaluacionModel) {
+	if r.RelationsUsuario.EvaluacionesRevisor == nil {
+		panic("attempted to access evaluacionesRevisor but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.EvaluacionesRevisor
 }
 
 // RolesModel represents the Roles model and is a wrapper for accessing fields and methods
@@ -2916,37 +3163,59 @@ type TrabajoCientificoModel struct {
 
 // InnerTrabajoCientifico holds the actual data
 type InnerTrabajoCientifico struct {
-	IDTrabajo         int      `json:"id_trabajo"`
-	IDEvento          int      `json:"id_evento"`
-	IDUsuario         int      `json:"id_usuario"`
-	Titulo            string   `json:"titulo"`
-	TituloNormalizado string   `json:"titulo_normalizado"`
-	Resumen           string   `json:"resumen"`
-	VersionActual     int      `json:"version_actual"`
-	Estado            string   `json:"estado"`
-	CreatedAt         DateTime `json:"createdAt"`
-	UpdatedAt         DateTime `json:"updatedAt"`
+	IDTrabajo         int       `json:"id_trabajo"`
+	IDEvento          int       `json:"id_evento"`
+	IDUsuario         int       `json:"id_usuario"`
+	Titulo            string    `json:"titulo"`
+	TituloNormalizado string    `json:"titulo_normalizado"`
+	Resumen           string    `json:"resumen"`
+	VersionActual     int       `json:"version_actual"`
+	Estado            string    `json:"estado"`
+	CreatedAt         DateTime  `json:"createdAt"`
+	UpdatedAt         DateTime  `json:"updatedAt"`
+	DecisionComite    string    `json:"decision_comite"`
+	ComentarioComite  *string   `json:"comentario_comite,omitempty"`
+	FechaDecision     *DateTime `json:"fecha_decision,omitempty"`
 }
 
 // RawTrabajoCientificoModel is a struct for TrabajoCientifico when used in raw queries
 type RawTrabajoCientificoModel struct {
-	IDTrabajo         RawInt      `json:"id_trabajo"`
-	IDEvento          RawInt      `json:"id_evento"`
-	IDUsuario         RawInt      `json:"id_usuario"`
-	Titulo            RawString   `json:"titulo"`
-	TituloNormalizado RawString   `json:"titulo_normalizado"`
-	Resumen           RawString   `json:"resumen"`
-	VersionActual     RawInt      `json:"version_actual"`
-	Estado            RawString   `json:"estado"`
-	CreatedAt         RawDateTime `json:"createdAt"`
-	UpdatedAt         RawDateTime `json:"updatedAt"`
+	IDTrabajo         RawInt       `json:"id_trabajo"`
+	IDEvento          RawInt       `json:"id_evento"`
+	IDUsuario         RawInt       `json:"id_usuario"`
+	Titulo            RawString    `json:"titulo"`
+	TituloNormalizado RawString    `json:"titulo_normalizado"`
+	Resumen           RawString    `json:"resumen"`
+	VersionActual     RawInt       `json:"version_actual"`
+	Estado            RawString    `json:"estado"`
+	CreatedAt         RawDateTime  `json:"createdAt"`
+	UpdatedAt         RawDateTime  `json:"updatedAt"`
+	DecisionComite    RawString    `json:"decision_comite"`
+	ComentarioComite  *RawString   `json:"comentario_comite,omitempty"`
+	FechaDecision     *RawDateTime `json:"fecha_decision,omitempty"`
 }
 
 // RelationsTrabajoCientifico holds the relation data separately
 type RelationsTrabajoCientifico struct {
-	Evento    *EventoModel                    `json:"evento,omitempty"`
-	Usuario   *UsuarioModel                   `json:"usuario,omitempty"`
-	Versiones []TrabajoCientificoVersionModel `json:"versiones,omitempty"`
+	Evento       *EventoModel                     `json:"evento,omitempty"`
+	Usuario      *UsuarioModel                    `json:"usuario,omitempty"`
+	Versiones    []TrabajoCientificoVersionModel  `json:"versiones,omitempty"`
+	Asignaciones []TrabajoRevisionAsignacionModel `json:"asignaciones,omitempty"`
+	Evaluaciones []TrabajoEvaluacionModel         `json:"evaluaciones,omitempty"`
+}
+
+func (r TrabajoCientificoModel) ComentarioComite() (value String, ok bool) {
+	if r.InnerTrabajoCientifico.ComentarioComite == nil {
+		return value, false
+	}
+	return *r.InnerTrabajoCientifico.ComentarioComite, true
+}
+
+func (r TrabajoCientificoModel) FechaDecision() (value DateTime, ok bool) {
+	if r.InnerTrabajoCientifico.FechaDecision == nil {
+		return value, false
+	}
+	return *r.InnerTrabajoCientifico.FechaDecision, true
 }
 
 func (r TrabajoCientificoModel) Evento() (value *EventoModel) {
@@ -2968,6 +3237,20 @@ func (r TrabajoCientificoModel) Versiones() (value []TrabajoCientificoVersionMod
 		panic("attempted to access versiones but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsTrabajoCientifico.Versiones
+}
+
+func (r TrabajoCientificoModel) Asignaciones() (value []TrabajoRevisionAsignacionModel) {
+	if r.RelationsTrabajoCientifico.Asignaciones == nil {
+		panic("attempted to access asignaciones but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoCientifico.Asignaciones
+}
+
+func (r TrabajoCientificoModel) Evaluaciones() (value []TrabajoEvaluacionModel) {
+	if r.RelationsTrabajoCientifico.Evaluaciones == nil {
+		panic("attempted to access evaluaciones but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoCientifico.Evaluaciones
 }
 
 // TrabajoCientificoVersionModel represents the TrabajoCientificoVersion model and is a wrapper for accessing fields and methods
@@ -3023,6 +3306,115 @@ func (r TrabajoCientificoVersionModel) Trabajo() (value *TrabajoCientificoModel)
 	return r.RelationsTrabajoCientificoVersion.Trabajo
 }
 
+// TrabajoRevisionAsignacionModel represents the TrabajoRevisionAsignacion model and is a wrapper for accessing fields and methods
+type TrabajoRevisionAsignacionModel struct {
+	InnerTrabajoRevisionAsignacion
+	RelationsTrabajoRevisionAsignacion
+}
+
+// InnerTrabajoRevisionAsignacion holds the actual data
+type InnerTrabajoRevisionAsignacion struct {
+	IDAsignacion int      `json:"id_asignacion"`
+	IDTrabajo    int      `json:"id_trabajo"`
+	IDRevisor    int      `json:"id_revisor"`
+	IDAsignador  int      `json:"id_asignador"`
+	CreatedAt    DateTime `json:"createdAt"`
+}
+
+// RawTrabajoRevisionAsignacionModel is a struct for TrabajoRevisionAsignacion when used in raw queries
+type RawTrabajoRevisionAsignacionModel struct {
+	IDAsignacion RawInt      `json:"id_asignacion"`
+	IDTrabajo    RawInt      `json:"id_trabajo"`
+	IDRevisor    RawInt      `json:"id_revisor"`
+	IDAsignador  RawInt      `json:"id_asignador"`
+	CreatedAt    RawDateTime `json:"createdAt"`
+}
+
+// RelationsTrabajoRevisionAsignacion holds the relation data separately
+type RelationsTrabajoRevisionAsignacion struct {
+	Trabajo   *TrabajoCientificoModel `json:"trabajo,omitempty"`
+	Revisor   *UsuarioModel           `json:"revisor,omitempty"`
+	Asignador *UsuarioModel           `json:"asignador,omitempty"`
+}
+
+func (r TrabajoRevisionAsignacionModel) Trabajo() (value *TrabajoCientificoModel) {
+	if r.RelationsTrabajoRevisionAsignacion.Trabajo == nil {
+		panic("attempted to access trabajo but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoRevisionAsignacion.Trabajo
+}
+
+func (r TrabajoRevisionAsignacionModel) Revisor() (value *UsuarioModel) {
+	if r.RelationsTrabajoRevisionAsignacion.Revisor == nil {
+		panic("attempted to access revisor but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoRevisionAsignacion.Revisor
+}
+
+func (r TrabajoRevisionAsignacionModel) Asignador() (value *UsuarioModel) {
+	if r.RelationsTrabajoRevisionAsignacion.Asignador == nil {
+		panic("attempted to access asignador but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoRevisionAsignacion.Asignador
+}
+
+// TrabajoEvaluacionModel represents the TrabajoEvaluacion model and is a wrapper for accessing fields and methods
+type TrabajoEvaluacionModel struct {
+	InnerTrabajoEvaluacion
+	RelationsTrabajoEvaluacion
+}
+
+// InnerTrabajoEvaluacion holds the actual data
+type InnerTrabajoEvaluacion struct {
+	IDEvaluacion  int      `json:"id_evaluacion"`
+	IDTrabajo     int      `json:"id_trabajo"`
+	IDRevisor     int      `json:"id_revisor"`
+	Recomendacion string   `json:"recomendacion"`
+	Puntaje       *int     `json:"puntaje,omitempty"`
+	Comentarios   string   `json:"comentarios"`
+	CreatedAt     DateTime `json:"createdAt"`
+	UpdatedAt     DateTime `json:"updatedAt"`
+}
+
+// RawTrabajoEvaluacionModel is a struct for TrabajoEvaluacion when used in raw queries
+type RawTrabajoEvaluacionModel struct {
+	IDEvaluacion  RawInt      `json:"id_evaluacion"`
+	IDTrabajo     RawInt      `json:"id_trabajo"`
+	IDRevisor     RawInt      `json:"id_revisor"`
+	Recomendacion RawString   `json:"recomendacion"`
+	Puntaje       *RawInt     `json:"puntaje,omitempty"`
+	Comentarios   RawString   `json:"comentarios"`
+	CreatedAt     RawDateTime `json:"createdAt"`
+	UpdatedAt     RawDateTime `json:"updatedAt"`
+}
+
+// RelationsTrabajoEvaluacion holds the relation data separately
+type RelationsTrabajoEvaluacion struct {
+	Trabajo *TrabajoCientificoModel `json:"trabajo,omitempty"`
+	Revisor *UsuarioModel           `json:"revisor,omitempty"`
+}
+
+func (r TrabajoEvaluacionModel) Puntaje() (value Int, ok bool) {
+	if r.InnerTrabajoEvaluacion.Puntaje == nil {
+		return value, false
+	}
+	return *r.InnerTrabajoEvaluacion.Puntaje, true
+}
+
+func (r TrabajoEvaluacionModel) Trabajo() (value *TrabajoCientificoModel) {
+	if r.RelationsTrabajoEvaluacion.Trabajo == nil {
+		panic("attempted to access trabajo but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoEvaluacion.Trabajo
+}
+
+func (r TrabajoEvaluacionModel) Revisor() (value *UsuarioModel) {
+	if r.RelationsTrabajoEvaluacion.Revisor == nil {
+		panic("attempted to access revisor but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoEvaluacion.Revisor
+}
+
 // --- template query.gotpl ---
 
 // Usuario acts as a namespaces to access query methods for the Usuario model
@@ -3069,6 +3461,12 @@ type usuarioQuery struct {
 	Preferencias usuarioQueryPreferenciasRelations
 
 	TrabajosCientificos usuarioQueryTrabajosCientificosRelations
+
+	TrabajosAsignadosRevisor usuarioQueryTrabajosAsignadosRevisorRelations
+
+	TrabajosAsignadosComite usuarioQueryTrabajosAsignadosComiteRelations
+
+	EvaluacionesRevisor usuarioQueryEvaluacionesRevisorRelations
 }
 
 func (usuarioQuery) Not(params ...UsuarioWhereParam) usuarioDefaultParam {
@@ -5819,6 +6217,522 @@ func (r usuarioQueryTrabajosCientificosRelations) Unlink(
 
 func (r usuarioQueryTrabajosCientificosTrabajoCientifico) Field() usuarioPrismaFields {
 	return usuarioFieldTrabajosCientificos
+}
+
+// base struct
+type usuarioQueryTrabajosAsignadosRevisorTrabajoRevisionAsignacion struct{}
+
+type usuarioQueryTrabajosAsignadosRevisorRelations struct{}
+
+// Usuario -> TrabajosAsignadosRevisor
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosAsignadosRevisorRelations) Some(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosRevisor",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> TrabajosAsignadosRevisor
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosAsignadosRevisorRelations) Every(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosRevisor",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> TrabajosAsignadosRevisor
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosAsignadosRevisorRelations) None(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosRevisor",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQueryTrabajosAsignadosRevisorRelations) Fetch(
+
+	params ...TrabajoRevisionAsignacionWhereParam,
+
+) usuarioToTrabajosAsignadosRevisorFindMany {
+	var v usuarioToTrabajosAsignadosRevisorFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "trabajosAsignadosRevisor"
+	v.query.Outputs = trabajoRevisionAsignacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQueryTrabajosAsignadosRevisorRelations) Link(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosRevisor",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQueryTrabajosAsignadosRevisorRelations) Unlink(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosRevisor",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQueryTrabajosAsignadosRevisorTrabajoRevisionAsignacion) Field() usuarioPrismaFields {
+	return usuarioFieldTrabajosAsignadosRevisor
+}
+
+// base struct
+type usuarioQueryTrabajosAsignadosComiteTrabajoRevisionAsignacion struct{}
+
+type usuarioQueryTrabajosAsignadosComiteRelations struct{}
+
+// Usuario -> TrabajosAsignadosComite
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosAsignadosComiteRelations) Some(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosComite",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> TrabajosAsignadosComite
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosAsignadosComiteRelations) Every(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosComite",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> TrabajosAsignadosComite
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosAsignadosComiteRelations) None(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosComite",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQueryTrabajosAsignadosComiteRelations) Fetch(
+
+	params ...TrabajoRevisionAsignacionWhereParam,
+
+) usuarioToTrabajosAsignadosComiteFindMany {
+	var v usuarioToTrabajosAsignadosComiteFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "trabajosAsignadosComite"
+	v.query.Outputs = trabajoRevisionAsignacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQueryTrabajosAsignadosComiteRelations) Link(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosComite",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQueryTrabajosAsignadosComiteRelations) Unlink(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "trabajosAsignadosComite",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQueryTrabajosAsignadosComiteTrabajoRevisionAsignacion) Field() usuarioPrismaFields {
+	return usuarioFieldTrabajosAsignadosComite
+}
+
+// base struct
+type usuarioQueryEvaluacionesRevisorTrabajoEvaluacion struct{}
+
+type usuarioQueryEvaluacionesRevisorRelations struct{}
+
+// Usuario -> EvaluacionesRevisor
+//
+// @relation
+// @required
+func (usuarioQueryEvaluacionesRevisorRelations) Some(
+	params ...TrabajoEvaluacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "evaluacionesRevisor",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> EvaluacionesRevisor
+//
+// @relation
+// @required
+func (usuarioQueryEvaluacionesRevisorRelations) Every(
+	params ...TrabajoEvaluacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "evaluacionesRevisor",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> EvaluacionesRevisor
+//
+// @relation
+// @required
+func (usuarioQueryEvaluacionesRevisorRelations) None(
+	params ...TrabajoEvaluacionWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "evaluacionesRevisor",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQueryEvaluacionesRevisorRelations) Fetch(
+
+	params ...TrabajoEvaluacionWhereParam,
+
+) usuarioToEvaluacionesRevisorFindMany {
+	var v usuarioToEvaluacionesRevisorFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "evaluacionesRevisor"
+	v.query.Outputs = trabajoEvaluacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQueryEvaluacionesRevisorRelations) Link(
+	params ...TrabajoEvaluacionWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "evaluacionesRevisor",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQueryEvaluacionesRevisorRelations) Unlink(
+	params ...TrabajoEvaluacionWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "evaluacionesRevisor",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQueryEvaluacionesRevisorTrabajoEvaluacion) Field() usuarioPrismaFields {
+	return usuarioFieldEvaluacionesRevisor
 }
 
 // Roles acts as a namespaces to access query methods for the Roles model
@@ -43680,11 +44594,30 @@ type trabajoCientificoQuery struct {
 	// @required
 	UpdatedAt trabajoCientificoQueryUpdatedAtDateTime
 
+	// DecisionComite
+	//
+	// @required
+	DecisionComite trabajoCientificoQueryDecisionComiteString
+
+	// ComentarioComite
+	//
+	// @optional
+	ComentarioComite trabajoCientificoQueryComentarioComiteString
+
+	// FechaDecision
+	//
+	// @optional
+	FechaDecision trabajoCientificoQueryFechaDecisionDateTime
+
 	Evento trabajoCientificoQueryEventoRelations
 
 	Usuario trabajoCientificoQueryUsuarioRelations
 
 	Versiones trabajoCientificoQueryVersionesRelations
+
+	Asignaciones trabajoCientificoQueryAsignacionesRelations
+
+	Evaluaciones trabajoCientificoQueryEvaluacionesRelations
 }
 
 func (trabajoCientificoQuery) Not(params ...TrabajoCientificoWhereParam) trabajoCientificoDefaultParam {
@@ -47363,6 +48296,1101 @@ func (r trabajoCientificoQueryUpdatedAtDateTime) Field() trabajoCientificoPrisma
 }
 
 // base struct
+type trabajoCientificoQueryDecisionComiteString struct{}
+
+// Set the required value of DecisionComite
+func (r trabajoCientificoQueryDecisionComiteString) Set(value string) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "decision_comite",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of DecisionComite dynamically
+func (r trabajoCientificoQueryDecisionComiteString) SetIfPresent(value *String) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Equals(value string) trabajoCientificoWithPrismaDecisionComiteEqualsParam {
+
+	return trabajoCientificoWithPrismaDecisionComiteEqualsParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) EqualsIfPresent(value *string) trabajoCientificoWithPrismaDecisionComiteEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaDecisionComiteEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "decision_comite",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Cursor(cursor string) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "decision_comite",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) In(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) InIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) NotIn(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) NotInIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Lt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) LtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Lte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) LteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Gt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) GtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Gte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) GteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Contains(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) ContainsIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) StartsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) StartsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) EndsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) EndsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Mode(value QueryMode) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) ModeIfPresent(value *QueryMode) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Not(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) NotIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoQueryDecisionComiteString) HasPrefix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoQueryDecisionComiteString) HasPrefixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoQueryDecisionComiteString) HasSuffix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "decision_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoQueryDecisionComiteString) HasSuffixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoQueryDecisionComiteString) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldDecisionComite
+}
+
+// base struct
+type trabajoCientificoQueryComentarioComiteString struct{}
+
+// Set the optional value of ComentarioComite
+func (r trabajoCientificoQueryComentarioComiteString) Set(value string) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "comentario_comite",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of ComentarioComite dynamically
+func (r trabajoCientificoQueryComentarioComiteString) SetIfPresent(value *String) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of ComentarioComite dynamically
+func (r trabajoCientificoQueryComentarioComiteString) SetOptional(value *String) trabajoCientificoSetParam {
+	if value == nil {
+
+		var v *string
+		return trabajoCientificoSetParam{
+			data: builder.Field{
+				Name:  "comentario_comite",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Equals(value string) trabajoCientificoWithPrismaComentarioComiteEqualsParam {
+
+	return trabajoCientificoWithPrismaComentarioComiteEqualsParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) EqualsIfPresent(value *string) trabajoCientificoWithPrismaComentarioComiteEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaComentarioComiteEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) EqualsOptional(value *String) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) IsNull() trabajoCientificoDefaultParam {
+	var str *string = nil
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "comentario_comite",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Cursor(cursor string) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "comentario_comite",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) In(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) InIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) NotIn(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) NotInIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Lt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) LtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Lte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) LteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Gt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) GtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Gte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) GteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Contains(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) ContainsIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) StartsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) StartsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) EndsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) EndsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Mode(value QueryMode) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) ModeIfPresent(value *QueryMode) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Not(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) NotIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoQueryComentarioComiteString) HasPrefix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoQueryComentarioComiteString) HasPrefixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoQueryComentarioComiteString) HasSuffix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "comentario_comite",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoQueryComentarioComiteString) HasSuffixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoQueryComentarioComiteString) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldComentarioComite
+}
+
+// base struct
+type trabajoCientificoQueryFechaDecisionDateTime struct{}
+
+// Set the optional value of FechaDecision
+func (r trabajoCientificoQueryFechaDecisionDateTime) Set(value DateTime) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "fecha_decision",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaDecision dynamically
+func (r trabajoCientificoQueryFechaDecisionDateTime) SetIfPresent(value *DateTime) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of FechaDecision dynamically
+func (r trabajoCientificoQueryFechaDecisionDateTime) SetOptional(value *DateTime) trabajoCientificoSetParam {
+	if value == nil {
+
+		var v *DateTime
+		return trabajoCientificoSetParam{
+			data: builder.Field{
+				Name:  "fecha_decision",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Equals(value DateTime) trabajoCientificoWithPrismaFechaDecisionEqualsParam {
+
+	return trabajoCientificoWithPrismaFechaDecisionEqualsParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) EqualsIfPresent(value *DateTime) trabajoCientificoWithPrismaFechaDecisionEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaFechaDecisionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) EqualsOptional(value *DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) IsNull() trabajoCientificoDefaultParam {
+	var str *string = nil
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_decision",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Cursor(cursor DateTime) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "fecha_decision",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) In(value []DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) InIfPresent(value []DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) NotIn(value []DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) NotInIfPresent(value []DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Lt(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) LtIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Lte(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) LteIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Gt(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) GtIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Gte(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) GteIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Not(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) NotIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Before(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoQueryFechaDecisionDateTime) BeforeIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) After(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoQueryFechaDecisionDateTime) AfterIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) BeforeEquals(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoQueryFechaDecisionDateTime) BeforeEqualsIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) AfterEquals(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "fecha_decision",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoQueryFechaDecisionDateTime) AfterEqualsIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r trabajoCientificoQueryFechaDecisionDateTime) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldFechaDecision
+}
+
+// base struct
 type trabajoCientificoQueryEventoEvento struct{}
 
 type trabajoCientificoQueryEventoRelations struct{}
@@ -47708,6 +49736,350 @@ func (r trabajoCientificoQueryVersionesRelations) Unlink(
 
 func (r trabajoCientificoQueryVersionesTrabajoCientificoVersion) Field() trabajoCientificoPrismaFields {
 	return trabajoCientificoFieldVersiones
+}
+
+// base struct
+type trabajoCientificoQueryAsignacionesTrabajoRevisionAsignacion struct{}
+
+type trabajoCientificoQueryAsignacionesRelations struct{}
+
+// TrabajoCientifico -> Asignaciones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryAsignacionesRelations) Some(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "asignaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// TrabajoCientifico -> Asignaciones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryAsignacionesRelations) Every(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "asignaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// TrabajoCientifico -> Asignaciones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryAsignacionesRelations) None(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "asignaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoCientificoQueryAsignacionesRelations) Fetch(
+
+	params ...TrabajoRevisionAsignacionWhereParam,
+
+) trabajoCientificoToAsignacionesFindMany {
+	var v trabajoCientificoToAsignacionesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "asignaciones"
+	v.query.Outputs = trabajoRevisionAsignacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryAsignacionesRelations) Link(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) trabajoCientificoSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "asignaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryAsignacionesRelations) Unlink(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) trabajoCientificoSetParam {
+	var v trabajoCientificoSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "asignaciones",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryAsignacionesTrabajoRevisionAsignacion) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldAsignaciones
+}
+
+// base struct
+type trabajoCientificoQueryEvaluacionesTrabajoEvaluacion struct{}
+
+type trabajoCientificoQueryEvaluacionesRelations struct{}
+
+// TrabajoCientifico -> Evaluaciones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryEvaluacionesRelations) Some(
+	params ...TrabajoEvaluacionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "evaluaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// TrabajoCientifico -> Evaluaciones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryEvaluacionesRelations) Every(
+	params ...TrabajoEvaluacionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "evaluaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// TrabajoCientifico -> Evaluaciones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryEvaluacionesRelations) None(
+	params ...TrabajoEvaluacionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "evaluaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoCientificoQueryEvaluacionesRelations) Fetch(
+
+	params ...TrabajoEvaluacionWhereParam,
+
+) trabajoCientificoToEvaluacionesFindMany {
+	var v trabajoCientificoToEvaluacionesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "evaluaciones"
+	v.query.Outputs = trabajoEvaluacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryEvaluacionesRelations) Link(
+	params ...TrabajoEvaluacionWhereParam,
+) trabajoCientificoSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "evaluaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEvaluacionesRelations) Unlink(
+	params ...TrabajoEvaluacionWhereParam,
+) trabajoCientificoSetParam {
+	var v trabajoCientificoSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "evaluaciones",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryEvaluacionesTrabajoEvaluacion) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldEvaluaciones
 }
 
 // TrabajoCientificoVersion acts as a namespaces to access query methods for the TrabajoCientificoVersion model
@@ -51334,6 +53706,5537 @@ func (r trabajoCientificoVersionQueryTrabajoTrabajoCientifico) Field() trabajoCi
 	return trabajoCientificoVersionFieldTrabajo
 }
 
+// TrabajoRevisionAsignacion acts as a namespaces to access query methods for the TrabajoRevisionAsignacion model
+var TrabajoRevisionAsignacion = trabajoRevisionAsignacionQuery{}
+
+// trabajoRevisionAsignacionQuery exposes query functions for the trabajoRevisionAsignacion model
+type trabajoRevisionAsignacionQuery struct {
+
+	// IDAsignacion
+	//
+	// @required
+	IDAsignacion trabajoRevisionAsignacionQueryIDAsignacionInt
+
+	// IDTrabajo
+	//
+	// @required
+	IDTrabajo trabajoRevisionAsignacionQueryIDTrabajoInt
+
+	// IDRevisor
+	//
+	// @required
+	IDRevisor trabajoRevisionAsignacionQueryIDRevisorInt
+
+	// IDAsignador
+	//
+	// @required
+	IDAsignador trabajoRevisionAsignacionQueryIDAsignadorInt
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt trabajoRevisionAsignacionQueryCreatedAtDateTime
+
+	Trabajo trabajoRevisionAsignacionQueryTrabajoRelations
+
+	Revisor trabajoRevisionAsignacionQueryRevisorRelations
+
+	Asignador trabajoRevisionAsignacionQueryAsignadorRelations
+}
+
+func (trabajoRevisionAsignacionQuery) Not(params ...TrabajoRevisionAsignacionWhereParam) trabajoRevisionAsignacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoRevisionAsignacionQuery) Or(params ...TrabajoRevisionAsignacionWhereParam) trabajoRevisionAsignacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoRevisionAsignacionQuery) And(params ...TrabajoRevisionAsignacionWhereParam) trabajoRevisionAsignacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoRevisionAsignacionQuery) IDTrabajoIDRevisor(
+	_idTrabajo TrabajoRevisionAsignacionWithPrismaIDTrabajoWhereParam,
+
+	_idRevisor TrabajoRevisionAsignacionWithPrismaIDRevisorWhereParam,
+) TrabajoRevisionAsignacionEqualsUniqueWhereParam {
+	var fields []builder.Field
+
+	fields = append(fields, _idTrabajo.field())
+	fields = append(fields, _idRevisor.field())
+
+	return trabajoRevisionAsignacionEqualsUniqueParam{
+		data: builder.Field{
+			Name:   "id_trabajo_id_revisor",
+			Fields: builder.TransformEquals(fields),
+		},
+	}
+}
+
+// base struct
+type trabajoRevisionAsignacionQueryIDAsignacionInt struct{}
+
+// Set the required value of IDAsignacion
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Set(value int) trabajoRevisionAsignacionSetParam {
+
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name:  "id_asignacion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDAsignacion dynamically
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) SetIfPresent(value *Int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDAsignacion
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Increment(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) IncrementIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDAsignacion
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Decrement(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) DecrementIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDAsignacion
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Multiply(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) MultiplyIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDAsignacion
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Divide(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) DivideIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Equals(value int) trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam {
+
+	return trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) EqualsIfPresent(value *int) trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam {
+	if value == nil {
+		return trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Order(direction SortOrder) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name:  "id_asignacion",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Cursor(cursor int) trabajoRevisionAsignacionCursorParam {
+	return trabajoRevisionAsignacionCursorParam{
+		data: builder.Field{
+			Name:  "id_asignacion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) In(value []int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) InIfPresent(value []int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) NotIn(value []int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) NotInIfPresent(value []int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Lt(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) LtIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Lte(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) LteIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Gt(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) GtIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Gte(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) GteIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Not(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) NotIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) LT(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) LTIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) LTE(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) LTEIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) GT(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) GTIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) GTE(value int) trabajoRevisionAsignacionParamUnique {
+	return trabajoRevisionAsignacionParamUnique{
+		data: builder.Field{
+			Name: "id_asignacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) GTEIfPresent(value *int) trabajoRevisionAsignacionParamUnique {
+	if value == nil {
+		return trabajoRevisionAsignacionParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignacionInt) Field() trabajoRevisionAsignacionPrismaFields {
+	return trabajoRevisionAsignacionFieldIDAsignacion
+}
+
+// base struct
+type trabajoRevisionAsignacionQueryIDTrabajoInt struct{}
+
+// Set the required value of IDTrabajo
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Set(value int) trabajoRevisionAsignacionSetParam {
+
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDTrabajo dynamically
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) SetIfPresent(value *Int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDTrabajo
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Increment(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) IncrementIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDTrabajo
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Decrement(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) DecrementIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDTrabajo
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Multiply(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) MultiplyIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDTrabajo
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Divide(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) DivideIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Equals(value int) trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam {
+
+	return trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) EqualsIfPresent(value *int) trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam {
+	if value == nil {
+		return trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Order(direction SortOrder) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Cursor(cursor int) trabajoRevisionAsignacionCursorParam {
+	return trabajoRevisionAsignacionCursorParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) In(value []int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) InIfPresent(value []int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) NotIn(value []int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) NotInIfPresent(value []int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Lt(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) LtIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Lte(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) LteIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Gt(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) GtIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Gte(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) GteIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Not(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) NotIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) LT(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) LTIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) LTE(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) LTEIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) GT(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) GTIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) GTE(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) GTEIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDTrabajoInt) Field() trabajoRevisionAsignacionPrismaFields {
+	return trabajoRevisionAsignacionFieldIDTrabajo
+}
+
+// base struct
+type trabajoRevisionAsignacionQueryIDRevisorInt struct{}
+
+// Set the required value of IDRevisor
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Set(value int) trabajoRevisionAsignacionSetParam {
+
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name:  "id_revisor",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDRevisor dynamically
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) SetIfPresent(value *Int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDRevisor
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Increment(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) IncrementIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDRevisor
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Decrement(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) DecrementIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDRevisor
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Multiply(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) MultiplyIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDRevisor
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Divide(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) DivideIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Equals(value int) trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam {
+
+	return trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) EqualsIfPresent(value *int) trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam {
+	if value == nil {
+		return trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Order(direction SortOrder) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name:  "id_revisor",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Cursor(cursor int) trabajoRevisionAsignacionCursorParam {
+	return trabajoRevisionAsignacionCursorParam{
+		data: builder.Field{
+			Name:  "id_revisor",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) In(value []int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) InIfPresent(value []int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) NotIn(value []int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) NotInIfPresent(value []int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Lt(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) LtIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Lte(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) LteIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Gt(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) GtIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Gte(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) GteIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Not(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) NotIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) LT(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) LTIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) LTE(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) LTEIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) GT(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) GTIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) GTE(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) GTEIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDRevisorInt) Field() trabajoRevisionAsignacionPrismaFields {
+	return trabajoRevisionAsignacionFieldIDRevisor
+}
+
+// base struct
+type trabajoRevisionAsignacionQueryIDAsignadorInt struct{}
+
+// Set the required value of IDAsignador
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Set(value int) trabajoRevisionAsignacionSetParam {
+
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name:  "id_asignador",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDAsignador dynamically
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) SetIfPresent(value *Int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDAsignador
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Increment(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) IncrementIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDAsignador
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Decrement(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) DecrementIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDAsignador
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Multiply(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) MultiplyIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDAsignador
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Divide(value int) trabajoRevisionAsignacionSetParam {
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) DivideIfPresent(value *int) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Equals(value int) trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam {
+
+	return trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) EqualsIfPresent(value *int) trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam {
+	if value == nil {
+		return trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Order(direction SortOrder) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name:  "id_asignador",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Cursor(cursor int) trabajoRevisionAsignacionCursorParam {
+	return trabajoRevisionAsignacionCursorParam{
+		data: builder.Field{
+			Name:  "id_asignador",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) In(value []int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) InIfPresent(value []int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) NotIn(value []int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) NotInIfPresent(value []int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Lt(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) LtIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Lte(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) LteIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Gt(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) GtIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Gte(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) GteIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Not(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) NotIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) LT(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) LTIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) LTE(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) LTEIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) GT(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) GTIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) GTE(value int) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "id_asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) GTEIfPresent(value *int) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryIDAsignadorInt) Field() trabajoRevisionAsignacionPrismaFields {
+	return trabajoRevisionAsignacionFieldIDAsignador
+}
+
+// base struct
+type trabajoRevisionAsignacionQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Set(value DateTime) trabajoRevisionAsignacionSetParam {
+
+	return trabajoRevisionAsignacionSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) SetIfPresent(value *DateTime) trabajoRevisionAsignacionSetParam {
+	if value == nil {
+		return trabajoRevisionAsignacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Equals(value DateTime) trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam {
+
+	return trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Order(direction SortOrder) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Cursor(cursor DateTime) trabajoRevisionAsignacionCursorParam {
+	return trabajoRevisionAsignacionCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) In(value []DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) InIfPresent(value []DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) NotIn(value []DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Lt(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) LtIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Lte(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) LteIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Gt(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) GtIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Gte(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) GteIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Not(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) NotIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Before(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) After(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) BeforeEquals(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) AfterEquals(value DateTime) trabajoRevisionAsignacionDefaultParam {
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) trabajoRevisionAsignacionDefaultParam {
+	if value == nil {
+		return trabajoRevisionAsignacionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r trabajoRevisionAsignacionQueryCreatedAtDateTime) Field() trabajoRevisionAsignacionPrismaFields {
+	return trabajoRevisionAsignacionFieldCreatedAt
+}
+
+// base struct
+type trabajoRevisionAsignacionQueryTrabajoTrabajoCientifico struct{}
+
+type trabajoRevisionAsignacionQueryTrabajoRelations struct{}
+
+// TrabajoRevisionAsignacion -> Trabajo
+//
+// @relation
+// @required
+func (trabajoRevisionAsignacionQueryTrabajoRelations) Where(
+	params ...TrabajoCientificoWhereParam,
+) trabajoRevisionAsignacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoRevisionAsignacionQueryTrabajoRelations) Fetch() trabajoRevisionAsignacionToTrabajoFindUnique {
+	var v trabajoRevisionAsignacionToTrabajoFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "trabajo"
+	v.query.Outputs = trabajoCientificoOutput
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionQueryTrabajoRelations) Link(
+	params TrabajoCientificoWhereParam,
+) trabajoRevisionAsignacionWithPrismaTrabajoSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoRevisionAsignacionWithPrismaTrabajoSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoRevisionAsignacionWithPrismaTrabajoSetParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryTrabajoRelations) Unlink() trabajoRevisionAsignacionWithPrismaTrabajoSetParam {
+	var v trabajoRevisionAsignacionWithPrismaTrabajoSetParam
+
+	v = trabajoRevisionAsignacionWithPrismaTrabajoSetParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionQueryTrabajoTrabajoCientifico) Field() trabajoRevisionAsignacionPrismaFields {
+	return trabajoRevisionAsignacionFieldTrabajo
+}
+
+// base struct
+type trabajoRevisionAsignacionQueryRevisorUsuario struct{}
+
+type trabajoRevisionAsignacionQueryRevisorRelations struct{}
+
+// TrabajoRevisionAsignacion -> Revisor
+//
+// @relation
+// @required
+func (trabajoRevisionAsignacionQueryRevisorRelations) Where(
+	params ...UsuarioWhereParam,
+) trabajoRevisionAsignacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "revisor",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoRevisionAsignacionQueryRevisorRelations) Fetch() trabajoRevisionAsignacionToRevisorFindUnique {
+	var v trabajoRevisionAsignacionToRevisorFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "revisor"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionQueryRevisorRelations) Link(
+	params UsuarioWhereParam,
+) trabajoRevisionAsignacionWithPrismaRevisorSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoRevisionAsignacionWithPrismaRevisorSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoRevisionAsignacionWithPrismaRevisorSetParam{
+		data: builder.Field{
+			Name: "revisor",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryRevisorRelations) Unlink() trabajoRevisionAsignacionWithPrismaRevisorSetParam {
+	var v trabajoRevisionAsignacionWithPrismaRevisorSetParam
+
+	v = trabajoRevisionAsignacionWithPrismaRevisorSetParam{
+		data: builder.Field{
+			Name: "revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionQueryRevisorUsuario) Field() trabajoRevisionAsignacionPrismaFields {
+	return trabajoRevisionAsignacionFieldRevisor
+}
+
+// base struct
+type trabajoRevisionAsignacionQueryAsignadorUsuario struct{}
+
+type trabajoRevisionAsignacionQueryAsignadorRelations struct{}
+
+// TrabajoRevisionAsignacion -> Asignador
+//
+// @relation
+// @required
+func (trabajoRevisionAsignacionQueryAsignadorRelations) Where(
+	params ...UsuarioWhereParam,
+) trabajoRevisionAsignacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoRevisionAsignacionDefaultParam{
+		data: builder.Field{
+			Name: "asignador",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoRevisionAsignacionQueryAsignadorRelations) Fetch() trabajoRevisionAsignacionToAsignadorFindUnique {
+	var v trabajoRevisionAsignacionToAsignadorFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "asignador"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionQueryAsignadorRelations) Link(
+	params UsuarioWhereParam,
+) trabajoRevisionAsignacionWithPrismaAsignadorSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoRevisionAsignacionWithPrismaAsignadorSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoRevisionAsignacionWithPrismaAsignadorSetParam{
+		data: builder.Field{
+			Name: "asignador",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoRevisionAsignacionQueryAsignadorRelations) Unlink() trabajoRevisionAsignacionWithPrismaAsignadorSetParam {
+	var v trabajoRevisionAsignacionWithPrismaAsignadorSetParam
+
+	v = trabajoRevisionAsignacionWithPrismaAsignadorSetParam{
+		data: builder.Field{
+			Name: "asignador",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionQueryAsignadorUsuario) Field() trabajoRevisionAsignacionPrismaFields {
+	return trabajoRevisionAsignacionFieldAsignador
+}
+
+// TrabajoEvaluacion acts as a namespaces to access query methods for the TrabajoEvaluacion model
+var TrabajoEvaluacion = trabajoEvaluacionQuery{}
+
+// trabajoEvaluacionQuery exposes query functions for the trabajoEvaluacion model
+type trabajoEvaluacionQuery struct {
+
+	// IDEvaluacion
+	//
+	// @required
+	IDEvaluacion trabajoEvaluacionQueryIDEvaluacionInt
+
+	// IDTrabajo
+	//
+	// @required
+	IDTrabajo trabajoEvaluacionQueryIDTrabajoInt
+
+	// IDRevisor
+	//
+	// @required
+	IDRevisor trabajoEvaluacionQueryIDRevisorInt
+
+	// Recomendacion
+	//
+	// @required
+	Recomendacion trabajoEvaluacionQueryRecomendacionString
+
+	// Puntaje
+	//
+	// @optional
+	Puntaje trabajoEvaluacionQueryPuntajeInt
+
+	// Comentarios
+	//
+	// @required
+	Comentarios trabajoEvaluacionQueryComentariosString
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt trabajoEvaluacionQueryCreatedAtDateTime
+
+	// UpdatedAt
+	//
+	// @required
+	UpdatedAt trabajoEvaluacionQueryUpdatedAtDateTime
+
+	Trabajo trabajoEvaluacionQueryTrabajoRelations
+
+	Revisor trabajoEvaluacionQueryRevisorRelations
+}
+
+func (trabajoEvaluacionQuery) Not(params ...TrabajoEvaluacionWhereParam) trabajoEvaluacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoEvaluacionQuery) Or(params ...TrabajoEvaluacionWhereParam) trabajoEvaluacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoEvaluacionQuery) And(params ...TrabajoEvaluacionWhereParam) trabajoEvaluacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoEvaluacionQuery) IDTrabajoIDRevisor(
+	_idTrabajo TrabajoEvaluacionWithPrismaIDTrabajoWhereParam,
+
+	_idRevisor TrabajoEvaluacionWithPrismaIDRevisorWhereParam,
+) TrabajoEvaluacionEqualsUniqueWhereParam {
+	var fields []builder.Field
+
+	fields = append(fields, _idTrabajo.field())
+	fields = append(fields, _idRevisor.field())
+
+	return trabajoEvaluacionEqualsUniqueParam{
+		data: builder.Field{
+			Name:   "id_trabajo_id_revisor",
+			Fields: builder.TransformEquals(fields),
+		},
+	}
+}
+
+// base struct
+type trabajoEvaluacionQueryIDEvaluacionInt struct{}
+
+// Set the required value of IDEvaluacion
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Set(value int) trabajoEvaluacionSetParam {
+
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name:  "id_evaluacion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDEvaluacion dynamically
+func (r trabajoEvaluacionQueryIDEvaluacionInt) SetIfPresent(value *Int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDEvaluacion
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Increment(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) IncrementIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDEvaluacion
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Decrement(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) DecrementIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDEvaluacion
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Multiply(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) MultiplyIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDEvaluacion
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Divide(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) DivideIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Equals(value int) trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam {
+
+	return trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) EqualsIfPresent(value *int) trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Order(direction SortOrder) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:  "id_evaluacion",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Cursor(cursor int) trabajoEvaluacionCursorParam {
+	return trabajoEvaluacionCursorParam{
+		data: builder.Field{
+			Name:  "id_evaluacion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) In(value []int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) InIfPresent(value []int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) NotIn(value []int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) NotInIfPresent(value []int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Lt(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) LtIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Lte(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) LteIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Gt(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) GtIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Gte(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) GteIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Not(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) NotIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) LT(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoEvaluacionQueryIDEvaluacionInt) LTIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) LTE(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoEvaluacionQueryIDEvaluacionInt) LTEIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) GT(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoEvaluacionQueryIDEvaluacionInt) GTIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) GTE(value int) trabajoEvaluacionParamUnique {
+	return trabajoEvaluacionParamUnique{
+		data: builder.Field{
+			Name: "id_evaluacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoEvaluacionQueryIDEvaluacionInt) GTEIfPresent(value *int) trabajoEvaluacionParamUnique {
+	if value == nil {
+		return trabajoEvaluacionParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoEvaluacionQueryIDEvaluacionInt) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldIDEvaluacion
+}
+
+// base struct
+type trabajoEvaluacionQueryIDTrabajoInt struct{}
+
+// Set the required value of IDTrabajo
+func (r trabajoEvaluacionQueryIDTrabajoInt) Set(value int) trabajoEvaluacionSetParam {
+
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDTrabajo dynamically
+func (r trabajoEvaluacionQueryIDTrabajoInt) SetIfPresent(value *Int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDTrabajo
+func (r trabajoEvaluacionQueryIDTrabajoInt) Increment(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) IncrementIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDTrabajo
+func (r trabajoEvaluacionQueryIDTrabajoInt) Decrement(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) DecrementIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDTrabajo
+func (r trabajoEvaluacionQueryIDTrabajoInt) Multiply(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) MultiplyIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDTrabajo
+func (r trabajoEvaluacionQueryIDTrabajoInt) Divide(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) DivideIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Equals(value int) trabajoEvaluacionWithPrismaIDTrabajoEqualsParam {
+
+	return trabajoEvaluacionWithPrismaIDTrabajoEqualsParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) EqualsIfPresent(value *int) trabajoEvaluacionWithPrismaIDTrabajoEqualsParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaIDTrabajoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Order(direction SortOrder) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Cursor(cursor int) trabajoEvaluacionCursorParam {
+	return trabajoEvaluacionCursorParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) In(value []int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) InIfPresent(value []int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) NotIn(value []int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) NotInIfPresent(value []int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Lt(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) LtIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Lte(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) LteIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Gt(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) GtIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Gte(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) GteIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Not(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) NotIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) LT(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoEvaluacionQueryIDTrabajoInt) LTIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) LTE(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoEvaluacionQueryIDTrabajoInt) LTEIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) GT(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoEvaluacionQueryIDTrabajoInt) GTIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) GTE(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoEvaluacionQueryIDTrabajoInt) GTEIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoEvaluacionQueryIDTrabajoInt) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldIDTrabajo
+}
+
+// base struct
+type trabajoEvaluacionQueryIDRevisorInt struct{}
+
+// Set the required value of IDRevisor
+func (r trabajoEvaluacionQueryIDRevisorInt) Set(value int) trabajoEvaluacionSetParam {
+
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name:  "id_revisor",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDRevisor dynamically
+func (r trabajoEvaluacionQueryIDRevisorInt) SetIfPresent(value *Int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDRevisor
+func (r trabajoEvaluacionQueryIDRevisorInt) Increment(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) IncrementIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDRevisor
+func (r trabajoEvaluacionQueryIDRevisorInt) Decrement(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) DecrementIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDRevisor
+func (r trabajoEvaluacionQueryIDRevisorInt) Multiply(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) MultiplyIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDRevisor
+func (r trabajoEvaluacionQueryIDRevisorInt) Divide(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) DivideIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Equals(value int) trabajoEvaluacionWithPrismaIDRevisorEqualsParam {
+
+	return trabajoEvaluacionWithPrismaIDRevisorEqualsParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) EqualsIfPresent(value *int) trabajoEvaluacionWithPrismaIDRevisorEqualsParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaIDRevisorEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Order(direction SortOrder) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:  "id_revisor",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Cursor(cursor int) trabajoEvaluacionCursorParam {
+	return trabajoEvaluacionCursorParam{
+		data: builder.Field{
+			Name:  "id_revisor",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) In(value []int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) InIfPresent(value []int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) NotIn(value []int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) NotInIfPresent(value []int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Lt(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) LtIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Lte(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) LteIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Gt(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) GtIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Gte(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) GteIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Not(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) NotIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoEvaluacionQueryIDRevisorInt) LT(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoEvaluacionQueryIDRevisorInt) LTIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoEvaluacionQueryIDRevisorInt) LTE(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoEvaluacionQueryIDRevisorInt) LTEIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoEvaluacionQueryIDRevisorInt) GT(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoEvaluacionQueryIDRevisorInt) GTIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoEvaluacionQueryIDRevisorInt) GTE(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "id_revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoEvaluacionQueryIDRevisorInt) GTEIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoEvaluacionQueryIDRevisorInt) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldIDRevisor
+}
+
+// base struct
+type trabajoEvaluacionQueryRecomendacionString struct{}
+
+// Set the required value of Recomendacion
+func (r trabajoEvaluacionQueryRecomendacionString) Set(value string) trabajoEvaluacionSetParam {
+
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name:  "recomendacion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Recomendacion dynamically
+func (r trabajoEvaluacionQueryRecomendacionString) SetIfPresent(value *String) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Equals(value string) trabajoEvaluacionWithPrismaRecomendacionEqualsParam {
+
+	return trabajoEvaluacionWithPrismaRecomendacionEqualsParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) EqualsIfPresent(value *string) trabajoEvaluacionWithPrismaRecomendacionEqualsParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaRecomendacionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Order(direction SortOrder) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:  "recomendacion",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Cursor(cursor string) trabajoEvaluacionCursorParam {
+	return trabajoEvaluacionCursorParam{
+		data: builder.Field{
+			Name:  "recomendacion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) In(value []string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) InIfPresent(value []string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) NotIn(value []string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) NotInIfPresent(value []string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Lt(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) LtIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Lte(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) LteIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Gt(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) GtIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Gte(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) GteIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Contains(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) ContainsIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) StartsWith(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) StartsWithIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) EndsWith(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) EndsWithIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Mode(value QueryMode) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) ModeIfPresent(value *QueryMode) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Not(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) NotIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoEvaluacionQueryRecomendacionString) HasPrefix(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoEvaluacionQueryRecomendacionString) HasPrefixIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoEvaluacionQueryRecomendacionString) HasSuffix(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "recomendacion",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoEvaluacionQueryRecomendacionString) HasSuffixIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoEvaluacionQueryRecomendacionString) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldRecomendacion
+}
+
+// base struct
+type trabajoEvaluacionQueryPuntajeInt struct{}
+
+// Set the optional value of Puntaje
+func (r trabajoEvaluacionQueryPuntajeInt) Set(value int) trabajoEvaluacionSetParam {
+
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name:  "puntaje",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Puntaje dynamically
+func (r trabajoEvaluacionQueryPuntajeInt) SetIfPresent(value *Int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of Puntaje dynamically
+func (r trabajoEvaluacionQueryPuntajeInt) SetOptional(value *Int) trabajoEvaluacionSetParam {
+	if value == nil {
+
+		var v *int
+		return trabajoEvaluacionSetParam{
+			data: builder.Field{
+				Name:  "puntaje",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the optional value of Puntaje
+func (r trabajoEvaluacionQueryPuntajeInt) Increment(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) IncrementIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the optional value of Puntaje
+func (r trabajoEvaluacionQueryPuntajeInt) Decrement(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) DecrementIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the optional value of Puntaje
+func (r trabajoEvaluacionQueryPuntajeInt) Multiply(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) MultiplyIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the optional value of Puntaje
+func (r trabajoEvaluacionQueryPuntajeInt) Divide(value int) trabajoEvaluacionSetParam {
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) DivideIfPresent(value *int) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Equals(value int) trabajoEvaluacionWithPrismaPuntajeEqualsParam {
+
+	return trabajoEvaluacionWithPrismaPuntajeEqualsParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) EqualsIfPresent(value *int) trabajoEvaluacionWithPrismaPuntajeEqualsParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaPuntajeEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) EqualsOptional(value *Int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) IsNull() trabajoEvaluacionDefaultParam {
+	var str *string = nil
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Order(direction SortOrder) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:  "puntaje",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Cursor(cursor int) trabajoEvaluacionCursorParam {
+	return trabajoEvaluacionCursorParam{
+		data: builder.Field{
+			Name:  "puntaje",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) In(value []int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) InIfPresent(value []int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) NotIn(value []int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) NotInIfPresent(value []int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Lt(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) LtIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Lte(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) LteIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Gt(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) GtIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Gte(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) GteIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Not(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) NotIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoEvaluacionQueryPuntajeInt) LT(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoEvaluacionQueryPuntajeInt) LTIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoEvaluacionQueryPuntajeInt) LTE(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoEvaluacionQueryPuntajeInt) LTEIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoEvaluacionQueryPuntajeInt) GT(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoEvaluacionQueryPuntajeInt) GTIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoEvaluacionQueryPuntajeInt) GTE(value int) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "puntaje",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoEvaluacionQueryPuntajeInt) GTEIfPresent(value *int) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoEvaluacionQueryPuntajeInt) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldPuntaje
+}
+
+// base struct
+type trabajoEvaluacionQueryComentariosString struct{}
+
+// Set the required value of Comentarios
+func (r trabajoEvaluacionQueryComentariosString) Set(value string) trabajoEvaluacionWithPrismaComentariosSetParam {
+
+	return trabajoEvaluacionWithPrismaComentariosSetParam{
+		data: builder.Field{
+			Name:  "comentarios",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Comentarios dynamically
+func (r trabajoEvaluacionQueryComentariosString) SetIfPresent(value *String) trabajoEvaluacionWithPrismaComentariosSetParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaComentariosSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Equals(value string) trabajoEvaluacionWithPrismaComentariosEqualsParam {
+
+	return trabajoEvaluacionWithPrismaComentariosEqualsParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) EqualsIfPresent(value *string) trabajoEvaluacionWithPrismaComentariosEqualsParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaComentariosEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Order(direction SortOrder) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:  "comentarios",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Cursor(cursor string) trabajoEvaluacionCursorParam {
+	return trabajoEvaluacionCursorParam{
+		data: builder.Field{
+			Name:  "comentarios",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) In(value []string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) InIfPresent(value []string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) NotIn(value []string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) NotInIfPresent(value []string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Lt(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) LtIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Lte(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) LteIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Gt(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) GtIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Gte(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) GteIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Contains(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) ContainsIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) StartsWith(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) StartsWithIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) EndsWith(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) EndsWithIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Mode(value QueryMode) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) ModeIfPresent(value *QueryMode) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Not(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryComentariosString) NotIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoEvaluacionQueryComentariosString) HasPrefix(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoEvaluacionQueryComentariosString) HasPrefixIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoEvaluacionQueryComentariosString) HasSuffix(value string) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "comentarios",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoEvaluacionQueryComentariosString) HasSuffixIfPresent(value *string) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoEvaluacionQueryComentariosString) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldComentarios
+}
+
+// base struct
+type trabajoEvaluacionQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Set(value DateTime) trabajoEvaluacionSetParam {
+
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r trabajoEvaluacionQueryCreatedAtDateTime) SetIfPresent(value *DateTime) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Equals(value DateTime) trabajoEvaluacionWithPrismaCreatedAtEqualsParam {
+
+	return trabajoEvaluacionWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) trabajoEvaluacionWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Order(direction SortOrder) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Cursor(cursor DateTime) trabajoEvaluacionCursorParam {
+	return trabajoEvaluacionCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) In(value []DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) InIfPresent(value []DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) NotIn(value []DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Lt(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) LtIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Lte(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) LteIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Gt(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) GtIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Gte(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) GteIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Not(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) NotIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Before(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoEvaluacionQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) After(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoEvaluacionQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) BeforeEquals(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoEvaluacionQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) AfterEquals(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoEvaluacionQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r trabajoEvaluacionQueryCreatedAtDateTime) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldCreatedAt
+}
+
+// base struct
+type trabajoEvaluacionQueryUpdatedAtDateTime struct{}
+
+// Set the required value of UpdatedAt
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Set(value DateTime) trabajoEvaluacionSetParam {
+
+	return trabajoEvaluacionSetParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of UpdatedAt dynamically
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) SetIfPresent(value *DateTime) trabajoEvaluacionSetParam {
+	if value == nil {
+		return trabajoEvaluacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Equals(value DateTime) trabajoEvaluacionWithPrismaUpdatedAtEqualsParam {
+
+	return trabajoEvaluacionWithPrismaUpdatedAtEqualsParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) EqualsIfPresent(value *DateTime) trabajoEvaluacionWithPrismaUpdatedAtEqualsParam {
+	if value == nil {
+		return trabajoEvaluacionWithPrismaUpdatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Order(direction SortOrder) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Cursor(cursor DateTime) trabajoEvaluacionCursorParam {
+	return trabajoEvaluacionCursorParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) In(value []DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) InIfPresent(value []DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) NotIn(value []DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) NotInIfPresent(value []DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Lt(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) LtIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Lte(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) LteIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Gt(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) GtIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Gte(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) GteIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Not(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) NotIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Before(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) BeforeIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) After(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) AfterIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) BeforeEquals(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) AfterEquals(value DateTime) trabajoEvaluacionDefaultParam {
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) AfterEqualsIfPresent(value *DateTime) trabajoEvaluacionDefaultParam {
+	if value == nil {
+		return trabajoEvaluacionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r trabajoEvaluacionQueryUpdatedAtDateTime) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldUpdatedAt
+}
+
+// base struct
+type trabajoEvaluacionQueryTrabajoTrabajoCientifico struct{}
+
+type trabajoEvaluacionQueryTrabajoRelations struct{}
+
+// TrabajoEvaluacion -> Trabajo
+//
+// @relation
+// @required
+func (trabajoEvaluacionQueryTrabajoRelations) Where(
+	params ...TrabajoCientificoWhereParam,
+) trabajoEvaluacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoEvaluacionQueryTrabajoRelations) Fetch() trabajoEvaluacionToTrabajoFindUnique {
+	var v trabajoEvaluacionToTrabajoFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "trabajo"
+	v.query.Outputs = trabajoCientificoOutput
+
+	return v
+}
+
+func (r trabajoEvaluacionQueryTrabajoRelations) Link(
+	params TrabajoCientificoWhereParam,
+) trabajoEvaluacionWithPrismaTrabajoSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoEvaluacionWithPrismaTrabajoSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoEvaluacionWithPrismaTrabajoSetParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryTrabajoRelations) Unlink() trabajoEvaluacionWithPrismaTrabajoSetParam {
+	var v trabajoEvaluacionWithPrismaTrabajoSetParam
+
+	v = trabajoEvaluacionWithPrismaTrabajoSetParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoEvaluacionQueryTrabajoTrabajoCientifico) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldTrabajo
+}
+
+// base struct
+type trabajoEvaluacionQueryRevisorUsuario struct{}
+
+type trabajoEvaluacionQueryRevisorRelations struct{}
+
+// TrabajoEvaluacion -> Revisor
+//
+// @relation
+// @required
+func (trabajoEvaluacionQueryRevisorRelations) Where(
+	params ...UsuarioWhereParam,
+) trabajoEvaluacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoEvaluacionDefaultParam{
+		data: builder.Field{
+			Name: "revisor",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoEvaluacionQueryRevisorRelations) Fetch() trabajoEvaluacionToRevisorFindUnique {
+	var v trabajoEvaluacionToRevisorFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "revisor"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r trabajoEvaluacionQueryRevisorRelations) Link(
+	params UsuarioWhereParam,
+) trabajoEvaluacionWithPrismaRevisorSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoEvaluacionWithPrismaRevisorSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoEvaluacionWithPrismaRevisorSetParam{
+		data: builder.Field{
+			Name: "revisor",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoEvaluacionQueryRevisorRelations) Unlink() trabajoEvaluacionWithPrismaRevisorSetParam {
+	var v trabajoEvaluacionWithPrismaRevisorSetParam
+
+	v = trabajoEvaluacionWithPrismaRevisorSetParam{
+		data: builder.Field{
+			Name: "revisor",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoEvaluacionQueryRevisorUsuario) Field() trabajoEvaluacionPrismaFields {
+	return trabajoEvaluacionFieldRevisor
+}
+
 // --- template actions.gotpl ---
 var countOutput = []builder.Output{
 	{Name: "count"},
@@ -52373,6 +60276,240 @@ func (p usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) trabajosCientific
 
 func (usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) unique() {}
 func (usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) equals() {}
+
+type UsuarioWithPrismaTrabajosAsignadosRevisorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	trabajosAsignadosRevisorField()
+}
+
+type UsuarioWithPrismaTrabajosAsignadosRevisorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	trabajosAsignadosRevisorField()
+}
+
+type usuarioWithPrismaTrabajosAsignadosRevisorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorSetParam) trabajosAsignadosRevisorField() {}
+
+type UsuarioWithPrismaTrabajosAsignadosRevisorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	trabajosAsignadosRevisorField()
+}
+
+type usuarioWithPrismaTrabajosAsignadosRevisorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorEqualsParam) trabajosAsignadosRevisorField() {}
+
+func (usuarioWithPrismaTrabajosAsignadosRevisorSetParam) settable()  {}
+func (usuarioWithPrismaTrabajosAsignadosRevisorEqualsParam) equals() {}
+
+type usuarioWithPrismaTrabajosAsignadosRevisorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosRevisorEqualsUniqueParam) usuarioModel()                  {}
+func (p usuarioWithPrismaTrabajosAsignadosRevisorEqualsUniqueParam) trabajosAsignadosRevisorField() {}
+
+func (usuarioWithPrismaTrabajosAsignadosRevisorEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaTrabajosAsignadosRevisorEqualsUniqueParam) equals() {}
+
+type UsuarioWithPrismaTrabajosAsignadosComiteEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	trabajosAsignadosComiteField()
+}
+
+type UsuarioWithPrismaTrabajosAsignadosComiteSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	trabajosAsignadosComiteField()
+}
+
+type usuarioWithPrismaTrabajosAsignadosComiteSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteSetParam) trabajosAsignadosComiteField() {}
+
+type UsuarioWithPrismaTrabajosAsignadosComiteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	trabajosAsignadosComiteField()
+}
+
+type usuarioWithPrismaTrabajosAsignadosComiteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteEqualsParam) trabajosAsignadosComiteField() {}
+
+func (usuarioWithPrismaTrabajosAsignadosComiteSetParam) settable()  {}
+func (usuarioWithPrismaTrabajosAsignadosComiteEqualsParam) equals() {}
+
+type usuarioWithPrismaTrabajosAsignadosComiteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosAsignadosComiteEqualsUniqueParam) usuarioModel()                 {}
+func (p usuarioWithPrismaTrabajosAsignadosComiteEqualsUniqueParam) trabajosAsignadosComiteField() {}
+
+func (usuarioWithPrismaTrabajosAsignadosComiteEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaTrabajosAsignadosComiteEqualsUniqueParam) equals() {}
+
+type UsuarioWithPrismaEvaluacionesRevisorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	evaluacionesRevisorField()
+}
+
+type UsuarioWithPrismaEvaluacionesRevisorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	evaluacionesRevisorField()
+}
+
+type usuarioWithPrismaEvaluacionesRevisorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaEvaluacionesRevisorSetParam) evaluacionesRevisorField() {}
+
+type UsuarioWithPrismaEvaluacionesRevisorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	evaluacionesRevisorField()
+}
+
+type usuarioWithPrismaEvaluacionesRevisorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaEvaluacionesRevisorEqualsParam) evaluacionesRevisorField() {}
+
+func (usuarioWithPrismaEvaluacionesRevisorSetParam) settable()  {}
+func (usuarioWithPrismaEvaluacionesRevisorEqualsParam) equals() {}
+
+type usuarioWithPrismaEvaluacionesRevisorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaEvaluacionesRevisorEqualsUniqueParam) usuarioModel()             {}
+func (p usuarioWithPrismaEvaluacionesRevisorEqualsUniqueParam) evaluacionesRevisorField() {}
+
+func (usuarioWithPrismaEvaluacionesRevisorEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaEvaluacionesRevisorEqualsUniqueParam) equals() {}
 
 type rolesActions struct {
 	// client holds the prisma client
@@ -64835,6 +72972,9 @@ var trabajoCientificoOutput = []builder.Output{
 	{Name: "estado"},
 	{Name: "createdAt"},
 	{Name: "updatedAt"},
+	{Name: "decision_comite"},
+	{Name: "comentario_comite"},
+	{Name: "fecha_decision"},
 }
 
 type TrabajoCientificoRelationWith interface {
@@ -65781,6 +73921,240 @@ func (p trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) updatedAtField() 
 func (trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) unique() {}
 func (trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) equals() {}
 
+type TrabajoCientificoWithPrismaDecisionComiteEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	decisionComiteField()
+}
+
+type TrabajoCientificoWithPrismaDecisionComiteSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	decisionComiteField()
+}
+
+type trabajoCientificoWithPrismaDecisionComiteSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaDecisionComiteSetParam) decisionComiteField() {}
+
+type TrabajoCientificoWithPrismaDecisionComiteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	decisionComiteField()
+}
+
+type trabajoCientificoWithPrismaDecisionComiteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaDecisionComiteEqualsParam) decisionComiteField() {}
+
+func (trabajoCientificoWithPrismaDecisionComiteSetParam) settable()  {}
+func (trabajoCientificoWithPrismaDecisionComiteEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaDecisionComiteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaDecisionComiteEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaDecisionComiteEqualsUniqueParam) decisionComiteField()    {}
+
+func (trabajoCientificoWithPrismaDecisionComiteEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaDecisionComiteEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaComentarioComiteEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	comentarioComiteField()
+}
+
+type TrabajoCientificoWithPrismaComentarioComiteSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	comentarioComiteField()
+}
+
+type trabajoCientificoWithPrismaComentarioComiteSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaComentarioComiteSetParam) comentarioComiteField() {}
+
+type TrabajoCientificoWithPrismaComentarioComiteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	comentarioComiteField()
+}
+
+type trabajoCientificoWithPrismaComentarioComiteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaComentarioComiteEqualsParam) comentarioComiteField() {}
+
+func (trabajoCientificoWithPrismaComentarioComiteSetParam) settable()  {}
+func (trabajoCientificoWithPrismaComentarioComiteEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaComentarioComiteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaComentarioComiteEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaComentarioComiteEqualsUniqueParam) comentarioComiteField()  {}
+
+func (trabajoCientificoWithPrismaComentarioComiteEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaComentarioComiteEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaFechaDecisionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	fechaDecisionField()
+}
+
+type TrabajoCientificoWithPrismaFechaDecisionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	fechaDecisionField()
+}
+
+type trabajoCientificoWithPrismaFechaDecisionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaFechaDecisionSetParam) fechaDecisionField() {}
+
+type TrabajoCientificoWithPrismaFechaDecisionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	fechaDecisionField()
+}
+
+type trabajoCientificoWithPrismaFechaDecisionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaFechaDecisionEqualsParam) fechaDecisionField() {}
+
+func (trabajoCientificoWithPrismaFechaDecisionSetParam) settable()  {}
+func (trabajoCientificoWithPrismaFechaDecisionEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaFechaDecisionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaFechaDecisionEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaFechaDecisionEqualsUniqueParam) fechaDecisionField()     {}
+
+func (trabajoCientificoWithPrismaFechaDecisionEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaFechaDecisionEqualsUniqueParam) equals() {}
+
 type TrabajoCientificoWithPrismaEventoEqualsSetParam interface {
 	field() builder.Field
 	getQuery() builder.Query
@@ -66014,6 +74388,162 @@ func (p trabajoCientificoWithPrismaVersionesEqualsUniqueParam) versionesField() 
 
 func (trabajoCientificoWithPrismaVersionesEqualsUniqueParam) unique() {}
 func (trabajoCientificoWithPrismaVersionesEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaAsignacionesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	asignacionesField()
+}
+
+type TrabajoCientificoWithPrismaAsignacionesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	asignacionesField()
+}
+
+type trabajoCientificoWithPrismaAsignacionesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaAsignacionesSetParam) asignacionesField() {}
+
+type TrabajoCientificoWithPrismaAsignacionesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	asignacionesField()
+}
+
+type trabajoCientificoWithPrismaAsignacionesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaAsignacionesEqualsParam) asignacionesField() {}
+
+func (trabajoCientificoWithPrismaAsignacionesSetParam) settable()  {}
+func (trabajoCientificoWithPrismaAsignacionesEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaAsignacionesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaAsignacionesEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaAsignacionesEqualsUniqueParam) asignacionesField()      {}
+
+func (trabajoCientificoWithPrismaAsignacionesEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaAsignacionesEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaEvaluacionesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	evaluacionesField()
+}
+
+type TrabajoCientificoWithPrismaEvaluacionesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	evaluacionesField()
+}
+
+type trabajoCientificoWithPrismaEvaluacionesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaEvaluacionesSetParam) evaluacionesField() {}
+
+type TrabajoCientificoWithPrismaEvaluacionesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	evaluacionesField()
+}
+
+type trabajoCientificoWithPrismaEvaluacionesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaEvaluacionesEqualsParam) evaluacionesField() {}
+
+func (trabajoCientificoWithPrismaEvaluacionesSetParam) settable()  {}
+func (trabajoCientificoWithPrismaEvaluacionesEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) evaluacionesField()      {}
+
+func (trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) equals() {}
 
 type trabajoCientificoVersionActions struct {
 	// client holds the prisma client
@@ -67067,6 +75597,1776 @@ func (p trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) trabajoField
 
 func (trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) unique() {}
 func (trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) equals() {}
+
+type trabajoRevisionAsignacionActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var trabajoRevisionAsignacionOutput = []builder.Output{
+	{Name: "id_asignacion"},
+	{Name: "id_trabajo"},
+	{Name: "id_revisor"},
+	{Name: "id_asignador"},
+	{Name: "createdAt"},
+}
+
+type TrabajoRevisionAsignacionRelationWith interface {
+	getQuery() builder.Query
+	with()
+	trabajoRevisionAsignacionRelation()
+}
+
+type TrabajoRevisionAsignacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+}
+
+type trabajoRevisionAsignacionDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionDefaultParam) trabajoRevisionAsignacionModel() {}
+
+type TrabajoRevisionAsignacionOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+}
+
+type trabajoRevisionAsignacionOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionOrderByParam) trabajoRevisionAsignacionModel() {}
+
+type TrabajoRevisionAsignacionCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	isCursor()
+}
+
+type trabajoRevisionAsignacionCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionCursorParam) isCursor() {}
+
+func (p trabajoRevisionAsignacionCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionModel() {}
+
+type TrabajoRevisionAsignacionParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	trabajoRevisionAsignacionModel()
+}
+
+type trabajoRevisionAsignacionParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionParamUnique) trabajoRevisionAsignacionModel() {}
+
+func (trabajoRevisionAsignacionParamUnique) unique() {}
+
+func (p trabajoRevisionAsignacionParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoRevisionAsignacionEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+}
+
+type trabajoRevisionAsignacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionEqualsParam) trabajoRevisionAsignacionModel() {}
+
+func (trabajoRevisionAsignacionEqualsParam) equals() {}
+
+func (p trabajoRevisionAsignacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoRevisionAsignacionEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	trabajoRevisionAsignacionModel()
+}
+
+type trabajoRevisionAsignacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionEqualsUniqueParam) trabajoRevisionAsignacionModel() {}
+
+func (trabajoRevisionAsignacionEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionEqualsUniqueParam) equals() {}
+
+func (p trabajoRevisionAsignacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoRevisionAsignacionSetParam interface {
+	field() builder.Field
+	settable()
+	trabajoRevisionAsignacionModel()
+}
+
+type trabajoRevisionAsignacionSetParam struct {
+	data builder.Field
+}
+
+func (trabajoRevisionAsignacionSetParam) settable() {}
+
+func (p trabajoRevisionAsignacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionModel() {}
+
+type TrabajoRevisionAsignacionWithPrismaIDAsignacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+	idAsignacionField()
+}
+
+type TrabajoRevisionAsignacionWithPrismaIDAsignacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	idAsignacionField()
+}
+
+type trabajoRevisionAsignacionWithPrismaIDAsignacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionSetParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionSetParam) idAsignacionField() {}
+
+type TrabajoRevisionAsignacionWithPrismaIDAsignacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	idAsignacionField()
+}
+
+type trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsParam) trabajoRevisionAsignacionModel() {
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsParam) idAsignacionField() {}
+
+func (trabajoRevisionAsignacionWithPrismaIDAsignacionSetParam) settable()  {}
+func (trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsParam) equals() {}
+
+type trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam) trabajoRevisionAsignacionModel() {
+}
+func (p trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam) idAsignacionField() {}
+
+func (trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionWithPrismaIDAsignacionEqualsUniqueParam) equals() {}
+
+type TrabajoRevisionAsignacionWithPrismaIDTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+	idTrabajoField()
+}
+
+type TrabajoRevisionAsignacionWithPrismaIDTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	idTrabajoField()
+}
+
+type trabajoRevisionAsignacionWithPrismaIDTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoSetParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoSetParam) idTrabajoField() {}
+
+type TrabajoRevisionAsignacionWithPrismaIDTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	idTrabajoField()
+}
+
+type trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam) idTrabajoField() {}
+
+func (trabajoRevisionAsignacionWithPrismaIDTrabajoSetParam) settable()  {}
+func (trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsParam) equals() {}
+
+type trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsUniqueParam) trabajoRevisionAsignacionModel() {
+}
+func (p trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsUniqueParam) idTrabajoField() {}
+
+func (trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionWithPrismaIDTrabajoEqualsUniqueParam) equals() {}
+
+type TrabajoRevisionAsignacionWithPrismaIDRevisorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+	idRevisorField()
+}
+
+type TrabajoRevisionAsignacionWithPrismaIDRevisorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	idRevisorField()
+}
+
+type trabajoRevisionAsignacionWithPrismaIDRevisorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorSetParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorSetParam) idRevisorField() {}
+
+type TrabajoRevisionAsignacionWithPrismaIDRevisorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	idRevisorField()
+}
+
+type trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam) idRevisorField() {}
+
+func (trabajoRevisionAsignacionWithPrismaIDRevisorSetParam) settable()  {}
+func (trabajoRevisionAsignacionWithPrismaIDRevisorEqualsParam) equals() {}
+
+type trabajoRevisionAsignacionWithPrismaIDRevisorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorEqualsUniqueParam) trabajoRevisionAsignacionModel() {
+}
+func (p trabajoRevisionAsignacionWithPrismaIDRevisorEqualsUniqueParam) idRevisorField() {}
+
+func (trabajoRevisionAsignacionWithPrismaIDRevisorEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionWithPrismaIDRevisorEqualsUniqueParam) equals() {}
+
+type TrabajoRevisionAsignacionWithPrismaIDAsignadorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+	idAsignadorField()
+}
+
+type TrabajoRevisionAsignacionWithPrismaIDAsignadorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	idAsignadorField()
+}
+
+type trabajoRevisionAsignacionWithPrismaIDAsignadorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorSetParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorSetParam) idAsignadorField() {}
+
+type TrabajoRevisionAsignacionWithPrismaIDAsignadorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	idAsignadorField()
+}
+
+type trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam) idAsignadorField() {}
+
+func (trabajoRevisionAsignacionWithPrismaIDAsignadorSetParam) settable()  {}
+func (trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsParam) equals() {}
+
+type trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsUniqueParam) trabajoRevisionAsignacionModel() {
+}
+func (p trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsUniqueParam) idAsignadorField() {}
+
+func (trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionWithPrismaIDAsignadorEqualsUniqueParam) equals() {}
+
+type TrabajoRevisionAsignacionWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+	createdAtField()
+}
+
+type TrabajoRevisionAsignacionWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	createdAtField()
+}
+
+type trabajoRevisionAsignacionWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtSetParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type TrabajoRevisionAsignacionWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	createdAtField()
+}
+
+type trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (trabajoRevisionAsignacionWithPrismaCreatedAtSetParam) settable()  {}
+func (trabajoRevisionAsignacionWithPrismaCreatedAtEqualsParam) equals() {}
+
+type trabajoRevisionAsignacionWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtEqualsUniqueParam) trabajoRevisionAsignacionModel() {
+}
+func (p trabajoRevisionAsignacionWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
+
+func (trabajoRevisionAsignacionWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type TrabajoRevisionAsignacionWithPrismaTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+	trabajoField()
+}
+
+type TrabajoRevisionAsignacionWithPrismaTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	trabajoField()
+}
+
+type trabajoRevisionAsignacionWithPrismaTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoSetParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoSetParam) trabajoField() {}
+
+type TrabajoRevisionAsignacionWithPrismaTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	trabajoField()
+}
+
+type trabajoRevisionAsignacionWithPrismaTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoEqualsParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoEqualsParam) trabajoField() {}
+
+func (trabajoRevisionAsignacionWithPrismaTrabajoSetParam) settable()  {}
+func (trabajoRevisionAsignacionWithPrismaTrabajoEqualsParam) equals() {}
+
+type trabajoRevisionAsignacionWithPrismaTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaTrabajoEqualsUniqueParam) trabajoRevisionAsignacionModel() {
+}
+func (p trabajoRevisionAsignacionWithPrismaTrabajoEqualsUniqueParam) trabajoField() {}
+
+func (trabajoRevisionAsignacionWithPrismaTrabajoEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionWithPrismaTrabajoEqualsUniqueParam) equals() {}
+
+type TrabajoRevisionAsignacionWithPrismaRevisorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+	revisorField()
+}
+
+type TrabajoRevisionAsignacionWithPrismaRevisorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	revisorField()
+}
+
+type trabajoRevisionAsignacionWithPrismaRevisorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorSetParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorSetParam) revisorField() {}
+
+type TrabajoRevisionAsignacionWithPrismaRevisorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	revisorField()
+}
+
+type trabajoRevisionAsignacionWithPrismaRevisorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorEqualsParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorEqualsParam) revisorField() {}
+
+func (trabajoRevisionAsignacionWithPrismaRevisorSetParam) settable()  {}
+func (trabajoRevisionAsignacionWithPrismaRevisorEqualsParam) equals() {}
+
+type trabajoRevisionAsignacionWithPrismaRevisorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaRevisorEqualsUniqueParam) trabajoRevisionAsignacionModel() {
+}
+func (p trabajoRevisionAsignacionWithPrismaRevisorEqualsUniqueParam) revisorField() {}
+
+func (trabajoRevisionAsignacionWithPrismaRevisorEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionWithPrismaRevisorEqualsUniqueParam) equals() {}
+
+type TrabajoRevisionAsignacionWithPrismaAsignadorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoRevisionAsignacionModel()
+	asignadorField()
+}
+
+type TrabajoRevisionAsignacionWithPrismaAsignadorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	asignadorField()
+}
+
+type trabajoRevisionAsignacionWithPrismaAsignadorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorSetParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorSetParam) asignadorField() {}
+
+type TrabajoRevisionAsignacionWithPrismaAsignadorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoRevisionAsignacionModel()
+	asignadorField()
+}
+
+type trabajoRevisionAsignacionWithPrismaAsignadorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorEqualsParam) trabajoRevisionAsignacionModel() {}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorEqualsParam) asignadorField() {}
+
+func (trabajoRevisionAsignacionWithPrismaAsignadorSetParam) settable()  {}
+func (trabajoRevisionAsignacionWithPrismaAsignadorEqualsParam) equals() {}
+
+type trabajoRevisionAsignacionWithPrismaAsignadorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionWithPrismaAsignadorEqualsUniqueParam) trabajoRevisionAsignacionModel() {
+}
+func (p trabajoRevisionAsignacionWithPrismaAsignadorEqualsUniqueParam) asignadorField() {}
+
+func (trabajoRevisionAsignacionWithPrismaAsignadorEqualsUniqueParam) unique() {}
+func (trabajoRevisionAsignacionWithPrismaAsignadorEqualsUniqueParam) equals() {}
+
+type trabajoEvaluacionActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var trabajoEvaluacionOutput = []builder.Output{
+	{Name: "id_evaluacion"},
+	{Name: "id_trabajo"},
+	{Name: "id_revisor"},
+	{Name: "recomendacion"},
+	{Name: "puntaje"},
+	{Name: "comentarios"},
+	{Name: "createdAt"},
+	{Name: "updatedAt"},
+}
+
+type TrabajoEvaluacionRelationWith interface {
+	getQuery() builder.Query
+	with()
+	trabajoEvaluacionRelation()
+}
+
+type TrabajoEvaluacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+}
+
+type trabajoEvaluacionDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionDefaultParam) trabajoEvaluacionModel() {}
+
+type TrabajoEvaluacionOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+}
+
+type trabajoEvaluacionOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionOrderByParam) trabajoEvaluacionModel() {}
+
+type TrabajoEvaluacionCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	isCursor()
+}
+
+type trabajoEvaluacionCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionCursorParam) isCursor() {}
+
+func (p trabajoEvaluacionCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionCursorParam) trabajoEvaluacionModel() {}
+
+type TrabajoEvaluacionParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	trabajoEvaluacionModel()
+}
+
+type trabajoEvaluacionParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionParamUnique) trabajoEvaluacionModel() {}
+
+func (trabajoEvaluacionParamUnique) unique() {}
+
+func (p trabajoEvaluacionParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoEvaluacionEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+}
+
+type trabajoEvaluacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionEqualsParam) trabajoEvaluacionModel() {}
+
+func (trabajoEvaluacionEqualsParam) equals() {}
+
+func (p trabajoEvaluacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoEvaluacionEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	trabajoEvaluacionModel()
+}
+
+type trabajoEvaluacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionEqualsUniqueParam) trabajoEvaluacionModel() {}
+
+func (trabajoEvaluacionEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionEqualsUniqueParam) equals() {}
+
+func (p trabajoEvaluacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoEvaluacionSetParam interface {
+	field() builder.Field
+	settable()
+	trabajoEvaluacionModel()
+}
+
+type trabajoEvaluacionSetParam struct {
+	data builder.Field
+}
+
+func (trabajoEvaluacionSetParam) settable() {}
+
+func (p trabajoEvaluacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionSetParam) trabajoEvaluacionModel() {}
+
+type TrabajoEvaluacionWithPrismaIDEvaluacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	idEvaluacionField()
+}
+
+type TrabajoEvaluacionWithPrismaIDEvaluacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	idEvaluacionField()
+}
+
+type trabajoEvaluacionWithPrismaIDEvaluacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionSetParam) idEvaluacionField() {}
+
+type TrabajoEvaluacionWithPrismaIDEvaluacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	idEvaluacionField()
+}
+
+type trabajoEvaluacionWithPrismaIDEvaluacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionEqualsParam) idEvaluacionField() {}
+
+func (trabajoEvaluacionWithPrismaIDEvaluacionSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaIDEvaluacionEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam) idEvaluacionField()      {}
+
+func (trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaIDEvaluacionEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaIDTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	idTrabajoField()
+}
+
+type TrabajoEvaluacionWithPrismaIDTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	idTrabajoField()
+}
+
+type trabajoEvaluacionWithPrismaIDTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoSetParam) idTrabajoField() {}
+
+type TrabajoEvaluacionWithPrismaIDTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	idTrabajoField()
+}
+
+type trabajoEvaluacionWithPrismaIDTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoEqualsParam) idTrabajoField() {}
+
+func (trabajoEvaluacionWithPrismaIDTrabajoSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaIDTrabajoEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaIDTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDTrabajoEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaIDTrabajoEqualsUniqueParam) idTrabajoField()         {}
+
+func (trabajoEvaluacionWithPrismaIDTrabajoEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaIDTrabajoEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaIDRevisorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	idRevisorField()
+}
+
+type TrabajoEvaluacionWithPrismaIDRevisorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	idRevisorField()
+}
+
+type trabajoEvaluacionWithPrismaIDRevisorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorSetParam) idRevisorField() {}
+
+type TrabajoEvaluacionWithPrismaIDRevisorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	idRevisorField()
+}
+
+type trabajoEvaluacionWithPrismaIDRevisorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorEqualsParam) idRevisorField() {}
+
+func (trabajoEvaluacionWithPrismaIDRevisorSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaIDRevisorEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaIDRevisorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaIDRevisorEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaIDRevisorEqualsUniqueParam) idRevisorField()         {}
+
+func (trabajoEvaluacionWithPrismaIDRevisorEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaIDRevisorEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaRecomendacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	recomendacionField()
+}
+
+type TrabajoEvaluacionWithPrismaRecomendacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	recomendacionField()
+}
+
+type trabajoEvaluacionWithPrismaRecomendacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionSetParam) recomendacionField() {}
+
+type TrabajoEvaluacionWithPrismaRecomendacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	recomendacionField()
+}
+
+type trabajoEvaluacionWithPrismaRecomendacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionEqualsParam) recomendacionField() {}
+
+func (trabajoEvaluacionWithPrismaRecomendacionSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaRecomendacionEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaRecomendacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaRecomendacionEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaRecomendacionEqualsUniqueParam) recomendacionField()     {}
+
+func (trabajoEvaluacionWithPrismaRecomendacionEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaRecomendacionEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaPuntajeEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	puntajeField()
+}
+
+type TrabajoEvaluacionWithPrismaPuntajeSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	puntajeField()
+}
+
+type trabajoEvaluacionWithPrismaPuntajeSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaPuntajeSetParam) puntajeField() {}
+
+type TrabajoEvaluacionWithPrismaPuntajeWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	puntajeField()
+}
+
+type trabajoEvaluacionWithPrismaPuntajeEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaPuntajeEqualsParam) puntajeField() {}
+
+func (trabajoEvaluacionWithPrismaPuntajeSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaPuntajeEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaPuntajeEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaPuntajeEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaPuntajeEqualsUniqueParam) puntajeField()           {}
+
+func (trabajoEvaluacionWithPrismaPuntajeEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaPuntajeEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaComentariosEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	comentariosField()
+}
+
+type TrabajoEvaluacionWithPrismaComentariosSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	comentariosField()
+}
+
+type trabajoEvaluacionWithPrismaComentariosSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaComentariosSetParam) comentariosField() {}
+
+type TrabajoEvaluacionWithPrismaComentariosWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	comentariosField()
+}
+
+type trabajoEvaluacionWithPrismaComentariosEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaComentariosEqualsParam) comentariosField() {}
+
+func (trabajoEvaluacionWithPrismaComentariosSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaComentariosEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaComentariosEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaComentariosEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaComentariosEqualsUniqueParam) comentariosField()       {}
+
+func (trabajoEvaluacionWithPrismaComentariosEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaComentariosEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	createdAtField()
+}
+
+type TrabajoEvaluacionWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	createdAtField()
+}
+
+type trabajoEvaluacionWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type TrabajoEvaluacionWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	createdAtField()
+}
+
+type trabajoEvaluacionWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (trabajoEvaluacionWithPrismaCreatedAtSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaCreatedAtEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaCreatedAtEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaCreatedAtEqualsUniqueParam) createdAtField()         {}
+
+func (trabajoEvaluacionWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaUpdatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	updatedAtField()
+}
+
+type TrabajoEvaluacionWithPrismaUpdatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	updatedAtField()
+}
+
+type trabajoEvaluacionWithPrismaUpdatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtSetParam) updatedAtField() {}
+
+type TrabajoEvaluacionWithPrismaUpdatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	updatedAtField()
+}
+
+type trabajoEvaluacionWithPrismaUpdatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtEqualsParam) updatedAtField() {}
+
+func (trabajoEvaluacionWithPrismaUpdatedAtSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaUpdatedAtEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaUpdatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaUpdatedAtEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaUpdatedAtEqualsUniqueParam) updatedAtField()         {}
+
+func (trabajoEvaluacionWithPrismaUpdatedAtEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaUpdatedAtEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	trabajoField()
+}
+
+type TrabajoEvaluacionWithPrismaTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	trabajoField()
+}
+
+type trabajoEvaluacionWithPrismaTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaTrabajoSetParam) trabajoField() {}
+
+type TrabajoEvaluacionWithPrismaTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	trabajoField()
+}
+
+type trabajoEvaluacionWithPrismaTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaTrabajoEqualsParam) trabajoField() {}
+
+func (trabajoEvaluacionWithPrismaTrabajoSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaTrabajoEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaTrabajoEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaTrabajoEqualsUniqueParam) trabajoField()           {}
+
+func (trabajoEvaluacionWithPrismaTrabajoEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaTrabajoEqualsUniqueParam) equals() {}
+
+type TrabajoEvaluacionWithPrismaRevisorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoEvaluacionModel()
+	revisorField()
+}
+
+type TrabajoEvaluacionWithPrismaRevisorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	revisorField()
+}
+
+type trabajoEvaluacionWithPrismaRevisorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorSetParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaRevisorSetParam) revisorField() {}
+
+type TrabajoEvaluacionWithPrismaRevisorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoEvaluacionModel()
+	revisorField()
+}
+
+type trabajoEvaluacionWithPrismaRevisorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorEqualsParam) trabajoEvaluacionModel() {}
+
+func (p trabajoEvaluacionWithPrismaRevisorEqualsParam) revisorField() {}
+
+func (trabajoEvaluacionWithPrismaRevisorSetParam) settable()  {}
+func (trabajoEvaluacionWithPrismaRevisorEqualsParam) equals() {}
+
+type trabajoEvaluacionWithPrismaRevisorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionWithPrismaRevisorEqualsUniqueParam) trabajoEvaluacionModel() {}
+func (p trabajoEvaluacionWithPrismaRevisorEqualsUniqueParam) revisorField()           {}
+
+func (trabajoEvaluacionWithPrismaRevisorEqualsUniqueParam) unique() {}
+func (trabajoEvaluacionWithPrismaRevisorEqualsUniqueParam) equals() {}
 
 // --- template create.gotpl ---
 
@@ -68419,6 +78719,150 @@ func (r trabajoCientificoVersionCreateOne) Exec(ctx context.Context) (*TrabajoCi
 
 func (r trabajoCientificoVersionCreateOne) Tx() TrabajoCientificoVersionUniqueTxResult {
 	v := newTrabajoCientificoVersionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single trabajoRevisionAsignacion.
+func (r trabajoRevisionAsignacionActions) CreateOne(
+	_trabajo TrabajoRevisionAsignacionWithPrismaTrabajoSetParam,
+	_revisor TrabajoRevisionAsignacionWithPrismaRevisorSetParam,
+	_asignador TrabajoRevisionAsignacionWithPrismaAsignadorSetParam,
+
+	optional ...TrabajoRevisionAsignacionSetParam,
+) trabajoRevisionAsignacionCreateOne {
+	var v trabajoRevisionAsignacionCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "TrabajoRevisionAsignacion"
+	v.query.Outputs = trabajoRevisionAsignacionOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _trabajo.field())
+	fields = append(fields, _revisor.field())
+	fields = append(fields, _asignador.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r trabajoRevisionAsignacionCreateOne) With(params ...TrabajoRevisionAsignacionRelationWith) trabajoRevisionAsignacionCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type trabajoRevisionAsignacionCreateOne struct {
+	query builder.Query
+}
+
+func (p trabajoRevisionAsignacionCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoRevisionAsignacionCreateOne) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionCreateOne) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionCreateOne) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single trabajoEvaluacion.
+func (r trabajoEvaluacionActions) CreateOne(
+	_comentarios TrabajoEvaluacionWithPrismaComentariosSetParam,
+	_trabajo TrabajoEvaluacionWithPrismaTrabajoSetParam,
+	_revisor TrabajoEvaluacionWithPrismaRevisorSetParam,
+
+	optional ...TrabajoEvaluacionSetParam,
+) trabajoEvaluacionCreateOne {
+	var v trabajoEvaluacionCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "TrabajoEvaluacion"
+	v.query.Outputs = trabajoEvaluacionOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _comentarios.field())
+	fields = append(fields, _trabajo.field())
+	fields = append(fields, _revisor.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r trabajoEvaluacionCreateOne) With(params ...TrabajoEvaluacionRelationWith) trabajoEvaluacionCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type trabajoEvaluacionCreateOne struct {
+	query builder.Query
+}
+
+func (p trabajoEvaluacionCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoEvaluacionCreateOne) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionCreateOne) Exec(ctx context.Context) (*TrabajoEvaluacionModel, error) {
+	var v TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionCreateOne) Tx() TrabajoEvaluacionUniqueTxResult {
+	v := newTrabajoEvaluacionUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -71744,6 +82188,1668 @@ func (r usuarioToTrabajosCientificosDeleteMany) Exec(ctx context.Context) (*Batc
 }
 
 func (r usuarioToTrabajosCientificosDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToTrabajosAsignadosRevisorFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) with()            {}
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) usuarioModel()    {}
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) usuarioRelation() {}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) With(params ...TrabajoRevisionAsignacionRelationWith) usuarioToTrabajosAsignadosRevisorFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) Select(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosRevisorFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) Omit(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosRevisorFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) Update(params ...UsuarioSetParam) usuarioToTrabajosAsignadosRevisorUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToTrabajosAsignadosRevisorUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToTrabajosAsignadosRevisorUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorUpdateUnique) usuarioModel() {}
+
+func (r usuarioToTrabajosAsignadosRevisorUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindUnique) Delete() usuarioToTrabajosAsignadosRevisorDeleteUnique {
+	var v usuarioToTrabajosAsignadosRevisorDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToTrabajosAsignadosRevisorDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToTrabajosAsignadosRevisorDeleteUnique) usuarioModel() {}
+
+func (r usuarioToTrabajosAsignadosRevisorDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToTrabajosAsignadosRevisorFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) with()            {}
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) usuarioModel()    {}
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) usuarioRelation() {}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) With(params ...TrabajoRevisionAsignacionRelationWith) usuarioToTrabajosAsignadosRevisorFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) Select(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosRevisorFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) Omit(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosRevisorFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) OrderBy(params ...TrabajoRevisionAsignacionOrderByParam) usuarioToTrabajosAsignadosRevisorFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) Skip(count int) usuarioToTrabajosAsignadosRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) Take(count int) usuarioToTrabajosAsignadosRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToTrabajosAsignadosRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToTrabajosAsignadosRevisorFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) with()            {}
+func (r usuarioToTrabajosAsignadosRevisorFindMany) usuarioModel()    {}
+func (r usuarioToTrabajosAsignadosRevisorFindMany) usuarioRelation() {}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) With(params ...TrabajoRevisionAsignacionRelationWith) usuarioToTrabajosAsignadosRevisorFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) Select(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosRevisorFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) Omit(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosRevisorFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) OrderBy(params ...TrabajoRevisionAsignacionOrderByParam) usuarioToTrabajosAsignadosRevisorFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) Skip(count int) usuarioToTrabajosAsignadosRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) Take(count int) usuarioToTrabajosAsignadosRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) Cursor(cursor UsuarioCursorParam) usuarioToTrabajosAsignadosRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) Update(params ...UsuarioSetParam) usuarioToTrabajosAsignadosRevisorUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToTrabajosAsignadosRevisorUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToTrabajosAsignadosRevisorUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorUpdateMany) usuarioModel() {}
+
+func (r usuarioToTrabajosAsignadosRevisorUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToTrabajosAsignadosRevisorFindMany) Delete() usuarioToTrabajosAsignadosRevisorDeleteMany {
+	var v usuarioToTrabajosAsignadosRevisorDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToTrabajosAsignadosRevisorDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosRevisorDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToTrabajosAsignadosRevisorDeleteMany) usuarioModel() {}
+
+func (r usuarioToTrabajosAsignadosRevisorDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosAsignadosRevisorDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToTrabajosAsignadosComiteFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) with()            {}
+func (r usuarioToTrabajosAsignadosComiteFindUnique) usuarioModel()    {}
+func (r usuarioToTrabajosAsignadosComiteFindUnique) usuarioRelation() {}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) With(params ...TrabajoRevisionAsignacionRelationWith) usuarioToTrabajosAsignadosComiteFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) Select(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosComiteFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) Omit(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosComiteFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) Update(params ...UsuarioSetParam) usuarioToTrabajosAsignadosComiteUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToTrabajosAsignadosComiteUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToTrabajosAsignadosComiteUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosComiteUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosComiteUpdateUnique) usuarioModel() {}
+
+func (r usuarioToTrabajosAsignadosComiteUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindUnique) Delete() usuarioToTrabajosAsignadosComiteDeleteUnique {
+	var v usuarioToTrabajosAsignadosComiteDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToTrabajosAsignadosComiteDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosComiteDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToTrabajosAsignadosComiteDeleteUnique) usuarioModel() {}
+
+func (r usuarioToTrabajosAsignadosComiteDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToTrabajosAsignadosComiteFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) with()            {}
+func (r usuarioToTrabajosAsignadosComiteFindFirst) usuarioModel()    {}
+func (r usuarioToTrabajosAsignadosComiteFindFirst) usuarioRelation() {}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) With(params ...TrabajoRevisionAsignacionRelationWith) usuarioToTrabajosAsignadosComiteFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) Select(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosComiteFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) Omit(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosComiteFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) OrderBy(params ...TrabajoRevisionAsignacionOrderByParam) usuarioToTrabajosAsignadosComiteFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) Skip(count int) usuarioToTrabajosAsignadosComiteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) Take(count int) usuarioToTrabajosAsignadosComiteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToTrabajosAsignadosComiteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToTrabajosAsignadosComiteFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) with()            {}
+func (r usuarioToTrabajosAsignadosComiteFindMany) usuarioModel()    {}
+func (r usuarioToTrabajosAsignadosComiteFindMany) usuarioRelation() {}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) With(params ...TrabajoRevisionAsignacionRelationWith) usuarioToTrabajosAsignadosComiteFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) Select(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosComiteFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) Omit(params ...usuarioPrismaFields) usuarioToTrabajosAsignadosComiteFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) OrderBy(params ...TrabajoRevisionAsignacionOrderByParam) usuarioToTrabajosAsignadosComiteFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) Skip(count int) usuarioToTrabajosAsignadosComiteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) Take(count int) usuarioToTrabajosAsignadosComiteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) Cursor(cursor UsuarioCursorParam) usuarioToTrabajosAsignadosComiteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) Update(params ...UsuarioSetParam) usuarioToTrabajosAsignadosComiteUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToTrabajosAsignadosComiteUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToTrabajosAsignadosComiteUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosComiteUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosAsignadosComiteUpdateMany) usuarioModel() {}
+
+func (r usuarioToTrabajosAsignadosComiteUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToTrabajosAsignadosComiteFindMany) Delete() usuarioToTrabajosAsignadosComiteDeleteMany {
+	var v usuarioToTrabajosAsignadosComiteDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToTrabajosAsignadosComiteDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosAsignadosComiteDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToTrabajosAsignadosComiteDeleteMany) usuarioModel() {}
+
+func (r usuarioToTrabajosAsignadosComiteDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosAsignadosComiteDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToEvaluacionesRevisorFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) with()            {}
+func (r usuarioToEvaluacionesRevisorFindUnique) usuarioModel()    {}
+func (r usuarioToEvaluacionesRevisorFindUnique) usuarioRelation() {}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) With(params ...TrabajoEvaluacionRelationWith) usuarioToEvaluacionesRevisorFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) Select(params ...usuarioPrismaFields) usuarioToEvaluacionesRevisorFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) Omit(params ...usuarioPrismaFields) usuarioToEvaluacionesRevisorFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) Update(params ...UsuarioSetParam) usuarioToEvaluacionesRevisorUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToEvaluacionesRevisorUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToEvaluacionesRevisorUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToEvaluacionesRevisorUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToEvaluacionesRevisorUpdateUnique) usuarioModel() {}
+
+func (r usuarioToEvaluacionesRevisorUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToEvaluacionesRevisorFindUnique) Delete() usuarioToEvaluacionesRevisorDeleteUnique {
+	var v usuarioToEvaluacionesRevisorDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToEvaluacionesRevisorDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToEvaluacionesRevisorDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToEvaluacionesRevisorDeleteUnique) usuarioModel() {}
+
+func (r usuarioToEvaluacionesRevisorDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToEvaluacionesRevisorFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) with()            {}
+func (r usuarioToEvaluacionesRevisorFindFirst) usuarioModel()    {}
+func (r usuarioToEvaluacionesRevisorFindFirst) usuarioRelation() {}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) With(params ...TrabajoEvaluacionRelationWith) usuarioToEvaluacionesRevisorFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) Select(params ...usuarioPrismaFields) usuarioToEvaluacionesRevisorFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) Omit(params ...usuarioPrismaFields) usuarioToEvaluacionesRevisorFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) OrderBy(params ...TrabajoEvaluacionOrderByParam) usuarioToEvaluacionesRevisorFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) Skip(count int) usuarioToEvaluacionesRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) Take(count int) usuarioToEvaluacionesRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToEvaluacionesRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToEvaluacionesRevisorFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) with()            {}
+func (r usuarioToEvaluacionesRevisorFindMany) usuarioModel()    {}
+func (r usuarioToEvaluacionesRevisorFindMany) usuarioRelation() {}
+
+func (r usuarioToEvaluacionesRevisorFindMany) With(params ...TrabajoEvaluacionRelationWith) usuarioToEvaluacionesRevisorFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) Select(params ...usuarioPrismaFields) usuarioToEvaluacionesRevisorFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) Omit(params ...usuarioPrismaFields) usuarioToEvaluacionesRevisorFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) OrderBy(params ...TrabajoEvaluacionOrderByParam) usuarioToEvaluacionesRevisorFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) Skip(count int) usuarioToEvaluacionesRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) Take(count int) usuarioToEvaluacionesRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) Cursor(cursor UsuarioCursorParam) usuarioToEvaluacionesRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) Update(params ...UsuarioSetParam) usuarioToEvaluacionesRevisorUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToEvaluacionesRevisorUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToEvaluacionesRevisorUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToEvaluacionesRevisorUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToEvaluacionesRevisorUpdateMany) usuarioModel() {}
+
+func (r usuarioToEvaluacionesRevisorUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToEvaluacionesRevisorFindMany) Delete() usuarioToEvaluacionesRevisorDeleteMany {
+	var v usuarioToEvaluacionesRevisorDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToEvaluacionesRevisorDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToEvaluacionesRevisorDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToEvaluacionesRevisorDeleteMany) usuarioModel() {}
+
+func (r usuarioToEvaluacionesRevisorDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToEvaluacionesRevisorDeleteMany) Tx() UsuarioManyTxResult {
 	v := newUsuarioManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -99974,6 +112080,1114 @@ func (r trabajoCientificoToVersionesDeleteMany) Tx() TrabajoCientificoManyTxResu
 	return v
 }
 
+type trabajoCientificoToAsignacionesFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) with()                      {}
+func (r trabajoCientificoToAsignacionesFindUnique) trabajoCientificoModel()    {}
+func (r trabajoCientificoToAsignacionesFindUnique) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToAsignacionesFindUnique) With(params ...TrabajoRevisionAsignacionRelationWith) trabajoCientificoToAsignacionesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToAsignacionesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToAsignacionesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToAsignacionesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientifico"
+
+	var v trabajoCientificoToAsignacionesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToAsignacionesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToAsignacionesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToAsignacionesUpdateUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToAsignacionesUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToAsignacionesUpdateUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToAsignacionesFindUnique) Delete() trabajoCientificoToAsignacionesDeleteUnique {
+	var v trabajoCientificoToAsignacionesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientifico"
+
+	return v
+}
+
+type trabajoCientificoToAsignacionesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToAsignacionesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToAsignacionesDeleteUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToAsignacionesDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToAsignacionesDeleteUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToAsignacionesFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) with()                      {}
+func (r trabajoCientificoToAsignacionesFindFirst) trabajoCientificoModel()    {}
+func (r trabajoCientificoToAsignacionesFindFirst) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToAsignacionesFindFirst) With(params ...TrabajoRevisionAsignacionRelationWith) trabajoCientificoToAsignacionesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToAsignacionesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToAsignacionesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) OrderBy(params ...TrabajoRevisionAsignacionOrderByParam) trabajoCientificoToAsignacionesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) Skip(count int) trabajoCientificoToAsignacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) Take(count int) trabajoCientificoToAsignacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToAsignacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToAsignacionesFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoToAsignacionesFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) with()                      {}
+func (r trabajoCientificoToAsignacionesFindMany) trabajoCientificoModel()    {}
+func (r trabajoCientificoToAsignacionesFindMany) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToAsignacionesFindMany) With(params ...TrabajoRevisionAsignacionRelationWith) trabajoCientificoToAsignacionesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToAsignacionesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToAsignacionesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) OrderBy(params ...TrabajoRevisionAsignacionOrderByParam) trabajoCientificoToAsignacionesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) Skip(count int) trabajoCientificoToAsignacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) Take(count int) trabajoCientificoToAsignacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToAsignacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoModel,
+	error,
+) {
+	var v []TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientifico,
+	error,
+) {
+	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToAsignacionesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientifico"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoToAsignacionesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToAsignacionesUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToAsignacionesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToAsignacionesUpdateMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToAsignacionesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToAsignacionesUpdateMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToAsignacionesFindMany) Delete() trabajoCientificoToAsignacionesDeleteMany {
+	var v trabajoCientificoToAsignacionesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientifico"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoToAsignacionesDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToAsignacionesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToAsignacionesDeleteMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToAsignacionesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToAsignacionesDeleteMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToEvaluacionesFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) with()                      {}
+func (r trabajoCientificoToEvaluacionesFindUnique) trabajoCientificoModel()    {}
+func (r trabajoCientificoToEvaluacionesFindUnique) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) With(params ...TrabajoEvaluacionRelationWith) trabajoCientificoToEvaluacionesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToEvaluacionesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToEvaluacionesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToEvaluacionesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientifico"
+
+	var v trabajoCientificoToEvaluacionesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToEvaluacionesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEvaluacionesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEvaluacionesUpdateUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToEvaluacionesUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesUpdateUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToEvaluacionesFindUnique) Delete() trabajoCientificoToEvaluacionesDeleteUnique {
+	var v trabajoCientificoToEvaluacionesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientifico"
+
+	return v
+}
+
+type trabajoCientificoToEvaluacionesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEvaluacionesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToEvaluacionesDeleteUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToEvaluacionesDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesDeleteUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToEvaluacionesFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) with()                      {}
+func (r trabajoCientificoToEvaluacionesFindFirst) trabajoCientificoModel()    {}
+func (r trabajoCientificoToEvaluacionesFindFirst) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) With(params ...TrabajoEvaluacionRelationWith) trabajoCientificoToEvaluacionesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToEvaluacionesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToEvaluacionesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) OrderBy(params ...TrabajoEvaluacionOrderByParam) trabajoCientificoToEvaluacionesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) Skip(count int) trabajoCientificoToEvaluacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) Take(count int) trabajoCientificoToEvaluacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToEvaluacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoToEvaluacionesFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) with()                      {}
+func (r trabajoCientificoToEvaluacionesFindMany) trabajoCientificoModel()    {}
+func (r trabajoCientificoToEvaluacionesFindMany) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToEvaluacionesFindMany) With(params ...TrabajoEvaluacionRelationWith) trabajoCientificoToEvaluacionesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToEvaluacionesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToEvaluacionesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) OrderBy(params ...TrabajoEvaluacionOrderByParam) trabajoCientificoToEvaluacionesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) Skip(count int) trabajoCientificoToEvaluacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) Take(count int) trabajoCientificoToEvaluacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToEvaluacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoModel,
+	error,
+) {
+	var v []TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientifico,
+	error,
+) {
+	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToEvaluacionesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientifico"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoToEvaluacionesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToEvaluacionesUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEvaluacionesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEvaluacionesUpdateMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToEvaluacionesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesUpdateMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToEvaluacionesFindMany) Delete() trabajoCientificoToEvaluacionesDeleteMany {
+	var v trabajoCientificoToEvaluacionesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientifico"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoToEvaluacionesDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEvaluacionesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToEvaluacionesDeleteMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToEvaluacionesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToEvaluacionesDeleteMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 type trabajoCientificoFindUnique struct {
 	query builder.Query
 }
@@ -101828,6 +115042,4076 @@ func (r trabajoCientificoVersionDeleteMany) Tx() TrabajoCientificoVersionManyTxR
 	return v
 }
 
+type trabajoRevisionAsignacionToTrabajoFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) with()                              {}
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) With(params ...TrabajoCientificoRelationWith) trabajoRevisionAsignacionToTrabajoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToTrabajoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToTrabajoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) Exec(ctx context.Context) (
+	*TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v *TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v *InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) Update(params ...TrabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionToTrabajoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoRevisionAsignacion"
+
+	var v trabajoRevisionAsignacionToTrabajoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoRevisionAsignacionToTrabajoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoUpdateUnique) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToTrabajoUpdateUnique) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoUpdateUnique) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindUnique) Delete() trabajoRevisionAsignacionToTrabajoDeleteUnique {
+	var v trabajoRevisionAsignacionToTrabajoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	return v
+}
+
+type trabajoRevisionAsignacionToTrabajoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoRevisionAsignacionToTrabajoDeleteUnique) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToTrabajoDeleteUnique) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoDeleteUnique) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoRevisionAsignacionToTrabajoFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) with()                              {}
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) With(params ...TrabajoCientificoRelationWith) trabajoRevisionAsignacionToTrabajoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToTrabajoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToTrabajoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoRevisionAsignacionToTrabajoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) Skip(count int) trabajoRevisionAsignacionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) Take(count int) trabajoRevisionAsignacionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) Cursor(cursor TrabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) Exec(ctx context.Context) (
+	*TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v *TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v *InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoRevisionAsignacionToTrabajoFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) with()                              {}
+func (r trabajoRevisionAsignacionToTrabajoFindMany) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToTrabajoFindMany) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) With(params ...TrabajoCientificoRelationWith) trabajoRevisionAsignacionToTrabajoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToTrabajoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToTrabajoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoRevisionAsignacionToTrabajoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) Skip(count int) trabajoRevisionAsignacionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) Take(count int) trabajoRevisionAsignacionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) Cursor(cursor TrabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) Exec(ctx context.Context) (
+	[]TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v []TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v []InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) Update(params ...TrabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionToTrabajoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoRevisionAsignacion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoRevisionAsignacionToTrabajoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoRevisionAsignacionToTrabajoUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoUpdateMany) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToTrabajoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoUpdateMany) Tx() TrabajoRevisionAsignacionManyTxResult {
+	v := newTrabajoRevisionAsignacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoRevisionAsignacionToTrabajoFindMany) Delete() trabajoRevisionAsignacionToTrabajoDeleteMany {
+	var v trabajoRevisionAsignacionToTrabajoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoRevisionAsignacionToTrabajoDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToTrabajoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoRevisionAsignacionToTrabajoDeleteMany) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToTrabajoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToTrabajoDeleteMany) Tx() TrabajoRevisionAsignacionManyTxResult {
+	v := newTrabajoRevisionAsignacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoRevisionAsignacionToRevisorFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) with()                              {}
+func (r trabajoRevisionAsignacionToRevisorFindUnique) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToRevisorFindUnique) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) With(params ...UsuarioRelationWith) trabajoRevisionAsignacionToRevisorFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToRevisorFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToRevisorFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) Exec(ctx context.Context) (
+	*TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v *TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v *InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) Update(params ...TrabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionToRevisorUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoRevisionAsignacion"
+
+	var v trabajoRevisionAsignacionToRevisorUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoRevisionAsignacionToRevisorUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToRevisorUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToRevisorUpdateUnique) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToRevisorUpdateUnique) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorUpdateUnique) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindUnique) Delete() trabajoRevisionAsignacionToRevisorDeleteUnique {
+	var v trabajoRevisionAsignacionToRevisorDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	return v
+}
+
+type trabajoRevisionAsignacionToRevisorDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToRevisorDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoRevisionAsignacionToRevisorDeleteUnique) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToRevisorDeleteUnique) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorDeleteUnique) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoRevisionAsignacionToRevisorFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) with()                              {}
+func (r trabajoRevisionAsignacionToRevisorFindFirst) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToRevisorFindFirst) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) With(params ...UsuarioRelationWith) trabajoRevisionAsignacionToRevisorFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToRevisorFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToRevisorFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) OrderBy(params ...UsuarioOrderByParam) trabajoRevisionAsignacionToRevisorFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) Skip(count int) trabajoRevisionAsignacionToRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) Take(count int) trabajoRevisionAsignacionToRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) Cursor(cursor TrabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionToRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) Exec(ctx context.Context) (
+	*TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v *TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v *InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoRevisionAsignacionToRevisorFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) with()                              {}
+func (r trabajoRevisionAsignacionToRevisorFindMany) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToRevisorFindMany) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) With(params ...UsuarioRelationWith) trabajoRevisionAsignacionToRevisorFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToRevisorFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToRevisorFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) OrderBy(params ...UsuarioOrderByParam) trabajoRevisionAsignacionToRevisorFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) Skip(count int) trabajoRevisionAsignacionToRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) Take(count int) trabajoRevisionAsignacionToRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) Cursor(cursor TrabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionToRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) Exec(ctx context.Context) (
+	[]TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v []TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v []InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) Update(params ...TrabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionToRevisorUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoRevisionAsignacion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoRevisionAsignacionToRevisorUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoRevisionAsignacionToRevisorUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToRevisorUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToRevisorUpdateMany) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToRevisorUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorUpdateMany) Tx() TrabajoRevisionAsignacionManyTxResult {
+	v := newTrabajoRevisionAsignacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoRevisionAsignacionToRevisorFindMany) Delete() trabajoRevisionAsignacionToRevisorDeleteMany {
+	var v trabajoRevisionAsignacionToRevisorDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoRevisionAsignacionToRevisorDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToRevisorDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoRevisionAsignacionToRevisorDeleteMany) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToRevisorDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToRevisorDeleteMany) Tx() TrabajoRevisionAsignacionManyTxResult {
+	v := newTrabajoRevisionAsignacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoRevisionAsignacionToAsignadorFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) with()                              {}
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) With(params ...UsuarioRelationWith) trabajoRevisionAsignacionToAsignadorFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToAsignadorFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToAsignadorFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) Exec(ctx context.Context) (
+	*TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v *TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v *InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) Update(params ...TrabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionToAsignadorUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoRevisionAsignacion"
+
+	var v trabajoRevisionAsignacionToAsignadorUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoRevisionAsignacionToAsignadorUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorUpdateUnique) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToAsignadorUpdateUnique) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorUpdateUnique) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindUnique) Delete() trabajoRevisionAsignacionToAsignadorDeleteUnique {
+	var v trabajoRevisionAsignacionToAsignadorDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	return v
+}
+
+type trabajoRevisionAsignacionToAsignadorDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoRevisionAsignacionToAsignadorDeleteUnique) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToAsignadorDeleteUnique) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorDeleteUnique) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoRevisionAsignacionToAsignadorFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) with()                              {}
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) With(params ...UsuarioRelationWith) trabajoRevisionAsignacionToAsignadorFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToAsignadorFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToAsignadorFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) OrderBy(params ...UsuarioOrderByParam) trabajoRevisionAsignacionToAsignadorFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) Skip(count int) trabajoRevisionAsignacionToAsignadorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) Take(count int) trabajoRevisionAsignacionToAsignadorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) Cursor(cursor TrabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionToAsignadorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) Exec(ctx context.Context) (
+	*TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v *TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v *InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoRevisionAsignacionToAsignadorFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) with()                              {}
+func (r trabajoRevisionAsignacionToAsignadorFindMany) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionToAsignadorFindMany) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) With(params ...UsuarioRelationWith) trabajoRevisionAsignacionToAsignadorFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToAsignadorFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionToAsignadorFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) OrderBy(params ...UsuarioOrderByParam) trabajoRevisionAsignacionToAsignadorFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) Skip(count int) trabajoRevisionAsignacionToAsignadorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) Take(count int) trabajoRevisionAsignacionToAsignadorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) Cursor(cursor TrabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionToAsignadorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) Exec(ctx context.Context) (
+	[]TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v []TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v []InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) Update(params ...TrabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionToAsignadorUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoRevisionAsignacion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoRevisionAsignacionToAsignadorUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoRevisionAsignacionToAsignadorUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorUpdateMany) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToAsignadorUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorUpdateMany) Tx() TrabajoRevisionAsignacionManyTxResult {
+	v := newTrabajoRevisionAsignacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoRevisionAsignacionToAsignadorFindMany) Delete() trabajoRevisionAsignacionToAsignadorDeleteMany {
+	var v trabajoRevisionAsignacionToAsignadorDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoRevisionAsignacionToAsignadorDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionToAsignadorDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoRevisionAsignacionToAsignadorDeleteMany) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionToAsignadorDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionToAsignadorDeleteMany) Tx() TrabajoRevisionAsignacionManyTxResult {
+	v := newTrabajoRevisionAsignacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoRevisionAsignacionFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionFindUnique) with()                              {}
+func (r trabajoRevisionAsignacionFindUnique) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionFindUnique) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionActions) FindUnique(
+	params TrabajoRevisionAsignacionEqualsUniqueWhereParam,
+) trabajoRevisionAsignacionFindUnique {
+	var v trabajoRevisionAsignacionFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "TrabajoRevisionAsignacion"
+	v.query.Outputs = trabajoRevisionAsignacionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionFindUnique) With(params ...TrabajoRevisionAsignacionRelationWith) trabajoRevisionAsignacionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindUnique) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindUnique) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindUnique) Exec(ctx context.Context) (
+	*TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v *TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v *InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionFindUnique) Update(params ...TrabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoRevisionAsignacion"
+
+	var v trabajoRevisionAsignacionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoRevisionAsignacionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionUpdateUnique) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionUpdateUnique) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionUpdateUnique) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoRevisionAsignacionFindUnique) Delete() trabajoRevisionAsignacionDeleteUnique {
+	var v trabajoRevisionAsignacionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	return v
+}
+
+type trabajoRevisionAsignacionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoRevisionAsignacionDeleteUnique) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionDeleteUnique) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionDeleteUnique) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoRevisionAsignacionFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionFindFirst) with()                              {}
+func (r trabajoRevisionAsignacionFindFirst) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionFindFirst) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionActions) FindFirst(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) trabajoRevisionAsignacionFindFirst {
+	var v trabajoRevisionAsignacionFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "TrabajoRevisionAsignacion"
+	v.query.Outputs = trabajoRevisionAsignacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionFindFirst) With(params ...TrabajoRevisionAsignacionRelationWith) trabajoRevisionAsignacionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindFirst) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindFirst) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindFirst) OrderBy(params ...TrabajoRevisionAsignacionOrderByParam) trabajoRevisionAsignacionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindFirst) Skip(count int) trabajoRevisionAsignacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindFirst) Take(count int) trabajoRevisionAsignacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindFirst) Cursor(cursor TrabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindFirst) Exec(ctx context.Context) (
+	*TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v *TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v *InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoRevisionAsignacionFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionFindMany) with()                              {}
+func (r trabajoRevisionAsignacionFindMany) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionFindMany) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionActions) FindMany(
+	params ...TrabajoRevisionAsignacionWhereParam,
+) trabajoRevisionAsignacionFindMany {
+	var v trabajoRevisionAsignacionFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "TrabajoRevisionAsignacion"
+	v.query.Outputs = trabajoRevisionAsignacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionFindMany) With(params ...TrabajoRevisionAsignacionRelationWith) trabajoRevisionAsignacionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindMany) Select(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindMany) Omit(params ...trabajoRevisionAsignacionPrismaFields) trabajoRevisionAsignacionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoRevisionAsignacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindMany) OrderBy(params ...TrabajoRevisionAsignacionOrderByParam) trabajoRevisionAsignacionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindMany) Skip(count int) trabajoRevisionAsignacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindMany) Take(count int) trabajoRevisionAsignacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindMany) Cursor(cursor TrabajoRevisionAsignacionCursorParam) trabajoRevisionAsignacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoRevisionAsignacionFindMany) Exec(ctx context.Context) (
+	[]TrabajoRevisionAsignacionModel,
+	error,
+) {
+	var v []TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoRevisionAsignacion,
+	error,
+) {
+	var v []InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionFindMany) Update(params ...TrabajoRevisionAsignacionSetParam) trabajoRevisionAsignacionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoRevisionAsignacion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoRevisionAsignacionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoRevisionAsignacionUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionUpdateMany) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionUpdateMany) Tx() TrabajoRevisionAsignacionManyTxResult {
+	v := newTrabajoRevisionAsignacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoRevisionAsignacionFindMany) Delete() trabajoRevisionAsignacionDeleteMany {
+	var v trabajoRevisionAsignacionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoRevisionAsignacionDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoRevisionAsignacionDeleteMany) trabajoRevisionAsignacionModel() {}
+
+func (r trabajoRevisionAsignacionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionDeleteMany) Tx() TrabajoRevisionAsignacionManyTxResult {
+	v := newTrabajoRevisionAsignacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoEvaluacionToTrabajoFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) with()                      {}
+func (r trabajoEvaluacionToTrabajoFindUnique) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionToTrabajoFindUnique) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) With(params ...TrabajoCientificoRelationWith) trabajoEvaluacionToTrabajoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToTrabajoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToTrabajoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) Exec(ctx context.Context) (
+	*TrabajoEvaluacionModel,
+	error,
+) {
+	var v *TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoEvaluacion,
+	error,
+) {
+	var v *InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) Update(params ...TrabajoEvaluacionSetParam) trabajoEvaluacionToTrabajoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoEvaluacion"
+
+	var v trabajoEvaluacionToTrabajoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoEvaluacionToTrabajoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToTrabajoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToTrabajoUpdateUnique) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionToTrabajoUpdateUnique) Exec(ctx context.Context) (*TrabajoEvaluacionModel, error) {
+	var v TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoUpdateUnique) Tx() TrabajoEvaluacionUniqueTxResult {
+	v := newTrabajoEvaluacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoEvaluacionToTrabajoFindUnique) Delete() trabajoEvaluacionToTrabajoDeleteUnique {
+	var v trabajoEvaluacionToTrabajoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoEvaluacion"
+
+	return v
+}
+
+type trabajoEvaluacionToTrabajoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToTrabajoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoEvaluacionToTrabajoDeleteUnique) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionToTrabajoDeleteUnique) Exec(ctx context.Context) (*TrabajoEvaluacionModel, error) {
+	var v TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoDeleteUnique) Tx() TrabajoEvaluacionUniqueTxResult {
+	v := newTrabajoEvaluacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoEvaluacionToTrabajoFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) with()                      {}
+func (r trabajoEvaluacionToTrabajoFindFirst) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionToTrabajoFindFirst) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) With(params ...TrabajoCientificoRelationWith) trabajoEvaluacionToTrabajoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToTrabajoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToTrabajoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoEvaluacionToTrabajoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) Skip(count int) trabajoEvaluacionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) Take(count int) trabajoEvaluacionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) Cursor(cursor TrabajoEvaluacionCursorParam) trabajoEvaluacionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) Exec(ctx context.Context) (
+	*TrabajoEvaluacionModel,
+	error,
+) {
+	var v *TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoEvaluacion,
+	error,
+) {
+	var v *InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoEvaluacionToTrabajoFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) with()                      {}
+func (r trabajoEvaluacionToTrabajoFindMany) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionToTrabajoFindMany) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionToTrabajoFindMany) With(params ...TrabajoCientificoRelationWith) trabajoEvaluacionToTrabajoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToTrabajoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToTrabajoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoEvaluacionToTrabajoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) Skip(count int) trabajoEvaluacionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) Take(count int) trabajoEvaluacionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) Cursor(cursor TrabajoEvaluacionCursorParam) trabajoEvaluacionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) Exec(ctx context.Context) (
+	[]TrabajoEvaluacionModel,
+	error,
+) {
+	var v []TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoEvaluacion,
+	error,
+) {
+	var v []InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) Update(params ...TrabajoEvaluacionSetParam) trabajoEvaluacionToTrabajoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoEvaluacion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoEvaluacionToTrabajoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoEvaluacionToTrabajoUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToTrabajoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToTrabajoUpdateMany) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionToTrabajoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoUpdateMany) Tx() TrabajoEvaluacionManyTxResult {
+	v := newTrabajoEvaluacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoEvaluacionToTrabajoFindMany) Delete() trabajoEvaluacionToTrabajoDeleteMany {
+	var v trabajoEvaluacionToTrabajoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoEvaluacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoEvaluacionToTrabajoDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToTrabajoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoEvaluacionToTrabajoDeleteMany) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionToTrabajoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionToTrabajoDeleteMany) Tx() TrabajoEvaluacionManyTxResult {
+	v := newTrabajoEvaluacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoEvaluacionToRevisorFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) with()                      {}
+func (r trabajoEvaluacionToRevisorFindUnique) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionToRevisorFindUnique) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionToRevisorFindUnique) With(params ...UsuarioRelationWith) trabajoEvaluacionToRevisorFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToRevisorFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToRevisorFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) Exec(ctx context.Context) (
+	*TrabajoEvaluacionModel,
+	error,
+) {
+	var v *TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoEvaluacion,
+	error,
+) {
+	var v *InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) Update(params ...TrabajoEvaluacionSetParam) trabajoEvaluacionToRevisorUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoEvaluacion"
+
+	var v trabajoEvaluacionToRevisorUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoEvaluacionToRevisorUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToRevisorUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToRevisorUpdateUnique) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionToRevisorUpdateUnique) Exec(ctx context.Context) (*TrabajoEvaluacionModel, error) {
+	var v TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionToRevisorUpdateUnique) Tx() TrabajoEvaluacionUniqueTxResult {
+	v := newTrabajoEvaluacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoEvaluacionToRevisorFindUnique) Delete() trabajoEvaluacionToRevisorDeleteUnique {
+	var v trabajoEvaluacionToRevisorDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoEvaluacion"
+
+	return v
+}
+
+type trabajoEvaluacionToRevisorDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToRevisorDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoEvaluacionToRevisorDeleteUnique) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionToRevisorDeleteUnique) Exec(ctx context.Context) (*TrabajoEvaluacionModel, error) {
+	var v TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionToRevisorDeleteUnique) Tx() TrabajoEvaluacionUniqueTxResult {
+	v := newTrabajoEvaluacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoEvaluacionToRevisorFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) with()                      {}
+func (r trabajoEvaluacionToRevisorFindFirst) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionToRevisorFindFirst) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionToRevisorFindFirst) With(params ...UsuarioRelationWith) trabajoEvaluacionToRevisorFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToRevisorFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToRevisorFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) OrderBy(params ...UsuarioOrderByParam) trabajoEvaluacionToRevisorFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) Skip(count int) trabajoEvaluacionToRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) Take(count int) trabajoEvaluacionToRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) Cursor(cursor TrabajoEvaluacionCursorParam) trabajoEvaluacionToRevisorFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) Exec(ctx context.Context) (
+	*TrabajoEvaluacionModel,
+	error,
+) {
+	var v *TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToRevisorFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoEvaluacion,
+	error,
+) {
+	var v *InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoEvaluacionToRevisorFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) with()                      {}
+func (r trabajoEvaluacionToRevisorFindMany) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionToRevisorFindMany) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionToRevisorFindMany) With(params ...UsuarioRelationWith) trabajoEvaluacionToRevisorFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToRevisorFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionToRevisorFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) OrderBy(params ...UsuarioOrderByParam) trabajoEvaluacionToRevisorFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) Skip(count int) trabajoEvaluacionToRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) Take(count int) trabajoEvaluacionToRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) Cursor(cursor TrabajoEvaluacionCursorParam) trabajoEvaluacionToRevisorFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) Exec(ctx context.Context) (
+	[]TrabajoEvaluacionModel,
+	error,
+) {
+	var v []TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoEvaluacion,
+	error,
+) {
+	var v []InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) Update(params ...TrabajoEvaluacionSetParam) trabajoEvaluacionToRevisorUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoEvaluacion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoEvaluacionToRevisorUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoEvaluacionToRevisorUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToRevisorUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionToRevisorUpdateMany) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionToRevisorUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionToRevisorUpdateMany) Tx() TrabajoEvaluacionManyTxResult {
+	v := newTrabajoEvaluacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoEvaluacionToRevisorFindMany) Delete() trabajoEvaluacionToRevisorDeleteMany {
+	var v trabajoEvaluacionToRevisorDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoEvaluacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoEvaluacionToRevisorDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionToRevisorDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoEvaluacionToRevisorDeleteMany) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionToRevisorDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionToRevisorDeleteMany) Tx() TrabajoEvaluacionManyTxResult {
+	v := newTrabajoEvaluacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoEvaluacionFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionFindUnique) with()                      {}
+func (r trabajoEvaluacionFindUnique) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionFindUnique) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionActions) FindUnique(
+	params TrabajoEvaluacionEqualsUniqueWhereParam,
+) trabajoEvaluacionFindUnique {
+	var v trabajoEvaluacionFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "TrabajoEvaluacion"
+	v.query.Outputs = trabajoEvaluacionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoEvaluacionFindUnique) With(params ...TrabajoEvaluacionRelationWith) trabajoEvaluacionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionFindUnique) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionFindUnique) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionFindUnique) Exec(ctx context.Context) (
+	*TrabajoEvaluacionModel,
+	error,
+) {
+	var v *TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoEvaluacion,
+	error,
+) {
+	var v *InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionFindUnique) Update(params ...TrabajoEvaluacionSetParam) trabajoEvaluacionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoEvaluacion"
+
+	var v trabajoEvaluacionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoEvaluacionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionUpdateUnique) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionUpdateUnique) Exec(ctx context.Context) (*TrabajoEvaluacionModel, error) {
+	var v TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionUpdateUnique) Tx() TrabajoEvaluacionUniqueTxResult {
+	v := newTrabajoEvaluacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoEvaluacionFindUnique) Delete() trabajoEvaluacionDeleteUnique {
+	var v trabajoEvaluacionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoEvaluacion"
+
+	return v
+}
+
+type trabajoEvaluacionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoEvaluacionDeleteUnique) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionDeleteUnique) Exec(ctx context.Context) (*TrabajoEvaluacionModel, error) {
+	var v TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionDeleteUnique) Tx() TrabajoEvaluacionUniqueTxResult {
+	v := newTrabajoEvaluacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoEvaluacionFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionFindFirst) with()                      {}
+func (r trabajoEvaluacionFindFirst) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionFindFirst) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionActions) FindFirst(
+	params ...TrabajoEvaluacionWhereParam,
+) trabajoEvaluacionFindFirst {
+	var v trabajoEvaluacionFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "TrabajoEvaluacion"
+	v.query.Outputs = trabajoEvaluacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoEvaluacionFindFirst) With(params ...TrabajoEvaluacionRelationWith) trabajoEvaluacionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionFindFirst) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionFindFirst) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionFindFirst) OrderBy(params ...TrabajoEvaluacionOrderByParam) trabajoEvaluacionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoEvaluacionFindFirst) Skip(count int) trabajoEvaluacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionFindFirst) Take(count int) trabajoEvaluacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionFindFirst) Cursor(cursor TrabajoEvaluacionCursorParam) trabajoEvaluacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoEvaluacionFindFirst) Exec(ctx context.Context) (
+	*TrabajoEvaluacionModel,
+	error,
+) {
+	var v *TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoEvaluacion,
+	error,
+) {
+	var v *InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoEvaluacionFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionFindMany) with()                      {}
+func (r trabajoEvaluacionFindMany) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionFindMany) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionActions) FindMany(
+	params ...TrabajoEvaluacionWhereParam,
+) trabajoEvaluacionFindMany {
+	var v trabajoEvaluacionFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "TrabajoEvaluacion"
+	v.query.Outputs = trabajoEvaluacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoEvaluacionFindMany) With(params ...TrabajoEvaluacionRelationWith) trabajoEvaluacionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoEvaluacionFindMany) Select(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionFindMany) Omit(params ...trabajoEvaluacionPrismaFields) trabajoEvaluacionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoEvaluacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoEvaluacionFindMany) OrderBy(params ...TrabajoEvaluacionOrderByParam) trabajoEvaluacionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoEvaluacionFindMany) Skip(count int) trabajoEvaluacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionFindMany) Take(count int) trabajoEvaluacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoEvaluacionFindMany) Cursor(cursor TrabajoEvaluacionCursorParam) trabajoEvaluacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoEvaluacionFindMany) Exec(ctx context.Context) (
+	[]TrabajoEvaluacionModel,
+	error,
+) {
+	var v []TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoEvaluacion,
+	error,
+) {
+	var v []InnerTrabajoEvaluacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoEvaluacionFindMany) Update(params ...TrabajoEvaluacionSetParam) trabajoEvaluacionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoEvaluacion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoEvaluacionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoEvaluacionUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionUpdateMany) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionUpdateMany) Tx() TrabajoEvaluacionManyTxResult {
+	v := newTrabajoEvaluacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoEvaluacionFindMany) Delete() trabajoEvaluacionDeleteMany {
+	var v trabajoEvaluacionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoEvaluacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoEvaluacionDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoEvaluacionDeleteMany) trabajoEvaluacionModel() {}
+
+func (r trabajoEvaluacionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionDeleteMany) Tx() TrabajoEvaluacionManyTxResult {
+	v := newTrabajoEvaluacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template transaction.gotpl ---
 
 func newUsuarioUniqueTxResult() UsuarioUniqueTxResult {
@@ -102736,6 +120020,102 @@ func (p TrabajoCientificoVersionManyTxResult) ExtractQuery() builder.Query {
 func (p TrabajoCientificoVersionManyTxResult) IsTx() {}
 
 func (r TrabajoCientificoVersionManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoRevisionAsignacionUniqueTxResult() TrabajoRevisionAsignacionUniqueTxResult {
+	return TrabajoRevisionAsignacionUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoRevisionAsignacionUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoRevisionAsignacionUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoRevisionAsignacionUniqueTxResult) IsTx() {}
+
+func (r TrabajoRevisionAsignacionUniqueTxResult) Result() (v *TrabajoRevisionAsignacionModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoRevisionAsignacionManyTxResult() TrabajoRevisionAsignacionManyTxResult {
+	return TrabajoRevisionAsignacionManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoRevisionAsignacionManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoRevisionAsignacionManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoRevisionAsignacionManyTxResult) IsTx() {}
+
+func (r TrabajoRevisionAsignacionManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoEvaluacionUniqueTxResult() TrabajoEvaluacionUniqueTxResult {
+	return TrabajoEvaluacionUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoEvaluacionUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoEvaluacionUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoEvaluacionUniqueTxResult) IsTx() {}
+
+func (r TrabajoEvaluacionUniqueTxResult) Result() (v *TrabajoEvaluacionModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoEvaluacionManyTxResult() TrabajoEvaluacionManyTxResult {
+	return TrabajoEvaluacionManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoEvaluacionManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoEvaluacionManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoEvaluacionManyTxResult) IsTx() {}
+
+func (r TrabajoEvaluacionManyTxResult) Result() (v *BatchResult) {
 	if err := r.result.Get(r.query.TxResult, &v); err != nil {
 		panic(err)
 	}
@@ -105509,6 +122889,300 @@ func (r trabajoCientificoVersionUpsertOne) Tx() TrabajoCientificoVersionUniqueTx
 	return v
 }
 
+type trabajoRevisionAsignacionUpsertOne struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionUpsertOne) with()                              {}
+func (r trabajoRevisionAsignacionUpsertOne) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionUpsertOne) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionActions) UpsertOne(
+	params TrabajoRevisionAsignacionEqualsUniqueWhereParam,
+) trabajoRevisionAsignacionUpsertOne {
+	var v trabajoRevisionAsignacionUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "TrabajoRevisionAsignacion"
+	v.query.Outputs = trabajoRevisionAsignacionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionUpsertOne) Create(
+
+	_trabajo TrabajoRevisionAsignacionWithPrismaTrabajoSetParam,
+	_revisor TrabajoRevisionAsignacionWithPrismaRevisorSetParam,
+	_asignador TrabajoRevisionAsignacionWithPrismaAsignadorSetParam,
+
+	optional ...TrabajoRevisionAsignacionSetParam,
+) trabajoRevisionAsignacionUpsertOne {
+	var v trabajoRevisionAsignacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _trabajo.field())
+	fields = append(fields, _revisor.field())
+	fields = append(fields, _asignador.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionUpsertOne) Update(
+	params ...TrabajoRevisionAsignacionSetParam,
+) trabajoRevisionAsignacionUpsertOne {
+	var v trabajoRevisionAsignacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionUpsertOne) CreateOrUpdate(
+
+	_trabajo TrabajoRevisionAsignacionWithPrismaTrabajoSetParam,
+	_revisor TrabajoRevisionAsignacionWithPrismaRevisorSetParam,
+	_asignador TrabajoRevisionAsignacionWithPrismaAsignadorSetParam,
+
+	optional ...TrabajoRevisionAsignacionSetParam,
+) trabajoRevisionAsignacionUpsertOne {
+	var v trabajoRevisionAsignacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _trabajo.field())
+	fields = append(fields, _revisor.field())
+	fields = append(fields, _asignador.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoRevisionAsignacionUpsertOne) Exec(ctx context.Context) (*TrabajoRevisionAsignacionModel, error) {
+	var v TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoRevisionAsignacionUpsertOne) Tx() TrabajoRevisionAsignacionUniqueTxResult {
+	v := newTrabajoRevisionAsignacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoEvaluacionUpsertOne struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionUpsertOne) with()                      {}
+func (r trabajoEvaluacionUpsertOne) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionUpsertOne) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionActions) UpsertOne(
+	params TrabajoEvaluacionEqualsUniqueWhereParam,
+) trabajoEvaluacionUpsertOne {
+	var v trabajoEvaluacionUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "TrabajoEvaluacion"
+	v.query.Outputs = trabajoEvaluacionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoEvaluacionUpsertOne) Create(
+
+	_comentarios TrabajoEvaluacionWithPrismaComentariosSetParam,
+	_trabajo TrabajoEvaluacionWithPrismaTrabajoSetParam,
+	_revisor TrabajoEvaluacionWithPrismaRevisorSetParam,
+
+	optional ...TrabajoEvaluacionSetParam,
+) trabajoEvaluacionUpsertOne {
+	var v trabajoEvaluacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _comentarios.field())
+	fields = append(fields, _trabajo.field())
+	fields = append(fields, _revisor.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoEvaluacionUpsertOne) Update(
+	params ...TrabajoEvaluacionSetParam,
+) trabajoEvaluacionUpsertOne {
+	var v trabajoEvaluacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoEvaluacionUpsertOne) CreateOrUpdate(
+
+	_comentarios TrabajoEvaluacionWithPrismaComentariosSetParam,
+	_trabajo TrabajoEvaluacionWithPrismaTrabajoSetParam,
+	_revisor TrabajoEvaluacionWithPrismaRevisorSetParam,
+
+	optional ...TrabajoEvaluacionSetParam,
+) trabajoEvaluacionUpsertOne {
+	var v trabajoEvaluacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _comentarios.field())
+	fields = append(fields, _trabajo.field())
+	fields = append(fields, _revisor.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoEvaluacionUpsertOne) Exec(ctx context.Context) (*TrabajoEvaluacionModel, error) {
+	var v TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoEvaluacionUpsertOne) Tx() TrabajoEvaluacionUniqueTxResult {
+	v := newTrabajoEvaluacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template raw.gotpl ---
 
 type usuarioAggregateRaw struct {
@@ -107044,6 +124718,168 @@ func (r trabajoCientificoVersionAggregateRaw) Exec(ctx context.Context) ([]Traba
 
 func (r trabajoCientificoVersionAggregateRaw) ExecInner(ctx context.Context) ([]InnerTrabajoCientificoVersion, error) {
 	var v []InnerTrabajoCientificoVersion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type trabajoRevisionAsignacionAggregateRaw struct {
+	query builder.Query
+}
+
+func (r trabajoRevisionAsignacionAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoRevisionAsignacionAggregateRaw) with()                              {}
+func (r trabajoRevisionAsignacionAggregateRaw) trabajoRevisionAsignacionModel()    {}
+func (r trabajoRevisionAsignacionAggregateRaw) trabajoRevisionAsignacionRelation() {}
+
+func (r trabajoRevisionAsignacionActions) FindRaw(filter interface{}, options ...interface{}) trabajoRevisionAsignacionAggregateRaw {
+	var v trabajoRevisionAsignacionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoRevisionAsignacionActions) AggregateRaw(pipeline []interface{}, options ...interface{}) trabajoRevisionAsignacionAggregateRaw {
+	var v trabajoRevisionAsignacionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoRevisionAsignacion"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoRevisionAsignacionAggregateRaw) Exec(ctx context.Context) ([]TrabajoRevisionAsignacionModel, error) {
+	var v []TrabajoRevisionAsignacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r trabajoRevisionAsignacionAggregateRaw) ExecInner(ctx context.Context) ([]InnerTrabajoRevisionAsignacion, error) {
+	var v []InnerTrabajoRevisionAsignacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type trabajoEvaluacionAggregateRaw struct {
+	query builder.Query
+}
+
+func (r trabajoEvaluacionAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoEvaluacionAggregateRaw) with()                      {}
+func (r trabajoEvaluacionAggregateRaw) trabajoEvaluacionModel()    {}
+func (r trabajoEvaluacionAggregateRaw) trabajoEvaluacionRelation() {}
+
+func (r trabajoEvaluacionActions) FindRaw(filter interface{}, options ...interface{}) trabajoEvaluacionAggregateRaw {
+	var v trabajoEvaluacionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoEvaluacion"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoEvaluacionActions) AggregateRaw(pipeline []interface{}, options ...interface{}) trabajoEvaluacionAggregateRaw {
+	var v trabajoEvaluacionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoEvaluacion"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoEvaluacionAggregateRaw) Exec(ctx context.Context) ([]TrabajoEvaluacionModel, error) {
+	var v []TrabajoEvaluacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r trabajoEvaluacionAggregateRaw) ExecInner(ctx context.Context) ([]InnerTrabajoEvaluacion, error) {
+	var v []InnerTrabajoEvaluacion
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}

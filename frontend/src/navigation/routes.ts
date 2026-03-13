@@ -12,4 +12,5 @@ export const ROUTES = {
   inscriptionsAdmin: "/inscriptions/admin",
   inscriptionsReports: "/inscriptions/reports",
   scientificWorks: "/scientific-works",
+  scientificWorksManagement: "/scientific-works-management",
 };

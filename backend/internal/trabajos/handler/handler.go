@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+    "errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -41,6 +42,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         h.compareVersiones(w, r)
     case r.Method == http.MethodGet && path == "archivo":
         h.downloadArchivo(w, r)
+    case r.Method == http.MethodGet && path == "comite":
+        h.listTrabajosComite(w, r)
+    case r.Method == http.MethodGet && path == "revisores":
+        h.listRevisores(w, r)
+    case r.Method == http.MethodPost && path == "comite/asignar-revisores":
+        h.assignReviewers(w, r)
+    case r.Method == http.MethodGet && path == "revisor/asignados":
+        h.listTrabajosRevisor(w, r)
+    case r.Method == http.MethodPost && path == "revisor/evaluar":
+        h.submitEvaluation(w, r)
+    case r.Method == http.MethodGet && path == "comite/evaluaciones":
+        h.listEvaluacionesByTrabajo(w, r)
+    case r.Method == http.MethodPost && path == "comite/decision":
+        h.decideTrabajo(w, r)
     default:
         http.NotFound(w, r)
     }
@@ -273,4 +288,179 @@ func parseVersionRequest(r *http.Request) (dto.AddVersionRequest, dto.UploadedFi
     }
 
     return req, file, nil
+}
+
+func parsePositiveInt(value string) (int, error) {
+    n, err := strconv.Atoi(value)
+    if err != nil || n <= 0 {
+        return 0, errors.New("valor inválido")
+    }
+    return n, nil
+}
+
+func writeServiceError(w http.ResponseWriter, err error) {
+    switch {
+    case errors.Is(err, service.ErrSinAcceso):
+        httperror.WriteJSON(w, http.StatusForbidden, err.Error())
+    case errors.Is(err, service.ErrTrabajoNoExiste):
+        httperror.WriteJSON(w, http.StatusNotFound, err.Error())
+    default:
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+    }
+}
+
+func (h *Handler) listTrabajosComite(w http.ResponseWriter, r *http.Request) {
+    userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+
+    var idEvento int
+    if raw := strings.TrimSpace(r.URL.Query().Get("id_evento")); raw != "" {
+        idEvento, err = parsePositiveInt(raw)
+        if err != nil {
+            httperror.WriteJSON(w, http.StatusBadRequest, "id_evento inválido")
+            return
+        }
+    }
+
+    filter := dto.TrabajoComiteFilter{
+        UserID:   userID,
+        Query:    strings.TrimSpace(r.URL.Query().Get("query")),
+        Autor:    strings.TrimSpace(r.URL.Query().Get("autor")),
+        Estado:   strings.TrimSpace(r.URL.Query().Get("estado")),
+        IDEvento: idEvento,
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    rows, svcErr := h.svc.ListTrabajosComite(ctx, filter)
+    if svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) listRevisores(w http.ResponseWriter, r *http.Request) {
+    userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    rows, svcErr := h.svc.ListRevisores(ctx, userID)
+    if svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) assignReviewers(w http.ResponseWriter, r *http.Request) {
+    var req dto.AssignReviewersRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "json inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    if svcErr := h.svc.AssignReviewers(ctx, req); svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) listTrabajosRevisor(w http.ResponseWriter, r *http.Request) {
+    userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    rows, svcErr := h.svc.ListTrabajosAsignadosRevisor(ctx, userID)
+    if svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) submitEvaluation(w http.ResponseWriter, r *http.Request) {
+    var req dto.SubmitEvaluationRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "json inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    if svcErr := h.svc.SubmitEvaluation(ctx, req); svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) listEvaluacionesByTrabajo(w http.ResponseWriter, r *http.Request) {
+    userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+    trabajoID, err := parsePositiveInt(r.URL.Query().Get("id_trabajo"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "id_trabajo inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    rows, svcErr := h.svc.ListEvaluacionesByTrabajo(ctx, userID, trabajoID)
+    if svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) decideTrabajo(w http.ResponseWriter, r *http.Request) {
+    var req dto.DecisionRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "json inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    if svcErr := h.svc.DecideTrabajo(ctx, req); svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    w.WriteHeader(http.StatusNoContent)
 }

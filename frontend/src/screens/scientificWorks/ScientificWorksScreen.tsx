@@ -7,6 +7,7 @@ import EmptyState from "../../components/ui/EmptyState";
 import ErrorState from "../../components/ui/ErrorState";
 import { useToast } from "../../contexts/Toast/ToastContext";
 import emptyAnimation from "../../assets/animations/empty-animation.json";
+import { getStoredAuthUser } from "../../utils/accessControl";
 import {
   ScientificWorkCompare,
   ScientificWorkItem,
@@ -20,28 +21,12 @@ import {
 } from "../../services/scientificWorkServices";
 import { getEvents, Evento } from "../../services/eventsServices";
 
-type AuthUser = {
-  id: number;
-  name: string;
-  email: string;
-};
-
-function getAuthUser(): AuthUser | null {
-  const raw = localStorage.getItem("auth-user");
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AuthUser;
-  } catch {
-    return null;
-  }
-}
-
 function countWords(value: string): number {
   return value.trim() ? value.trim().split(/\s+/).length : 0;
 }
 
 export default function MyScientificWorksScreen(): JSX.Element {
-  const authUser = getAuthUser();
+  const authUser = getStoredAuthUser();
   const { showToast } = useToast();
 
   const [works, setWorks] = useState<ScientificWorkItem[]>([]);
