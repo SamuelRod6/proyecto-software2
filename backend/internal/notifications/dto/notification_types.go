@@ -8,4 +8,5 @@ const (
 	NotificationTypeRecordatorioPago      = "recordatorio_pago"
 	NotificationTypeAperturaInscripciones = "apertura_inscripciones"
 	NotificationTypeCancelacionEvento     = "cancelacion_evento"
+	NotificationTypeNuevoMensaje          = "nuevo_mensaje"
 )

@@ -2,9 +2,6 @@ export const ROUTES = {
   home: "/",
   login: "/login",
   register: "/register",
-  forgotPassword: "/forgot-password",
-  verifyRecovery: "/forgot-password/verify",
-  resetRecoveredPassword: "/forgot-password/new-password",
   events: "/events",
   eventsManagement: "/events-management",
   eventDetail: (eventId: string = ":eventId"): string => `/events/${eventId}`,
@@ -14,4 +11,6 @@ export const ROUTES = {
   myInscriptions: "/inscriptions/mine",
   inscriptionsAdmin: "/inscriptions/admin",
   inscriptionsReports: "/inscriptions/reports",
+  mensajes: "/mensajes",
+  conversacion: (id: string = ":conversacionId"): string => `/mensajes/${id}`,
 };

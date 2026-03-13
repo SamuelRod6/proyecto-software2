@@ -75,6 +75,18 @@ export default function Sidebar() {
         >
           Mis inscripciones
         </NavLink>
+        <NavLink
+          to={ROUTES.mensajes}
+          className={({ isActive }) =>
+            `rounded-lg px-3 py-2 font-medium transition-colors ${
+              isActive
+                ? "bg-[#F5E427] text-slate-900"
+                : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+            }`
+          }
+        >
+          Mensajes
+        </NavLink>
         {canManageEvents && (
           <NavLink
             to={ROUTES.eventsManagement}

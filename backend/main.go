@@ -8,6 +8,7 @@ import (
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
 	inscripcioneshandler "project/backend/internal/inscripciones/handler"
+	mensajeshandler "project/backend/internal/mensajes/handler"
 	paishandler "project/backend/internal/pais/handler"
 	permissionhandler "project/backend/internal/permissions/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
@@ -57,6 +58,7 @@ func main() {
 	registrationsHandler := registrationhandler.New(prismaClient)
 	notificationHandler := notificationhandler.New(prismaClient)
 	notificationcron.StartCierreInscripcionesScheduler(prismaClient)
+	mensajesHandler := mensajeshandler.New(prismaClient)
 	sesionesHandler := sesioneshandler.New(prismaClient)
 	rolesHandler := rolehandler.New(prismaClient)
 	permissionsHandler := permissionhandler.New(prismaClient)
@@ -65,13 +67,8 @@ func main() {
 	http.HandleFunc("/api/user/assign-roles", userHandler.UpdateUserRolesHandler)
 
 	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
-	http.HandleFunc("/api/auth/register/request-key", authHandler.RequestRegisterTemporaryKeyHandler)
-	http.HandleFunc("/api/auth/register/verify-key", authHandler.VerifyRegisterTemporaryKeyHandler)
 	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)
 	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
-	http.HandleFunc("/api/auth/password-recovery/request", authHandler.RequestPasswordRecoveryHandler)
-	http.HandleFunc("/api/auth/password-recovery/verify", authHandler.VerifyPasswordRecoveryHandler)
-	http.HandleFunc("/api/auth/password-recovery/reset", authHandler.ConfirmPasswordRecoveryHandler)
 	http.HandleFunc("/api/auth/logout", authHandler.LogoutHandler)
 
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
@@ -97,6 +94,12 @@ func main() {
 	http.Handle("/api/registrations/", registrationsHandler)
 	http.Handle("/api/notifications", notificationHandler)
 	http.Handle("/api/notifications/", notificationHandler)
+	http.Handle("/api/mensajes/conversaciones", mensajesHandler)
+	http.Handle("/api/mensajes/conversaciones/", mensajesHandler)
+	http.HandleFunc("/api/mensajes/usuarios/buscar", mensajesHandler.SearchUsuariosHandler)
+	http.HandleFunc("/api/mensajes/adjuntos", mensajesHandler.UploadAdjuntoHandler)
+	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
+
 	http.Handle("/api/paises", paisesHandler)
 	http.Handle("/api/sesiones", sesionesHandler)
 	http.Handle("/api/sesiones/", sesionesHandler)
