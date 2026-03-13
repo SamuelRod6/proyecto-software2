@@ -44,8 +44,8 @@ model Permisos {
 model RolePermisos {
   id_rol     Int
   id_permiso Int
-  permiso    Permisos @relation(fields: [id_permiso], references: [id_permiso])
   rol        Roles    @relation(fields: [id_rol], references: [id_rol])
+  permiso    Permisos @relation(fields: [id_permiso], references: [id_permiso])
 
   @@id([id_rol, id_permiso])
 }
@@ -53,8 +53,8 @@ model RolePermisos {
 model UsuarioRoles {
   id_usuario Int
   id_rol     Int
-  rol        Roles   @relation(fields: [id_rol], references: [id_rol])
   usuario    Usuario @relation(fields: [id_usuario], references: [id_usuario])
+  rol        Roles   @relation(fields: [id_rol], references: [id_rol])
 
   @@id([id_usuario, id_rol])
 }

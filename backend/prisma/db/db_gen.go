@@ -119,8 +119,8 @@ model Permisos {
 model RolePermisos {
   id_rol     Int
   id_permiso Int
-  permiso    Permisos @relation(fields: [id_permiso], references: [id_permiso])
   rol        Roles    @relation(fields: [id_rol], references: [id_rol])
+  permiso    Permisos @relation(fields: [id_permiso], references: [id_permiso])
 
   @@id([id_rol, id_permiso])
 }
@@ -128,8 +128,8 @@ model RolePermisos {
 model UsuarioRoles {
   id_usuario Int
   id_rol     Int
-  rol        Roles   @relation(fields: [id_rol], references: [id_rol])
   usuario    Usuario @relation(fields: [id_usuario], references: [id_usuario])
+  rol        Roles   @relation(fields: [id_rol], references: [id_rol])
 
   @@id([id_usuario, id_rol])
 }
@@ -899,9 +899,9 @@ const rolePermisosFieldIDRol rolePermisosPrismaFields = "id_rol"
 
 const rolePermisosFieldIDPermiso rolePermisosPrismaFields = "id_permiso"
 
-const rolePermisosFieldPermiso rolePermisosPrismaFields = "permiso"
-
 const rolePermisosFieldRol rolePermisosPrismaFields = "rol"
+
+const rolePermisosFieldPermiso rolePermisosPrismaFields = "permiso"
 
 type usuarioRolesPrismaFields = prismaFields
 
@@ -909,9 +909,9 @@ const usuarioRolesFieldIDUsuario usuarioRolesPrismaFields = "id_usuario"
 
 const usuarioRolesFieldIDRol usuarioRolesPrismaFields = "id_rol"
 
-const usuarioRolesFieldRol usuarioRolesPrismaFields = "rol"
-
 const usuarioRolesFieldUsuario usuarioRolesPrismaFields = "usuario"
+
+const usuarioRolesFieldRol usuarioRolesPrismaFields = "rol"
 
 type eventoPrismaFields = prismaFields
 
@@ -2534,15 +2534,8 @@ type RawRolePermisosModel struct {
 
 // RelationsRolePermisos holds the relation data separately
 type RelationsRolePermisos struct {
-	Permiso *PermisosModel `json:"permiso,omitempty"`
 	Rol     *RolesModel    `json:"rol,omitempty"`
-}
-
-func (r RolePermisosModel) Permiso() (value *PermisosModel) {
-	if r.RelationsRolePermisos.Permiso == nil {
-		panic("attempted to access permiso but did not fetch it using the .With() syntax")
-	}
-	return r.RelationsRolePermisos.Permiso
+	Permiso *PermisosModel `json:"permiso,omitempty"`
 }
 
 func (r RolePermisosModel) Rol() (value *RolesModel) {
@@ -2550,6 +2543,13 @@ func (r RolePermisosModel) Rol() (value *RolesModel) {
 		panic("attempted to access rol but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsRolePermisos.Rol
+}
+
+func (r RolePermisosModel) Permiso() (value *PermisosModel) {
+	if r.RelationsRolePermisos.Permiso == nil {
+		panic("attempted to access permiso but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsRolePermisos.Permiso
 }
 
 // UsuarioRolesModel represents the UsuarioRoles model and is a wrapper for accessing fields and methods
@@ -2572,15 +2572,8 @@ type RawUsuarioRolesModel struct {
 
 // RelationsUsuarioRoles holds the relation data separately
 type RelationsUsuarioRoles struct {
-	Rol     *RolesModel   `json:"rol,omitempty"`
 	Usuario *UsuarioModel `json:"usuario,omitempty"`
-}
-
-func (r UsuarioRolesModel) Rol() (value *RolesModel) {
-	if r.RelationsUsuarioRoles.Rol == nil {
-		panic("attempted to access rol but did not fetch it using the .With() syntax")
-	}
-	return r.RelationsUsuarioRoles.Rol
+	Rol     *RolesModel   `json:"rol,omitempty"`
 }
 
 func (r UsuarioRolesModel) Usuario() (value *UsuarioModel) {
@@ -2588,6 +2581,13 @@ func (r UsuarioRolesModel) Usuario() (value *UsuarioModel) {
 		panic("attempted to access usuario but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsUsuarioRoles.Usuario
+}
+
+func (r UsuarioRolesModel) Rol() (value *RolesModel) {
+	if r.RelationsUsuarioRoles.Rol == nil {
+		panic("attempted to access rol but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuarioRoles.Rol
 }
 
 // EventoModel represents the Evento model and is a wrapper for accessing fields and methods
@@ -10011,9 +10011,9 @@ type rolePermisosQuery struct {
 	// @required
 	IDPermiso rolePermisosQueryIDPermisoInt
 
-	Permiso rolePermisosQueryPermisoRelations
-
 	Rol rolePermisosQueryRolRelations
+
+	Permiso rolePermisosQueryPermisoRelations
 }
 
 func (rolePermisosQuery) Not(params ...RolePermisosWhereParam) rolePermisosDefaultParam {
@@ -10884,94 +10884,6 @@ func (r rolePermisosQueryIDPermisoInt) Field() rolePermisosPrismaFields {
 }
 
 // base struct
-type rolePermisosQueryPermisoPermisos struct{}
-
-type rolePermisosQueryPermisoRelations struct{}
-
-// RolePermisos -> Permiso
-//
-// @relation
-// @required
-func (rolePermisosQueryPermisoRelations) Where(
-	params ...PermisosWhereParam,
-) rolePermisosDefaultParam {
-	var fields []builder.Field
-
-	for _, q := range params {
-		fields = append(fields, q.field())
-	}
-
-	return rolePermisosDefaultParam{
-		data: builder.Field{
-			Name: "permiso",
-			Fields: []builder.Field{
-				{
-					Name:   "is",
-					Fields: fields,
-				},
-			},
-		},
-	}
-}
-
-func (rolePermisosQueryPermisoRelations) Fetch() rolePermisosToPermisoFindUnique {
-	var v rolePermisosToPermisoFindUnique
-
-	v.query.Operation = "query"
-	v.query.Method = "permiso"
-	v.query.Outputs = permisosOutput
-
-	return v
-}
-
-func (r rolePermisosQueryPermisoRelations) Link(
-	params PermisosWhereParam,
-) rolePermisosWithPrismaPermisoSetParam {
-	var fields []builder.Field
-
-	f := params.field()
-	if f.Fields == nil && f.Value == nil {
-		return rolePermisosWithPrismaPermisoSetParam{}
-	}
-
-	fields = append(fields, f)
-
-	return rolePermisosWithPrismaPermisoSetParam{
-		data: builder.Field{
-			Name: "permiso",
-			Fields: []builder.Field{
-				{
-					Name:   "connect",
-					Fields: builder.TransformEquals(fields),
-				},
-			},
-		},
-	}
-}
-
-func (r rolePermisosQueryPermisoRelations) Unlink() rolePermisosWithPrismaPermisoSetParam {
-	var v rolePermisosWithPrismaPermisoSetParam
-
-	v = rolePermisosWithPrismaPermisoSetParam{
-		data: builder.Field{
-			Name: "permiso",
-			Fields: []builder.Field{
-				{
-					Name:  "disconnect",
-					Value: true,
-				},
-			},
-		},
-	}
-
-	return v
-}
-
-func (r rolePermisosQueryPermisoPermisos) Field() rolePermisosPrismaFields {
-	return rolePermisosFieldPermiso
-}
-
-// base struct
 type rolePermisosQueryRolRoles struct{}
 
 type rolePermisosQueryRolRelations struct{}
@@ -11059,6 +10971,94 @@ func (r rolePermisosQueryRolRoles) Field() rolePermisosPrismaFields {
 	return rolePermisosFieldRol
 }
 
+// base struct
+type rolePermisosQueryPermisoPermisos struct{}
+
+type rolePermisosQueryPermisoRelations struct{}
+
+// RolePermisos -> Permiso
+//
+// @relation
+// @required
+func (rolePermisosQueryPermisoRelations) Where(
+	params ...PermisosWhereParam,
+) rolePermisosDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return rolePermisosDefaultParam{
+		data: builder.Field{
+			Name: "permiso",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (rolePermisosQueryPermisoRelations) Fetch() rolePermisosToPermisoFindUnique {
+	var v rolePermisosToPermisoFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "permiso"
+	v.query.Outputs = permisosOutput
+
+	return v
+}
+
+func (r rolePermisosQueryPermisoRelations) Link(
+	params PermisosWhereParam,
+) rolePermisosWithPrismaPermisoSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return rolePermisosWithPrismaPermisoSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return rolePermisosWithPrismaPermisoSetParam{
+		data: builder.Field{
+			Name: "permiso",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r rolePermisosQueryPermisoRelations) Unlink() rolePermisosWithPrismaPermisoSetParam {
+	var v rolePermisosWithPrismaPermisoSetParam
+
+	v = rolePermisosWithPrismaPermisoSetParam{
+		data: builder.Field{
+			Name: "permiso",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r rolePermisosQueryPermisoPermisos) Field() rolePermisosPrismaFields {
+	return rolePermisosFieldPermiso
+}
+
 // UsuarioRoles acts as a namespaces to access query methods for the UsuarioRoles model
 var UsuarioRoles = usuarioRolesQuery{}
 
@@ -11075,9 +11075,9 @@ type usuarioRolesQuery struct {
 	// @required
 	IDRol usuarioRolesQueryIDRolInt
 
-	Rol usuarioRolesQueryRolRelations
-
 	Usuario usuarioRolesQueryUsuarioRelations
+
+	Rol usuarioRolesQueryRolRelations
 }
 
 func (usuarioRolesQuery) Not(params ...UsuarioRolesWhereParam) usuarioRolesDefaultParam {
@@ -11948,94 +11948,6 @@ func (r usuarioRolesQueryIDRolInt) Field() usuarioRolesPrismaFields {
 }
 
 // base struct
-type usuarioRolesQueryRolRoles struct{}
-
-type usuarioRolesQueryRolRelations struct{}
-
-// UsuarioRoles -> Rol
-//
-// @relation
-// @required
-func (usuarioRolesQueryRolRelations) Where(
-	params ...RolesWhereParam,
-) usuarioRolesDefaultParam {
-	var fields []builder.Field
-
-	for _, q := range params {
-		fields = append(fields, q.field())
-	}
-
-	return usuarioRolesDefaultParam{
-		data: builder.Field{
-			Name: "rol",
-			Fields: []builder.Field{
-				{
-					Name:   "is",
-					Fields: fields,
-				},
-			},
-		},
-	}
-}
-
-func (usuarioRolesQueryRolRelations) Fetch() usuarioRolesToRolFindUnique {
-	var v usuarioRolesToRolFindUnique
-
-	v.query.Operation = "query"
-	v.query.Method = "rol"
-	v.query.Outputs = rolesOutput
-
-	return v
-}
-
-func (r usuarioRolesQueryRolRelations) Link(
-	params RolesWhereParam,
-) usuarioRolesWithPrismaRolSetParam {
-	var fields []builder.Field
-
-	f := params.field()
-	if f.Fields == nil && f.Value == nil {
-		return usuarioRolesWithPrismaRolSetParam{}
-	}
-
-	fields = append(fields, f)
-
-	return usuarioRolesWithPrismaRolSetParam{
-		data: builder.Field{
-			Name: "rol",
-			Fields: []builder.Field{
-				{
-					Name:   "connect",
-					Fields: builder.TransformEquals(fields),
-				},
-			},
-		},
-	}
-}
-
-func (r usuarioRolesQueryRolRelations) Unlink() usuarioRolesWithPrismaRolSetParam {
-	var v usuarioRolesWithPrismaRolSetParam
-
-	v = usuarioRolesWithPrismaRolSetParam{
-		data: builder.Field{
-			Name: "rol",
-			Fields: []builder.Field{
-				{
-					Name:  "disconnect",
-					Value: true,
-				},
-			},
-		},
-	}
-
-	return v
-}
-
-func (r usuarioRolesQueryRolRoles) Field() usuarioRolesPrismaFields {
-	return usuarioRolesFieldRol
-}
-
-// base struct
 type usuarioRolesQueryUsuarioUsuario struct{}
 
 type usuarioRolesQueryUsuarioRelations struct{}
@@ -12121,6 +12033,94 @@ func (r usuarioRolesQueryUsuarioRelations) Unlink() usuarioRolesWithPrismaUsuari
 
 func (r usuarioRolesQueryUsuarioUsuario) Field() usuarioRolesPrismaFields {
 	return usuarioRolesFieldUsuario
+}
+
+// base struct
+type usuarioRolesQueryRolRoles struct{}
+
+type usuarioRolesQueryRolRelations struct{}
+
+// UsuarioRoles -> Rol
+//
+// @relation
+// @required
+func (usuarioRolesQueryRolRelations) Where(
+	params ...RolesWhereParam,
+) usuarioRolesDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioRolesDefaultParam{
+		data: builder.Field{
+			Name: "rol",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioRolesQueryRolRelations) Fetch() usuarioRolesToRolFindUnique {
+	var v usuarioRolesToRolFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "rol"
+	v.query.Outputs = rolesOutput
+
+	return v
+}
+
+func (r usuarioRolesQueryRolRelations) Link(
+	params RolesWhereParam,
+) usuarioRolesWithPrismaRolSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return usuarioRolesWithPrismaRolSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return usuarioRolesWithPrismaRolSetParam{
+		data: builder.Field{
+			Name: "rol",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioRolesQueryRolRelations) Unlink() usuarioRolesWithPrismaRolSetParam {
+	var v usuarioRolesWithPrismaRolSetParam
+
+	v = usuarioRolesWithPrismaRolSetParam{
+		data: builder.Field{
+			Name: "rol",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioRolesQueryRolRoles) Field() usuarioRolesPrismaFields {
+	return usuarioRolesFieldRol
 }
 
 // Evento acts as a namespaces to access query methods for the Evento model
@@ -64627,84 +64627,6 @@ func (p rolePermisosWithPrismaIDPermisoEqualsUniqueParam) idPermisoField()    {}
 func (rolePermisosWithPrismaIDPermisoEqualsUniqueParam) unique() {}
 func (rolePermisosWithPrismaIDPermisoEqualsUniqueParam) equals() {}
 
-type RolePermisosWithPrismaPermisoEqualsSetParam interface {
-	field() builder.Field
-	getQuery() builder.Query
-	equals()
-	rolePermisosModel()
-	permisoField()
-}
-
-type RolePermisosWithPrismaPermisoSetParam interface {
-	field() builder.Field
-	getQuery() builder.Query
-	rolePermisosModel()
-	permisoField()
-}
-
-type rolePermisosWithPrismaPermisoSetParam struct {
-	data  builder.Field
-	query builder.Query
-}
-
-func (p rolePermisosWithPrismaPermisoSetParam) field() builder.Field {
-	return p.data
-}
-
-func (p rolePermisosWithPrismaPermisoSetParam) getQuery() builder.Query {
-	return p.query
-}
-
-func (p rolePermisosWithPrismaPermisoSetParam) rolePermisosModel() {}
-
-func (p rolePermisosWithPrismaPermisoSetParam) permisoField() {}
-
-type RolePermisosWithPrismaPermisoWhereParam interface {
-	field() builder.Field
-	getQuery() builder.Query
-	rolePermisosModel()
-	permisoField()
-}
-
-type rolePermisosWithPrismaPermisoEqualsParam struct {
-	data  builder.Field
-	query builder.Query
-}
-
-func (p rolePermisosWithPrismaPermisoEqualsParam) field() builder.Field {
-	return p.data
-}
-
-func (p rolePermisosWithPrismaPermisoEqualsParam) getQuery() builder.Query {
-	return p.query
-}
-
-func (p rolePermisosWithPrismaPermisoEqualsParam) rolePermisosModel() {}
-
-func (p rolePermisosWithPrismaPermisoEqualsParam) permisoField() {}
-
-func (rolePermisosWithPrismaPermisoSetParam) settable()  {}
-func (rolePermisosWithPrismaPermisoEqualsParam) equals() {}
-
-type rolePermisosWithPrismaPermisoEqualsUniqueParam struct {
-	data  builder.Field
-	query builder.Query
-}
-
-func (p rolePermisosWithPrismaPermisoEqualsUniqueParam) field() builder.Field {
-	return p.data
-}
-
-func (p rolePermisosWithPrismaPermisoEqualsUniqueParam) getQuery() builder.Query {
-	return p.query
-}
-
-func (p rolePermisosWithPrismaPermisoEqualsUniqueParam) rolePermisosModel() {}
-func (p rolePermisosWithPrismaPermisoEqualsUniqueParam) permisoField()      {}
-
-func (rolePermisosWithPrismaPermisoEqualsUniqueParam) unique() {}
-func (rolePermisosWithPrismaPermisoEqualsUniqueParam) equals() {}
-
 type RolePermisosWithPrismaRolEqualsSetParam interface {
 	field() builder.Field
 	getQuery() builder.Query
@@ -64782,6 +64704,84 @@ func (p rolePermisosWithPrismaRolEqualsUniqueParam) rolField()          {}
 
 func (rolePermisosWithPrismaRolEqualsUniqueParam) unique() {}
 func (rolePermisosWithPrismaRolEqualsUniqueParam) equals() {}
+
+type RolePermisosWithPrismaPermisoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	rolePermisosModel()
+	permisoField()
+}
+
+type RolePermisosWithPrismaPermisoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	rolePermisosModel()
+	permisoField()
+}
+
+type rolePermisosWithPrismaPermisoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p rolePermisosWithPrismaPermisoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p rolePermisosWithPrismaPermisoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p rolePermisosWithPrismaPermisoSetParam) rolePermisosModel() {}
+
+func (p rolePermisosWithPrismaPermisoSetParam) permisoField() {}
+
+type RolePermisosWithPrismaPermisoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	rolePermisosModel()
+	permisoField()
+}
+
+type rolePermisosWithPrismaPermisoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p rolePermisosWithPrismaPermisoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p rolePermisosWithPrismaPermisoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p rolePermisosWithPrismaPermisoEqualsParam) rolePermisosModel() {}
+
+func (p rolePermisosWithPrismaPermisoEqualsParam) permisoField() {}
+
+func (rolePermisosWithPrismaPermisoSetParam) settable()  {}
+func (rolePermisosWithPrismaPermisoEqualsParam) equals() {}
+
+type rolePermisosWithPrismaPermisoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p rolePermisosWithPrismaPermisoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p rolePermisosWithPrismaPermisoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p rolePermisosWithPrismaPermisoEqualsUniqueParam) rolePermisosModel() {}
+func (p rolePermisosWithPrismaPermisoEqualsUniqueParam) permisoField()      {}
+
+func (rolePermisosWithPrismaPermisoEqualsUniqueParam) unique() {}
+func (rolePermisosWithPrismaPermisoEqualsUniqueParam) equals() {}
 
 type usuarioRolesActions struct {
 	// client holds the prisma client
@@ -65113,84 +65113,6 @@ func (p usuarioRolesWithPrismaIDRolEqualsUniqueParam) idRolField()        {}
 func (usuarioRolesWithPrismaIDRolEqualsUniqueParam) unique() {}
 func (usuarioRolesWithPrismaIDRolEqualsUniqueParam) equals() {}
 
-type UsuarioRolesWithPrismaRolEqualsSetParam interface {
-	field() builder.Field
-	getQuery() builder.Query
-	equals()
-	usuarioRolesModel()
-	rolField()
-}
-
-type UsuarioRolesWithPrismaRolSetParam interface {
-	field() builder.Field
-	getQuery() builder.Query
-	usuarioRolesModel()
-	rolField()
-}
-
-type usuarioRolesWithPrismaRolSetParam struct {
-	data  builder.Field
-	query builder.Query
-}
-
-func (p usuarioRolesWithPrismaRolSetParam) field() builder.Field {
-	return p.data
-}
-
-func (p usuarioRolesWithPrismaRolSetParam) getQuery() builder.Query {
-	return p.query
-}
-
-func (p usuarioRolesWithPrismaRolSetParam) usuarioRolesModel() {}
-
-func (p usuarioRolesWithPrismaRolSetParam) rolField() {}
-
-type UsuarioRolesWithPrismaRolWhereParam interface {
-	field() builder.Field
-	getQuery() builder.Query
-	usuarioRolesModel()
-	rolField()
-}
-
-type usuarioRolesWithPrismaRolEqualsParam struct {
-	data  builder.Field
-	query builder.Query
-}
-
-func (p usuarioRolesWithPrismaRolEqualsParam) field() builder.Field {
-	return p.data
-}
-
-func (p usuarioRolesWithPrismaRolEqualsParam) getQuery() builder.Query {
-	return p.query
-}
-
-func (p usuarioRolesWithPrismaRolEqualsParam) usuarioRolesModel() {}
-
-func (p usuarioRolesWithPrismaRolEqualsParam) rolField() {}
-
-func (usuarioRolesWithPrismaRolSetParam) settable()  {}
-func (usuarioRolesWithPrismaRolEqualsParam) equals() {}
-
-type usuarioRolesWithPrismaRolEqualsUniqueParam struct {
-	data  builder.Field
-	query builder.Query
-}
-
-func (p usuarioRolesWithPrismaRolEqualsUniqueParam) field() builder.Field {
-	return p.data
-}
-
-func (p usuarioRolesWithPrismaRolEqualsUniqueParam) getQuery() builder.Query {
-	return p.query
-}
-
-func (p usuarioRolesWithPrismaRolEqualsUniqueParam) usuarioRolesModel() {}
-func (p usuarioRolesWithPrismaRolEqualsUniqueParam) rolField()          {}
-
-func (usuarioRolesWithPrismaRolEqualsUniqueParam) unique() {}
-func (usuarioRolesWithPrismaRolEqualsUniqueParam) equals() {}
-
 type UsuarioRolesWithPrismaUsuarioEqualsSetParam interface {
 	field() builder.Field
 	getQuery() builder.Query
@@ -65268,6 +65190,84 @@ func (p usuarioRolesWithPrismaUsuarioEqualsUniqueParam) usuarioField()      {}
 
 func (usuarioRolesWithPrismaUsuarioEqualsUniqueParam) unique() {}
 func (usuarioRolesWithPrismaUsuarioEqualsUniqueParam) equals() {}
+
+type UsuarioRolesWithPrismaRolEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioRolesModel()
+	rolField()
+}
+
+type UsuarioRolesWithPrismaRolSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioRolesModel()
+	rolField()
+}
+
+type usuarioRolesWithPrismaRolSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioRolesWithPrismaRolSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioRolesWithPrismaRolSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioRolesWithPrismaRolSetParam) usuarioRolesModel() {}
+
+func (p usuarioRolesWithPrismaRolSetParam) rolField() {}
+
+type UsuarioRolesWithPrismaRolWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioRolesModel()
+	rolField()
+}
+
+type usuarioRolesWithPrismaRolEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioRolesWithPrismaRolEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioRolesWithPrismaRolEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioRolesWithPrismaRolEqualsParam) usuarioRolesModel() {}
+
+func (p usuarioRolesWithPrismaRolEqualsParam) rolField() {}
+
+func (usuarioRolesWithPrismaRolSetParam) settable()  {}
+func (usuarioRolesWithPrismaRolEqualsParam) equals() {}
+
+type usuarioRolesWithPrismaRolEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioRolesWithPrismaRolEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioRolesWithPrismaRolEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioRolesWithPrismaRolEqualsUniqueParam) usuarioRolesModel() {}
+func (p usuarioRolesWithPrismaRolEqualsUniqueParam) rolField()          {}
+
+func (usuarioRolesWithPrismaRolEqualsUniqueParam) unique() {}
+func (usuarioRolesWithPrismaRolEqualsUniqueParam) equals() {}
 
 type eventoActions struct {
 	// client holds the prisma client
@@ -80998,8 +80998,8 @@ func (r permisosCreateOne) Tx() PermisosUniqueTxResult {
 
 // Creates a single rolePermisos.
 func (r rolePermisosActions) CreateOne(
-	_permiso RolePermisosWithPrismaPermisoSetParam,
 	_rol RolePermisosWithPrismaRolSetParam,
+	_permiso RolePermisosWithPrismaPermisoSetParam,
 
 	optional ...RolePermisosSetParam,
 ) rolePermisosCreateOne {
@@ -81014,8 +81014,8 @@ func (r rolePermisosActions) CreateOne(
 
 	var fields []builder.Field
 
-	fields = append(fields, _permiso.field())
 	fields = append(fields, _rol.field())
+	fields = append(fields, _permiso.field())
 
 	for _, q := range optional {
 		fields = append(fields, q.field())
@@ -81068,8 +81068,8 @@ func (r rolePermisosCreateOne) Tx() RolePermisosUniqueTxResult {
 
 // Creates a single usuarioRoles.
 func (r usuarioRolesActions) CreateOne(
-	_rol UsuarioRolesWithPrismaRolSetParam,
 	_usuario UsuarioRolesWithPrismaUsuarioSetParam,
+	_rol UsuarioRolesWithPrismaRolSetParam,
 
 	optional ...UsuarioRolesSetParam,
 ) usuarioRolesCreateOne {
@@ -81084,8 +81084,8 @@ func (r usuarioRolesActions) CreateOne(
 
 	var fields []builder.Field
 
-	fields = append(fields, _rol.field())
 	fields = append(fields, _usuario.field())
+	fields = append(fields, _rol.field())
 
 	for _, q := range optional {
 		fields = append(fields, q.field())
@@ -90988,560 +90988,6 @@ func (r permisosDeleteMany) Tx() PermisosManyTxResult {
 	return v
 }
 
-type rolePermisosToPermisoFindUnique struct {
-	query builder.Query
-}
-
-func (r rolePermisosToPermisoFindUnique) getQuery() builder.Query {
-	return r.query
-}
-
-func (r rolePermisosToPermisoFindUnique) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r rolePermisosToPermisoFindUnique) with()                 {}
-func (r rolePermisosToPermisoFindUnique) rolePermisosModel()    {}
-func (r rolePermisosToPermisoFindUnique) rolePermisosRelation() {}
-
-func (r rolePermisosToPermisoFindUnique) With(params ...PermisosRelationWith) rolePermisosToPermisoFindUnique {
-	for _, q := range params {
-		query := q.getQuery()
-		r.query.Outputs = append(r.query.Outputs, builder.Output{
-			Name:    query.Method,
-			Inputs:  query.Inputs,
-			Outputs: query.Outputs,
-		})
-	}
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindUnique) Select(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindUnique {
-	var outputs []builder.Output
-
-	for _, param := range params {
-		outputs = append(outputs, builder.Output{
-			Name: string(param),
-		})
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindUnique) Omit(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindUnique {
-	var outputs []builder.Output
-
-	var raw []string
-	for _, param := range params {
-		raw = append(raw, string(param))
-	}
-
-	for _, output := range rolePermisosOutput {
-		if !slices.Contains(raw, output.Name) {
-			outputs = append(outputs, output)
-		}
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindUnique) Exec(ctx context.Context) (
-	*RolePermisosModel,
-	error,
-) {
-	var v *RolePermisosModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	if v == nil {
-		return nil, ErrNotFound
-	}
-
-	return v, nil
-}
-
-func (r rolePermisosToPermisoFindUnique) ExecInner(ctx context.Context) (
-	*InnerRolePermisos,
-	error,
-) {
-	var v *InnerRolePermisos
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	if v == nil {
-		return nil, ErrNotFound
-	}
-
-	return v, nil
-}
-
-func (r rolePermisosToPermisoFindUnique) Update(params ...RolePermisosSetParam) rolePermisosToPermisoUpdateUnique {
-	r.query.Operation = "mutation"
-	r.query.Method = "updateOne"
-	r.query.Model = "RolePermisos"
-
-	var v rolePermisosToPermisoUpdateUnique
-	v.query = r.query
-	var fields []builder.Field
-	for _, q := range params {
-
-		field := q.field()
-
-		_, isJson := field.Value.(types.JSON)
-		if field.Value != nil && !isJson {
-			v := field.Value
-			field.Fields = []builder.Field{
-				{
-					Name:  "set",
-					Value: v,
-				},
-			}
-
-			field.Value = nil
-		}
-
-		fields = append(fields, field)
-	}
-	v.query.Inputs = append(v.query.Inputs, builder.Input{
-		Name:   "data",
-		Fields: fields,
-	})
-	return v
-}
-
-type rolePermisosToPermisoUpdateUnique struct {
-	query builder.Query
-}
-
-func (r rolePermisosToPermisoUpdateUnique) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r rolePermisosToPermisoUpdateUnique) rolePermisosModel() {}
-
-func (r rolePermisosToPermisoUpdateUnique) Exec(ctx context.Context) (*RolePermisosModel, error) {
-	var v RolePermisosModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r rolePermisosToPermisoUpdateUnique) Tx() RolePermisosUniqueTxResult {
-	v := newRolePermisosUniqueTxResult()
-	v.query = r.query
-	v.query.TxResult = make(chan []byte, 1)
-	return v
-}
-
-func (r rolePermisosToPermisoFindUnique) Delete() rolePermisosToPermisoDeleteUnique {
-	var v rolePermisosToPermisoDeleteUnique
-	v.query = r.query
-	v.query.Operation = "mutation"
-	v.query.Method = "deleteOne"
-	v.query.Model = "RolePermisos"
-
-	return v
-}
-
-type rolePermisosToPermisoDeleteUnique struct {
-	query builder.Query
-}
-
-func (r rolePermisosToPermisoDeleteUnique) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (p rolePermisosToPermisoDeleteUnique) rolePermisosModel() {}
-
-func (r rolePermisosToPermisoDeleteUnique) Exec(ctx context.Context) (*RolePermisosModel, error) {
-	var v RolePermisosModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r rolePermisosToPermisoDeleteUnique) Tx() RolePermisosUniqueTxResult {
-	v := newRolePermisosUniqueTxResult()
-	v.query = r.query
-	v.query.TxResult = make(chan []byte, 1)
-	return v
-}
-
-type rolePermisosToPermisoFindFirst struct {
-	query builder.Query
-}
-
-func (r rolePermisosToPermisoFindFirst) getQuery() builder.Query {
-	return r.query
-}
-
-func (r rolePermisosToPermisoFindFirst) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r rolePermisosToPermisoFindFirst) with()                 {}
-func (r rolePermisosToPermisoFindFirst) rolePermisosModel()    {}
-func (r rolePermisosToPermisoFindFirst) rolePermisosRelation() {}
-
-func (r rolePermisosToPermisoFindFirst) With(params ...PermisosRelationWith) rolePermisosToPermisoFindFirst {
-	for _, q := range params {
-		query := q.getQuery()
-		r.query.Outputs = append(r.query.Outputs, builder.Output{
-			Name:    query.Method,
-			Inputs:  query.Inputs,
-			Outputs: query.Outputs,
-		})
-	}
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindFirst) Select(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindFirst {
-	var outputs []builder.Output
-
-	for _, param := range params {
-		outputs = append(outputs, builder.Output{
-			Name: string(param),
-		})
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindFirst) Omit(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindFirst {
-	var outputs []builder.Output
-
-	var raw []string
-	for _, param := range params {
-		raw = append(raw, string(param))
-	}
-
-	for _, output := range rolePermisosOutput {
-		if !slices.Contains(raw, output.Name) {
-			outputs = append(outputs, output)
-		}
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindFirst) OrderBy(params ...PermisosOrderByParam) rolePermisosToPermisoFindFirst {
-	var fields []builder.Field
-
-	for _, param := range params {
-		fields = append(fields, builder.Field{
-			Name:   param.field().Name,
-			Value:  param.field().Value,
-			Fields: param.field().Fields,
-		})
-	}
-
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:     "orderBy",
-		Fields:   fields,
-		WrapList: true,
-	})
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindFirst) Skip(count int) rolePermisosToPermisoFindFirst {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:  "skip",
-		Value: count,
-	})
-	return r
-}
-
-func (r rolePermisosToPermisoFindFirst) Take(count int) rolePermisosToPermisoFindFirst {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:  "take",
-		Value: count,
-	})
-	return r
-}
-
-func (r rolePermisosToPermisoFindFirst) Cursor(cursor RolePermisosCursorParam) rolePermisosToPermisoFindFirst {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:   "cursor",
-		Fields: []builder.Field{cursor.field()},
-	})
-	return r
-}
-
-func (r rolePermisosToPermisoFindFirst) Exec(ctx context.Context) (
-	*RolePermisosModel,
-	error,
-) {
-	var v *RolePermisosModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	if v == nil {
-		return nil, ErrNotFound
-	}
-
-	return v, nil
-}
-
-func (r rolePermisosToPermisoFindFirst) ExecInner(ctx context.Context) (
-	*InnerRolePermisos,
-	error,
-) {
-	var v *InnerRolePermisos
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	if v == nil {
-		return nil, ErrNotFound
-	}
-
-	return v, nil
-}
-
-type rolePermisosToPermisoFindMany struct {
-	query builder.Query
-}
-
-func (r rolePermisosToPermisoFindMany) getQuery() builder.Query {
-	return r.query
-}
-
-func (r rolePermisosToPermisoFindMany) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r rolePermisosToPermisoFindMany) with()                 {}
-func (r rolePermisosToPermisoFindMany) rolePermisosModel()    {}
-func (r rolePermisosToPermisoFindMany) rolePermisosRelation() {}
-
-func (r rolePermisosToPermisoFindMany) With(params ...PermisosRelationWith) rolePermisosToPermisoFindMany {
-	for _, q := range params {
-		query := q.getQuery()
-		r.query.Outputs = append(r.query.Outputs, builder.Output{
-			Name:    query.Method,
-			Inputs:  query.Inputs,
-			Outputs: query.Outputs,
-		})
-	}
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindMany) Select(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindMany {
-	var outputs []builder.Output
-
-	for _, param := range params {
-		outputs = append(outputs, builder.Output{
-			Name: string(param),
-		})
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindMany) Omit(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindMany {
-	var outputs []builder.Output
-
-	var raw []string
-	for _, param := range params {
-		raw = append(raw, string(param))
-	}
-
-	for _, output := range rolePermisosOutput {
-		if !slices.Contains(raw, output.Name) {
-			outputs = append(outputs, output)
-		}
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindMany) OrderBy(params ...PermisosOrderByParam) rolePermisosToPermisoFindMany {
-	var fields []builder.Field
-
-	for _, param := range params {
-		fields = append(fields, builder.Field{
-			Name:   param.field().Name,
-			Value:  param.field().Value,
-			Fields: param.field().Fields,
-		})
-	}
-
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:     "orderBy",
-		Fields:   fields,
-		WrapList: true,
-	})
-
-	return r
-}
-
-func (r rolePermisosToPermisoFindMany) Skip(count int) rolePermisosToPermisoFindMany {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:  "skip",
-		Value: count,
-	})
-	return r
-}
-
-func (r rolePermisosToPermisoFindMany) Take(count int) rolePermisosToPermisoFindMany {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:  "take",
-		Value: count,
-	})
-	return r
-}
-
-func (r rolePermisosToPermisoFindMany) Cursor(cursor RolePermisosCursorParam) rolePermisosToPermisoFindMany {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:   "cursor",
-		Fields: []builder.Field{cursor.field()},
-	})
-	return r
-}
-
-func (r rolePermisosToPermisoFindMany) Exec(ctx context.Context) (
-	[]RolePermisosModel,
-	error,
-) {
-	var v []RolePermisosModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-func (r rolePermisosToPermisoFindMany) ExecInner(ctx context.Context) (
-	[]InnerRolePermisos,
-	error,
-) {
-	var v []InnerRolePermisos
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-func (r rolePermisosToPermisoFindMany) Update(params ...RolePermisosSetParam) rolePermisosToPermisoUpdateMany {
-	r.query.Operation = "mutation"
-	r.query.Method = "updateMany"
-	r.query.Model = "RolePermisos"
-
-	r.query.Outputs = countOutput
-
-	var v rolePermisosToPermisoUpdateMany
-	v.query = r.query
-	var fields []builder.Field
-	for _, q := range params {
-
-		field := q.field()
-
-		_, isJson := field.Value.(types.JSON)
-		if field.Value != nil && !isJson {
-			v := field.Value
-			field.Fields = []builder.Field{
-				{
-					Name:  "set",
-					Value: v,
-				},
-			}
-
-			field.Value = nil
-		}
-
-		fields = append(fields, field)
-	}
-	v.query.Inputs = append(v.query.Inputs, builder.Input{
-		Name:   "data",
-		Fields: fields,
-	})
-	return v
-}
-
-type rolePermisosToPermisoUpdateMany struct {
-	query builder.Query
-}
-
-func (r rolePermisosToPermisoUpdateMany) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r rolePermisosToPermisoUpdateMany) rolePermisosModel() {}
-
-func (r rolePermisosToPermisoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
-	var v BatchResult
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r rolePermisosToPermisoUpdateMany) Tx() RolePermisosManyTxResult {
-	v := newRolePermisosManyTxResult()
-	v.query = r.query
-	v.query.TxResult = make(chan []byte, 1)
-	return v
-}
-
-func (r rolePermisosToPermisoFindMany) Delete() rolePermisosToPermisoDeleteMany {
-	var v rolePermisosToPermisoDeleteMany
-	v.query = r.query
-	v.query.Operation = "mutation"
-	v.query.Method = "deleteMany"
-	v.query.Model = "RolePermisos"
-
-	v.query.Outputs = countOutput
-
-	return v
-}
-
-type rolePermisosToPermisoDeleteMany struct {
-	query builder.Query
-}
-
-func (r rolePermisosToPermisoDeleteMany) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (p rolePermisosToPermisoDeleteMany) rolePermisosModel() {}
-
-func (r rolePermisosToPermisoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
-	var v BatchResult
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r rolePermisosToPermisoDeleteMany) Tx() RolePermisosManyTxResult {
-	v := newRolePermisosManyTxResult()
-	v.query = r.query
-	v.query.TxResult = make(chan []byte, 1)
-	return v
-}
-
 type rolePermisosToRolFindUnique struct {
 	query builder.Query
 }
@@ -92090,6 +91536,560 @@ func (r rolePermisosToRolDeleteMany) Exec(ctx context.Context) (*BatchResult, er
 }
 
 func (r rolePermisosToRolDeleteMany) Tx() RolePermisosManyTxResult {
+	v := newRolePermisosManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type rolePermisosToPermisoFindUnique struct {
+	query builder.Query
+}
+
+func (r rolePermisosToPermisoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r rolePermisosToPermisoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r rolePermisosToPermisoFindUnique) with()                 {}
+func (r rolePermisosToPermisoFindUnique) rolePermisosModel()    {}
+func (r rolePermisosToPermisoFindUnique) rolePermisosRelation() {}
+
+func (r rolePermisosToPermisoFindUnique) With(params ...PermisosRelationWith) rolePermisosToPermisoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindUnique) Select(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindUnique) Omit(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range rolePermisosOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindUnique) Exec(ctx context.Context) (
+	*RolePermisosModel,
+	error,
+) {
+	var v *RolePermisosModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r rolePermisosToPermisoFindUnique) ExecInner(ctx context.Context) (
+	*InnerRolePermisos,
+	error,
+) {
+	var v *InnerRolePermisos
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r rolePermisosToPermisoFindUnique) Update(params ...RolePermisosSetParam) rolePermisosToPermisoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "RolePermisos"
+
+	var v rolePermisosToPermisoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type rolePermisosToPermisoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r rolePermisosToPermisoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r rolePermisosToPermisoUpdateUnique) rolePermisosModel() {}
+
+func (r rolePermisosToPermisoUpdateUnique) Exec(ctx context.Context) (*RolePermisosModel, error) {
+	var v RolePermisosModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r rolePermisosToPermisoUpdateUnique) Tx() RolePermisosUniqueTxResult {
+	v := newRolePermisosUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r rolePermisosToPermisoFindUnique) Delete() rolePermisosToPermisoDeleteUnique {
+	var v rolePermisosToPermisoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "RolePermisos"
+
+	return v
+}
+
+type rolePermisosToPermisoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r rolePermisosToPermisoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p rolePermisosToPermisoDeleteUnique) rolePermisosModel() {}
+
+func (r rolePermisosToPermisoDeleteUnique) Exec(ctx context.Context) (*RolePermisosModel, error) {
+	var v RolePermisosModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r rolePermisosToPermisoDeleteUnique) Tx() RolePermisosUniqueTxResult {
+	v := newRolePermisosUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type rolePermisosToPermisoFindFirst struct {
+	query builder.Query
+}
+
+func (r rolePermisosToPermisoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r rolePermisosToPermisoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r rolePermisosToPermisoFindFirst) with()                 {}
+func (r rolePermisosToPermisoFindFirst) rolePermisosModel()    {}
+func (r rolePermisosToPermisoFindFirst) rolePermisosRelation() {}
+
+func (r rolePermisosToPermisoFindFirst) With(params ...PermisosRelationWith) rolePermisosToPermisoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindFirst) Select(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindFirst) Omit(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range rolePermisosOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindFirst) OrderBy(params ...PermisosOrderByParam) rolePermisosToPermisoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindFirst) Skip(count int) rolePermisosToPermisoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r rolePermisosToPermisoFindFirst) Take(count int) rolePermisosToPermisoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r rolePermisosToPermisoFindFirst) Cursor(cursor RolePermisosCursorParam) rolePermisosToPermisoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r rolePermisosToPermisoFindFirst) Exec(ctx context.Context) (
+	*RolePermisosModel,
+	error,
+) {
+	var v *RolePermisosModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r rolePermisosToPermisoFindFirst) ExecInner(ctx context.Context) (
+	*InnerRolePermisos,
+	error,
+) {
+	var v *InnerRolePermisos
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type rolePermisosToPermisoFindMany struct {
+	query builder.Query
+}
+
+func (r rolePermisosToPermisoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r rolePermisosToPermisoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r rolePermisosToPermisoFindMany) with()                 {}
+func (r rolePermisosToPermisoFindMany) rolePermisosModel()    {}
+func (r rolePermisosToPermisoFindMany) rolePermisosRelation() {}
+
+func (r rolePermisosToPermisoFindMany) With(params ...PermisosRelationWith) rolePermisosToPermisoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindMany) Select(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindMany) Omit(params ...rolePermisosPrismaFields) rolePermisosToPermisoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range rolePermisosOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindMany) OrderBy(params ...PermisosOrderByParam) rolePermisosToPermisoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r rolePermisosToPermisoFindMany) Skip(count int) rolePermisosToPermisoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r rolePermisosToPermisoFindMany) Take(count int) rolePermisosToPermisoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r rolePermisosToPermisoFindMany) Cursor(cursor RolePermisosCursorParam) rolePermisosToPermisoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r rolePermisosToPermisoFindMany) Exec(ctx context.Context) (
+	[]RolePermisosModel,
+	error,
+) {
+	var v []RolePermisosModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r rolePermisosToPermisoFindMany) ExecInner(ctx context.Context) (
+	[]InnerRolePermisos,
+	error,
+) {
+	var v []InnerRolePermisos
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r rolePermisosToPermisoFindMany) Update(params ...RolePermisosSetParam) rolePermisosToPermisoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "RolePermisos"
+
+	r.query.Outputs = countOutput
+
+	var v rolePermisosToPermisoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type rolePermisosToPermisoUpdateMany struct {
+	query builder.Query
+}
+
+func (r rolePermisosToPermisoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r rolePermisosToPermisoUpdateMany) rolePermisosModel() {}
+
+func (r rolePermisosToPermisoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r rolePermisosToPermisoUpdateMany) Tx() RolePermisosManyTxResult {
+	v := newRolePermisosManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r rolePermisosToPermisoFindMany) Delete() rolePermisosToPermisoDeleteMany {
+	var v rolePermisosToPermisoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "RolePermisos"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type rolePermisosToPermisoDeleteMany struct {
+	query builder.Query
+}
+
+func (r rolePermisosToPermisoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p rolePermisosToPermisoDeleteMany) rolePermisosModel() {}
+
+func (r rolePermisosToPermisoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r rolePermisosToPermisoDeleteMany) Tx() RolePermisosManyTxResult {
 	v := newRolePermisosManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -92746,560 +92746,6 @@ func (r rolePermisosDeleteMany) Tx() RolePermisosManyTxResult {
 	return v
 }
 
-type usuarioRolesToRolFindUnique struct {
-	query builder.Query
-}
-
-func (r usuarioRolesToRolFindUnique) getQuery() builder.Query {
-	return r.query
-}
-
-func (r usuarioRolesToRolFindUnique) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r usuarioRolesToRolFindUnique) with()                 {}
-func (r usuarioRolesToRolFindUnique) usuarioRolesModel()    {}
-func (r usuarioRolesToRolFindUnique) usuarioRolesRelation() {}
-
-func (r usuarioRolesToRolFindUnique) With(params ...RolesRelationWith) usuarioRolesToRolFindUnique {
-	for _, q := range params {
-		query := q.getQuery()
-		r.query.Outputs = append(r.query.Outputs, builder.Output{
-			Name:    query.Method,
-			Inputs:  query.Inputs,
-			Outputs: query.Outputs,
-		})
-	}
-
-	return r
-}
-
-func (r usuarioRolesToRolFindUnique) Select(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindUnique {
-	var outputs []builder.Output
-
-	for _, param := range params {
-		outputs = append(outputs, builder.Output{
-			Name: string(param),
-		})
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r usuarioRolesToRolFindUnique) Omit(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindUnique {
-	var outputs []builder.Output
-
-	var raw []string
-	for _, param := range params {
-		raw = append(raw, string(param))
-	}
-
-	for _, output := range usuarioRolesOutput {
-		if !slices.Contains(raw, output.Name) {
-			outputs = append(outputs, output)
-		}
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r usuarioRolesToRolFindUnique) Exec(ctx context.Context) (
-	*UsuarioRolesModel,
-	error,
-) {
-	var v *UsuarioRolesModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	if v == nil {
-		return nil, ErrNotFound
-	}
-
-	return v, nil
-}
-
-func (r usuarioRolesToRolFindUnique) ExecInner(ctx context.Context) (
-	*InnerUsuarioRoles,
-	error,
-) {
-	var v *InnerUsuarioRoles
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	if v == nil {
-		return nil, ErrNotFound
-	}
-
-	return v, nil
-}
-
-func (r usuarioRolesToRolFindUnique) Update(params ...UsuarioRolesSetParam) usuarioRolesToRolUpdateUnique {
-	r.query.Operation = "mutation"
-	r.query.Method = "updateOne"
-	r.query.Model = "UsuarioRoles"
-
-	var v usuarioRolesToRolUpdateUnique
-	v.query = r.query
-	var fields []builder.Field
-	for _, q := range params {
-
-		field := q.field()
-
-		_, isJson := field.Value.(types.JSON)
-		if field.Value != nil && !isJson {
-			v := field.Value
-			field.Fields = []builder.Field{
-				{
-					Name:  "set",
-					Value: v,
-				},
-			}
-
-			field.Value = nil
-		}
-
-		fields = append(fields, field)
-	}
-	v.query.Inputs = append(v.query.Inputs, builder.Input{
-		Name:   "data",
-		Fields: fields,
-	})
-	return v
-}
-
-type usuarioRolesToRolUpdateUnique struct {
-	query builder.Query
-}
-
-func (r usuarioRolesToRolUpdateUnique) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r usuarioRolesToRolUpdateUnique) usuarioRolesModel() {}
-
-func (r usuarioRolesToRolUpdateUnique) Exec(ctx context.Context) (*UsuarioRolesModel, error) {
-	var v UsuarioRolesModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r usuarioRolesToRolUpdateUnique) Tx() UsuarioRolesUniqueTxResult {
-	v := newUsuarioRolesUniqueTxResult()
-	v.query = r.query
-	v.query.TxResult = make(chan []byte, 1)
-	return v
-}
-
-func (r usuarioRolesToRolFindUnique) Delete() usuarioRolesToRolDeleteUnique {
-	var v usuarioRolesToRolDeleteUnique
-	v.query = r.query
-	v.query.Operation = "mutation"
-	v.query.Method = "deleteOne"
-	v.query.Model = "UsuarioRoles"
-
-	return v
-}
-
-type usuarioRolesToRolDeleteUnique struct {
-	query builder.Query
-}
-
-func (r usuarioRolesToRolDeleteUnique) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (p usuarioRolesToRolDeleteUnique) usuarioRolesModel() {}
-
-func (r usuarioRolesToRolDeleteUnique) Exec(ctx context.Context) (*UsuarioRolesModel, error) {
-	var v UsuarioRolesModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r usuarioRolesToRolDeleteUnique) Tx() UsuarioRolesUniqueTxResult {
-	v := newUsuarioRolesUniqueTxResult()
-	v.query = r.query
-	v.query.TxResult = make(chan []byte, 1)
-	return v
-}
-
-type usuarioRolesToRolFindFirst struct {
-	query builder.Query
-}
-
-func (r usuarioRolesToRolFindFirst) getQuery() builder.Query {
-	return r.query
-}
-
-func (r usuarioRolesToRolFindFirst) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r usuarioRolesToRolFindFirst) with()                 {}
-func (r usuarioRolesToRolFindFirst) usuarioRolesModel()    {}
-func (r usuarioRolesToRolFindFirst) usuarioRolesRelation() {}
-
-func (r usuarioRolesToRolFindFirst) With(params ...RolesRelationWith) usuarioRolesToRolFindFirst {
-	for _, q := range params {
-		query := q.getQuery()
-		r.query.Outputs = append(r.query.Outputs, builder.Output{
-			Name:    query.Method,
-			Inputs:  query.Inputs,
-			Outputs: query.Outputs,
-		})
-	}
-
-	return r
-}
-
-func (r usuarioRolesToRolFindFirst) Select(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindFirst {
-	var outputs []builder.Output
-
-	for _, param := range params {
-		outputs = append(outputs, builder.Output{
-			Name: string(param),
-		})
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r usuarioRolesToRolFindFirst) Omit(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindFirst {
-	var outputs []builder.Output
-
-	var raw []string
-	for _, param := range params {
-		raw = append(raw, string(param))
-	}
-
-	for _, output := range usuarioRolesOutput {
-		if !slices.Contains(raw, output.Name) {
-			outputs = append(outputs, output)
-		}
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r usuarioRolesToRolFindFirst) OrderBy(params ...RolesOrderByParam) usuarioRolesToRolFindFirst {
-	var fields []builder.Field
-
-	for _, param := range params {
-		fields = append(fields, builder.Field{
-			Name:   param.field().Name,
-			Value:  param.field().Value,
-			Fields: param.field().Fields,
-		})
-	}
-
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:     "orderBy",
-		Fields:   fields,
-		WrapList: true,
-	})
-
-	return r
-}
-
-func (r usuarioRolesToRolFindFirst) Skip(count int) usuarioRolesToRolFindFirst {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:  "skip",
-		Value: count,
-	})
-	return r
-}
-
-func (r usuarioRolesToRolFindFirst) Take(count int) usuarioRolesToRolFindFirst {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:  "take",
-		Value: count,
-	})
-	return r
-}
-
-func (r usuarioRolesToRolFindFirst) Cursor(cursor UsuarioRolesCursorParam) usuarioRolesToRolFindFirst {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:   "cursor",
-		Fields: []builder.Field{cursor.field()},
-	})
-	return r
-}
-
-func (r usuarioRolesToRolFindFirst) Exec(ctx context.Context) (
-	*UsuarioRolesModel,
-	error,
-) {
-	var v *UsuarioRolesModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	if v == nil {
-		return nil, ErrNotFound
-	}
-
-	return v, nil
-}
-
-func (r usuarioRolesToRolFindFirst) ExecInner(ctx context.Context) (
-	*InnerUsuarioRoles,
-	error,
-) {
-	var v *InnerUsuarioRoles
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	if v == nil {
-		return nil, ErrNotFound
-	}
-
-	return v, nil
-}
-
-type usuarioRolesToRolFindMany struct {
-	query builder.Query
-}
-
-func (r usuarioRolesToRolFindMany) getQuery() builder.Query {
-	return r.query
-}
-
-func (r usuarioRolesToRolFindMany) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r usuarioRolesToRolFindMany) with()                 {}
-func (r usuarioRolesToRolFindMany) usuarioRolesModel()    {}
-func (r usuarioRolesToRolFindMany) usuarioRolesRelation() {}
-
-func (r usuarioRolesToRolFindMany) With(params ...RolesRelationWith) usuarioRolesToRolFindMany {
-	for _, q := range params {
-		query := q.getQuery()
-		r.query.Outputs = append(r.query.Outputs, builder.Output{
-			Name:    query.Method,
-			Inputs:  query.Inputs,
-			Outputs: query.Outputs,
-		})
-	}
-
-	return r
-}
-
-func (r usuarioRolesToRolFindMany) Select(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindMany {
-	var outputs []builder.Output
-
-	for _, param := range params {
-		outputs = append(outputs, builder.Output{
-			Name: string(param),
-		})
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r usuarioRolesToRolFindMany) Omit(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindMany {
-	var outputs []builder.Output
-
-	var raw []string
-	for _, param := range params {
-		raw = append(raw, string(param))
-	}
-
-	for _, output := range usuarioRolesOutput {
-		if !slices.Contains(raw, output.Name) {
-			outputs = append(outputs, output)
-		}
-	}
-
-	r.query.Outputs = outputs
-
-	return r
-}
-
-func (r usuarioRolesToRolFindMany) OrderBy(params ...RolesOrderByParam) usuarioRolesToRolFindMany {
-	var fields []builder.Field
-
-	for _, param := range params {
-		fields = append(fields, builder.Field{
-			Name:   param.field().Name,
-			Value:  param.field().Value,
-			Fields: param.field().Fields,
-		})
-	}
-
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:     "orderBy",
-		Fields:   fields,
-		WrapList: true,
-	})
-
-	return r
-}
-
-func (r usuarioRolesToRolFindMany) Skip(count int) usuarioRolesToRolFindMany {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:  "skip",
-		Value: count,
-	})
-	return r
-}
-
-func (r usuarioRolesToRolFindMany) Take(count int) usuarioRolesToRolFindMany {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:  "take",
-		Value: count,
-	})
-	return r
-}
-
-func (r usuarioRolesToRolFindMany) Cursor(cursor UsuarioRolesCursorParam) usuarioRolesToRolFindMany {
-	r.query.Inputs = append(r.query.Inputs, builder.Input{
-		Name:   "cursor",
-		Fields: []builder.Field{cursor.field()},
-	})
-	return r
-}
-
-func (r usuarioRolesToRolFindMany) Exec(ctx context.Context) (
-	[]UsuarioRolesModel,
-	error,
-) {
-	var v []UsuarioRolesModel
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-func (r usuarioRolesToRolFindMany) ExecInner(ctx context.Context) (
-	[]InnerUsuarioRoles,
-	error,
-) {
-	var v []InnerUsuarioRoles
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-func (r usuarioRolesToRolFindMany) Update(params ...UsuarioRolesSetParam) usuarioRolesToRolUpdateMany {
-	r.query.Operation = "mutation"
-	r.query.Method = "updateMany"
-	r.query.Model = "UsuarioRoles"
-
-	r.query.Outputs = countOutput
-
-	var v usuarioRolesToRolUpdateMany
-	v.query = r.query
-	var fields []builder.Field
-	for _, q := range params {
-
-		field := q.field()
-
-		_, isJson := field.Value.(types.JSON)
-		if field.Value != nil && !isJson {
-			v := field.Value
-			field.Fields = []builder.Field{
-				{
-					Name:  "set",
-					Value: v,
-				},
-			}
-
-			field.Value = nil
-		}
-
-		fields = append(fields, field)
-	}
-	v.query.Inputs = append(v.query.Inputs, builder.Input{
-		Name:   "data",
-		Fields: fields,
-	})
-	return v
-}
-
-type usuarioRolesToRolUpdateMany struct {
-	query builder.Query
-}
-
-func (r usuarioRolesToRolUpdateMany) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (r usuarioRolesToRolUpdateMany) usuarioRolesModel() {}
-
-func (r usuarioRolesToRolUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
-	var v BatchResult
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r usuarioRolesToRolUpdateMany) Tx() UsuarioRolesManyTxResult {
-	v := newUsuarioRolesManyTxResult()
-	v.query = r.query
-	v.query.TxResult = make(chan []byte, 1)
-	return v
-}
-
-func (r usuarioRolesToRolFindMany) Delete() usuarioRolesToRolDeleteMany {
-	var v usuarioRolesToRolDeleteMany
-	v.query = r.query
-	v.query.Operation = "mutation"
-	v.query.Method = "deleteMany"
-	v.query.Model = "UsuarioRoles"
-
-	v.query.Outputs = countOutput
-
-	return v
-}
-
-type usuarioRolesToRolDeleteMany struct {
-	query builder.Query
-}
-
-func (r usuarioRolesToRolDeleteMany) ExtractQuery() builder.Query {
-	return r.query
-}
-
-func (p usuarioRolesToRolDeleteMany) usuarioRolesModel() {}
-
-func (r usuarioRolesToRolDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
-	var v BatchResult
-	if err := r.query.Exec(ctx, &v); err != nil {
-		return nil, err
-	}
-	return &v, nil
-}
-
-func (r usuarioRolesToRolDeleteMany) Tx() UsuarioRolesManyTxResult {
-	v := newUsuarioRolesManyTxResult()
-	v.query = r.query
-	v.query.TxResult = make(chan []byte, 1)
-	return v
-}
-
 type usuarioRolesToUsuarioFindUnique struct {
 	query builder.Query
 }
@@ -93848,6 +93294,560 @@ func (r usuarioRolesToUsuarioDeleteMany) Exec(ctx context.Context) (*BatchResult
 }
 
 func (r usuarioRolesToUsuarioDeleteMany) Tx() UsuarioRolesManyTxResult {
+	v := newUsuarioRolesManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioRolesToRolFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioRolesToRolFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioRolesToRolFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioRolesToRolFindUnique) with()                 {}
+func (r usuarioRolesToRolFindUnique) usuarioRolesModel()    {}
+func (r usuarioRolesToRolFindUnique) usuarioRolesRelation() {}
+
+func (r usuarioRolesToRolFindUnique) With(params ...RolesRelationWith) usuarioRolesToRolFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioRolesToRolFindUnique) Select(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioRolesToRolFindUnique) Omit(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioRolesOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioRolesToRolFindUnique) Exec(ctx context.Context) (
+	*UsuarioRolesModel,
+	error,
+) {
+	var v *UsuarioRolesModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioRolesToRolFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuarioRoles,
+	error,
+) {
+	var v *InnerUsuarioRoles
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioRolesToRolFindUnique) Update(params ...UsuarioRolesSetParam) usuarioRolesToRolUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "UsuarioRoles"
+
+	var v usuarioRolesToRolUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioRolesToRolUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioRolesToRolUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioRolesToRolUpdateUnique) usuarioRolesModel() {}
+
+func (r usuarioRolesToRolUpdateUnique) Exec(ctx context.Context) (*UsuarioRolesModel, error) {
+	var v UsuarioRolesModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioRolesToRolUpdateUnique) Tx() UsuarioRolesUniqueTxResult {
+	v := newUsuarioRolesUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioRolesToRolFindUnique) Delete() usuarioRolesToRolDeleteUnique {
+	var v usuarioRolesToRolDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "UsuarioRoles"
+
+	return v
+}
+
+type usuarioRolesToRolDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioRolesToRolDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioRolesToRolDeleteUnique) usuarioRolesModel() {}
+
+func (r usuarioRolesToRolDeleteUnique) Exec(ctx context.Context) (*UsuarioRolesModel, error) {
+	var v UsuarioRolesModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioRolesToRolDeleteUnique) Tx() UsuarioRolesUniqueTxResult {
+	v := newUsuarioRolesUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioRolesToRolFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioRolesToRolFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioRolesToRolFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioRolesToRolFindFirst) with()                 {}
+func (r usuarioRolesToRolFindFirst) usuarioRolesModel()    {}
+func (r usuarioRolesToRolFindFirst) usuarioRolesRelation() {}
+
+func (r usuarioRolesToRolFindFirst) With(params ...RolesRelationWith) usuarioRolesToRolFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioRolesToRolFindFirst) Select(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioRolesToRolFindFirst) Omit(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioRolesOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioRolesToRolFindFirst) OrderBy(params ...RolesOrderByParam) usuarioRolesToRolFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioRolesToRolFindFirst) Skip(count int) usuarioRolesToRolFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioRolesToRolFindFirst) Take(count int) usuarioRolesToRolFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioRolesToRolFindFirst) Cursor(cursor UsuarioRolesCursorParam) usuarioRolesToRolFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioRolesToRolFindFirst) Exec(ctx context.Context) (
+	*UsuarioRolesModel,
+	error,
+) {
+	var v *UsuarioRolesModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioRolesToRolFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuarioRoles,
+	error,
+) {
+	var v *InnerUsuarioRoles
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioRolesToRolFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioRolesToRolFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioRolesToRolFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioRolesToRolFindMany) with()                 {}
+func (r usuarioRolesToRolFindMany) usuarioRolesModel()    {}
+func (r usuarioRolesToRolFindMany) usuarioRolesRelation() {}
+
+func (r usuarioRolesToRolFindMany) With(params ...RolesRelationWith) usuarioRolesToRolFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioRolesToRolFindMany) Select(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioRolesToRolFindMany) Omit(params ...usuarioRolesPrismaFields) usuarioRolesToRolFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioRolesOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioRolesToRolFindMany) OrderBy(params ...RolesOrderByParam) usuarioRolesToRolFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioRolesToRolFindMany) Skip(count int) usuarioRolesToRolFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioRolesToRolFindMany) Take(count int) usuarioRolesToRolFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioRolesToRolFindMany) Cursor(cursor UsuarioRolesCursorParam) usuarioRolesToRolFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioRolesToRolFindMany) Exec(ctx context.Context) (
+	[]UsuarioRolesModel,
+	error,
+) {
+	var v []UsuarioRolesModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioRolesToRolFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuarioRoles,
+	error,
+) {
+	var v []InnerUsuarioRoles
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioRolesToRolFindMany) Update(params ...UsuarioRolesSetParam) usuarioRolesToRolUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "UsuarioRoles"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioRolesToRolUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioRolesToRolUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioRolesToRolUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioRolesToRolUpdateMany) usuarioRolesModel() {}
+
+func (r usuarioRolesToRolUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioRolesToRolUpdateMany) Tx() UsuarioRolesManyTxResult {
+	v := newUsuarioRolesManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioRolesToRolFindMany) Delete() usuarioRolesToRolDeleteMany {
+	var v usuarioRolesToRolDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "UsuarioRoles"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioRolesToRolDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioRolesToRolDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioRolesToRolDeleteMany) usuarioRolesModel() {}
+
+func (r usuarioRolesToRolDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioRolesToRolDeleteMany) Tx() UsuarioRolesManyTxResult {
 	v := newUsuarioRolesManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -124835,8 +124835,8 @@ func (r rolePermisosActions) UpsertOne(
 
 func (r rolePermisosUpsertOne) Create(
 
-	_permiso RolePermisosWithPrismaPermisoSetParam,
 	_rol RolePermisosWithPrismaRolSetParam,
+	_permiso RolePermisosWithPrismaPermisoSetParam,
 
 	optional ...RolePermisosSetParam,
 ) rolePermisosUpsertOne {
@@ -124844,8 +124844,8 @@ func (r rolePermisosUpsertOne) Create(
 	v.query = r.query
 
 	var fields []builder.Field
-	fields = append(fields, _permiso.field())
 	fields = append(fields, _rol.field())
+	fields = append(fields, _permiso.field())
 
 	for _, q := range optional {
 		fields = append(fields, q.field())
@@ -124896,8 +124896,8 @@ func (r rolePermisosUpsertOne) Update(
 
 func (r rolePermisosUpsertOne) CreateOrUpdate(
 
-	_permiso RolePermisosWithPrismaPermisoSetParam,
 	_rol RolePermisosWithPrismaRolSetParam,
+	_permiso RolePermisosWithPrismaPermisoSetParam,
 
 	optional ...RolePermisosSetParam,
 ) rolePermisosUpsertOne {
@@ -124905,8 +124905,8 @@ func (r rolePermisosUpsertOne) CreateOrUpdate(
 	v.query = r.query
 
 	var fields []builder.Field
-	fields = append(fields, _permiso.field())
 	fields = append(fields, _rol.field())
+	fields = append(fields, _permiso.field())
 
 	for _, q := range optional {
 		fields = append(fields, q.field())
@@ -124978,8 +124978,8 @@ func (r usuarioRolesActions) UpsertOne(
 
 func (r usuarioRolesUpsertOne) Create(
 
-	_rol UsuarioRolesWithPrismaRolSetParam,
 	_usuario UsuarioRolesWithPrismaUsuarioSetParam,
+	_rol UsuarioRolesWithPrismaRolSetParam,
 
 	optional ...UsuarioRolesSetParam,
 ) usuarioRolesUpsertOne {
@@ -124987,8 +124987,8 @@ func (r usuarioRolesUpsertOne) Create(
 	v.query = r.query
 
 	var fields []builder.Field
-	fields = append(fields, _rol.field())
 	fields = append(fields, _usuario.field())
+	fields = append(fields, _rol.field())
 
 	for _, q := range optional {
 		fields = append(fields, q.field())
@@ -125039,8 +125039,8 @@ func (r usuarioRolesUpsertOne) Update(
 
 func (r usuarioRolesUpsertOne) CreateOrUpdate(
 
-	_rol UsuarioRolesWithPrismaRolSetParam,
 	_usuario UsuarioRolesWithPrismaUsuarioSetParam,
+	_rol UsuarioRolesWithPrismaRolSetParam,
 
 	optional ...UsuarioRolesSetParam,
 ) usuarioRolesUpsertOne {
@@ -125048,8 +125048,8 @@ func (r usuarioRolesUpsertOne) CreateOrUpdate(
 	v.query = r.query
 
 	var fields []builder.Field
-	fields = append(fields, _rol.field())
 	fields = append(fields, _usuario.field())
+	fields = append(fields, _rol.field())
 
 	for _, q := range optional {
 		fields = append(fields, q.field())
