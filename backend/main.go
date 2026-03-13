@@ -20,6 +20,8 @@ import (
 	notificationcron "project/backend/internal/notifications/cron"
 	notificationhandler "project/backend/internal/notifications/handler"
 
+	trabajoshandler "project/backend/internal/trabajos/handler"
+
 	"project/backend/prisma/db"
 
 	"github.com/joho/godotenv"
@@ -60,6 +62,7 @@ func main() {
 	sesionesHandler := sesioneshandler.New(prismaClient)
 	rolesHandler := rolehandler.New(prismaClient)
 	permissionsHandler := permissionhandler.New(prismaClient)
+	trabajosHandler := trabajoshandler.New(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 	http.HandleFunc("/api/user/assign-roles", userHandler.UpdateUserRolesHandler)
@@ -95,6 +98,8 @@ func main() {
 	http.Handle("/api/paises", paisesHandler)
 	http.Handle("/api/sesiones", sesionesHandler)
 	http.Handle("/api/sesiones/", sesionesHandler)
+	http.Handle("/api/trabajos-cientificos", trabajosHandler)
+	http.Handle("/api/trabajos-cientificos/", trabajosHandler)
 
 	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
 		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)

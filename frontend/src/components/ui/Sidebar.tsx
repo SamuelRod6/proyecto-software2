@@ -9,22 +9,25 @@ export default function Sidebar() {
   const [canManageInscriptions, setCanManageInscriptions] = useState(false);
   const [canManageRoles, setCanManageRoles] = useState(false);
   const [canManagePermissions, setCanManagePermissions] = useState(false);
+  const [canManageScientificWorks, setCanManageScientificWorks] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     const checkAccess = async () => {
-      const [eventsAccess, inscriptionsAccess, rolesAccess, permissionsAccess] =
+      const [eventsAccess, inscriptionsAccess, rolesAccess, permissionsAccess, scientificWorkAccess, ] =
         await Promise.all([
           hasResourceAccess(RESOURCE_KEYS.EVENTS_MANAGEMENT),
           hasResourceAccess(RESOURCE_KEYS.INSCRIPTIONS_MANAGEMENT),
           hasResourceAccess(RESOURCE_KEYS.ROLE_MANAGEMENT),
           hasResourceAccess(RESOURCE_KEYS.PERMISSION_MANAGEMENT),
+          hasResourceAccess(RESOURCE_KEYS.SCIENTIFIC_WORKS),
         ]);
       if (isMounted) {
         setCanManageEvents(eventsAccess);
         setCanManageInscriptions(inscriptionsAccess);
         setCanManageRoles(rolesAccess);
         setCanManagePermissions(permissionsAccess);
+        setCanManageScientificWorks(scientificWorkAccess);
       }
     };
     void checkAccess();
@@ -143,6 +146,20 @@ export default function Sidebar() {
             }
           >
             Gestión de permisos y recursos
+          </NavLink>
+        )}
+        {canManageScientificWorks && (
+          <NavLink
+            to={ROUTES.scientificWorks}
+            className={({ isActive }) =>
+              `rounded-lg px-3 py-2 font-medium transition-colors ${
+                isActive
+                  ? "bg-[#F5E427] text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+              }`
+            }
+          >
+            Trabajos científicos
           </NavLink>
         )}
       </nav>

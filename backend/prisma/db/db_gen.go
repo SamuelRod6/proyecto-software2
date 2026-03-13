@@ -84,16 +84,17 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario      Int                      @id @default(autoincrement())
-  nombre          String                   @unique
-  email           String                   @unique
-  password_hash   String
-  createdAt       DateTime                 @default(now())
-  inscripciones   Inscripcion[]
-  notificaciones  Notificacion[]           @relation("UsuarioNotificaciones")
-  sesionesPonente SesionPonente[]
-  UsuarioRoles    UsuarioRoles[]
-  preferencias    NotificacionPreferencia?
+  id_usuario          Int                      @id @default(autoincrement())
+  nombre              String                   @unique
+  email               String                   @unique
+  password_hash       String
+  createdAt           DateTime                 @default(now())
+  inscripciones       Inscripcion[]
+  notificaciones      Notificacion[]           @relation("UsuarioNotificaciones")
+  sesionesPonente     SesionPonente[]
+  UsuarioRoles        UsuarioRoles[]
+  preferencias        NotificacionPreferencia?
+  trabajosCientificos TrabajoCientifico[]
 }
 
 model Roles {
@@ -131,18 +132,19 @@ model UsuarioRoles {
 }
 
 model Evento {
-  id_evento                     Int            @id @default(autoincrement())
+  id_evento                     Int                 @id @default(autoincrement())
   nombre                        String
   fecha_inicio                  DateTime
   fecha_fin                     DateTime
   fecha_cierre_inscripcion      DateTime
-  inscripciones_abiertas_manual Boolean        @default(true)
+  inscripciones_abiertas_manual Boolean             @default(true)
   ubicacion                     String
-  createdAt                     DateTime       @default(now())
-  cancelado                     Boolean        @default(false)
+  createdAt                     DateTime            @default(now())
+  cancelado                     Boolean             @default(false)
   inscripciones                 Inscripcion[]
-  notificaciones                Notificacion[] @relation("EventoNotificaciones")
+  notificaciones                Notificacion[]      @relation("EventoNotificaciones")
   sesiones                      Sesion[]
+  trabajosCientificos           TrabajoCientifico[]
 }
 
 model Inscripcion {
@@ -277,6 +279,42 @@ model SesionHistorial {
 
   sesion Sesion @relation(fields: [id_sesion], references: [id_sesion])
 }
+
+model TrabajoCientifico {
+  id_trabajo         Int      @id @default(autoincrement())
+  id_evento          Int
+  id_usuario         Int
+  titulo             String
+  titulo_normalizado String
+  resumen            String
+  version_actual     Int      @default(1)
+  estado             String   @default("RECIBIDO")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  evento    Evento                     @relation(fields: [id_evento], references: [id_evento])
+  usuario   Usuario                    @relation(fields: [id_usuario], references: [id_usuario])
+  versiones TrabajoCientificoVersion[]
+
+  @@unique([id_evento, titulo_normalizado])
+}
+
+model TrabajoCientificoVersion {
+  id_version          Int      @id @default(autoincrement())
+  id_trabajo          Int
+  numero_version      Int
+  nombre_archivo      String
+  ruta_archivo        String
+  tamano_bytes        Int
+  mime_type           String   @default("application/pdf")
+  descripcion_cambios String?
+  es_actual           Boolean  @default(true)
+  fecha_envio         DateTime @default(now())
+
+  trabajo TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+
+  @@unique([id_trabajo, numero_version])
+}
 `
 const schemaDatasourceURL = ""
 const schemaEnvVarName = "DATABASE_URL"
@@ -365,6 +403,8 @@ func newClient() *PrismaClient {
 	c.Sesion = sesionActions{client: c}
 	c.SesionPonente = sesionPonenteActions{client: c}
 	c.SesionHistorial = sesionHistorialActions{client: c}
+	c.TrabajoCientifico = trabajoCientificoActions{client: c}
+	c.TrabajoCientificoVersion = trabajoCientificoVersionActions{client: c}
 
 	c.Prisma = &PrismaActions{
 		Raw: &raw.Raw{Engine: c},
@@ -423,6 +463,10 @@ type PrismaClient struct {
 	SesionPonente sesionPonenteActions
 	// SesionHistorial provides access to CRUD methods.
 	SesionHistorial sesionHistorialActions
+	// TrabajoCientifico provides access to CRUD methods.
+	TrabajoCientifico trabajoCientificoActions
+	// TrabajoCientificoVersion provides access to CRUD methods.
+	TrabajoCientificoVersion trabajoCientificoVersionActions
 }
 
 // --- template enums.gotpl ---
@@ -621,6 +665,36 @@ const (
 	SesionHistorialScalarFieldEnumValoresDespues SesionHistorialScalarFieldEnum = "valores_despues"
 )
 
+type TrabajoCientificoScalarFieldEnum string
+
+const (
+	TrabajoCientificoScalarFieldEnumIDTrabajo         TrabajoCientificoScalarFieldEnum = "id_trabajo"
+	TrabajoCientificoScalarFieldEnumIDEvento          TrabajoCientificoScalarFieldEnum = "id_evento"
+	TrabajoCientificoScalarFieldEnumIDUsuario         TrabajoCientificoScalarFieldEnum = "id_usuario"
+	TrabajoCientificoScalarFieldEnumTitulo            TrabajoCientificoScalarFieldEnum = "titulo"
+	TrabajoCientificoScalarFieldEnumTituloNormalizado TrabajoCientificoScalarFieldEnum = "titulo_normalizado"
+	TrabajoCientificoScalarFieldEnumResumen           TrabajoCientificoScalarFieldEnum = "resumen"
+	TrabajoCientificoScalarFieldEnumVersionActual     TrabajoCientificoScalarFieldEnum = "version_actual"
+	TrabajoCientificoScalarFieldEnumEstado            TrabajoCientificoScalarFieldEnum = "estado"
+	TrabajoCientificoScalarFieldEnumCreatedAt         TrabajoCientificoScalarFieldEnum = "createdAt"
+	TrabajoCientificoScalarFieldEnumUpdatedAt         TrabajoCientificoScalarFieldEnum = "updatedAt"
+)
+
+type TrabajoCientificoVersionScalarFieldEnum string
+
+const (
+	TrabajoCientificoVersionScalarFieldEnumIDVersion          TrabajoCientificoVersionScalarFieldEnum = "id_version"
+	TrabajoCientificoVersionScalarFieldEnumIDTrabajo          TrabajoCientificoVersionScalarFieldEnum = "id_trabajo"
+	TrabajoCientificoVersionScalarFieldEnumNumeroVersion      TrabajoCientificoVersionScalarFieldEnum = "numero_version"
+	TrabajoCientificoVersionScalarFieldEnumNombreArchivo      TrabajoCientificoVersionScalarFieldEnum = "nombre_archivo"
+	TrabajoCientificoVersionScalarFieldEnumRutaArchivo        TrabajoCientificoVersionScalarFieldEnum = "ruta_archivo"
+	TrabajoCientificoVersionScalarFieldEnumTamanoBytes        TrabajoCientificoVersionScalarFieldEnum = "tamano_bytes"
+	TrabajoCientificoVersionScalarFieldEnumMimeType           TrabajoCientificoVersionScalarFieldEnum = "mime_type"
+	TrabajoCientificoVersionScalarFieldEnumDescripcionCambios TrabajoCientificoVersionScalarFieldEnum = "descripcion_cambios"
+	TrabajoCientificoVersionScalarFieldEnumEsActual           TrabajoCientificoVersionScalarFieldEnum = "es_actual"
+	TrabajoCientificoVersionScalarFieldEnumFechaEnvio         TrabajoCientificoVersionScalarFieldEnum = "fecha_envio"
+)
+
 type SortOrder string
 
 const (
@@ -695,6 +769,8 @@ const usuarioFieldUsuarioRoles usuarioPrismaFields = "UsuarioRoles"
 
 const usuarioFieldPreferencias usuarioPrismaFields = "preferencias"
 
+const usuarioFieldTrabajosCientificos usuarioPrismaFields = "trabajosCientificos"
+
 type rolesPrismaFields = prismaFields
 
 const rolesFieldIDRol rolesPrismaFields = "id_rol"
@@ -764,6 +840,8 @@ const eventoFieldInscripciones eventoPrismaFields = "inscripciones"
 const eventoFieldNotificaciones eventoPrismaFields = "notificaciones"
 
 const eventoFieldSesiones eventoPrismaFields = "sesiones"
+
+const eventoFieldTrabajosCientificos eventoPrismaFields = "trabajosCientificos"
 
 type inscripcionPrismaFields = prismaFields
 
@@ -971,6 +1049,58 @@ const sesionHistorialFieldValoresDespues sesionHistorialPrismaFields = "valores_
 
 const sesionHistorialFieldSesion sesionHistorialPrismaFields = "sesion"
 
+type trabajoCientificoPrismaFields = prismaFields
+
+const trabajoCientificoFieldIDTrabajo trabajoCientificoPrismaFields = "id_trabajo"
+
+const trabajoCientificoFieldIDEvento trabajoCientificoPrismaFields = "id_evento"
+
+const trabajoCientificoFieldIDUsuario trabajoCientificoPrismaFields = "id_usuario"
+
+const trabajoCientificoFieldTitulo trabajoCientificoPrismaFields = "titulo"
+
+const trabajoCientificoFieldTituloNormalizado trabajoCientificoPrismaFields = "titulo_normalizado"
+
+const trabajoCientificoFieldResumen trabajoCientificoPrismaFields = "resumen"
+
+const trabajoCientificoFieldVersionActual trabajoCientificoPrismaFields = "version_actual"
+
+const trabajoCientificoFieldEstado trabajoCientificoPrismaFields = "estado"
+
+const trabajoCientificoFieldCreatedAt trabajoCientificoPrismaFields = "createdAt"
+
+const trabajoCientificoFieldUpdatedAt trabajoCientificoPrismaFields = "updatedAt"
+
+const trabajoCientificoFieldEvento trabajoCientificoPrismaFields = "evento"
+
+const trabajoCientificoFieldUsuario trabajoCientificoPrismaFields = "usuario"
+
+const trabajoCientificoFieldVersiones trabajoCientificoPrismaFields = "versiones"
+
+type trabajoCientificoVersionPrismaFields = prismaFields
+
+const trabajoCientificoVersionFieldIDVersion trabajoCientificoVersionPrismaFields = "id_version"
+
+const trabajoCientificoVersionFieldIDTrabajo trabajoCientificoVersionPrismaFields = "id_trabajo"
+
+const trabajoCientificoVersionFieldNumeroVersion trabajoCientificoVersionPrismaFields = "numero_version"
+
+const trabajoCientificoVersionFieldNombreArchivo trabajoCientificoVersionPrismaFields = "nombre_archivo"
+
+const trabajoCientificoVersionFieldRutaArchivo trabajoCientificoVersionPrismaFields = "ruta_archivo"
+
+const trabajoCientificoVersionFieldTamanoBytes trabajoCientificoVersionPrismaFields = "tamano_bytes"
+
+const trabajoCientificoVersionFieldMimeType trabajoCientificoVersionPrismaFields = "mime_type"
+
+const trabajoCientificoVersionFieldDescripcionCambios trabajoCientificoVersionPrismaFields = "descripcion_cambios"
+
+const trabajoCientificoVersionFieldEsActual trabajoCientificoVersionPrismaFields = "es_actual"
+
+const trabajoCientificoVersionFieldFechaEnvio trabajoCientificoVersionPrismaFields = "fecha_envio"
+
+const trabajoCientificoVersionFieldTrabajo trabajoCientificoVersionPrismaFields = "trabajo"
+
 // --- template mock.gotpl ---
 func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 	expectations := new([]mock.Expectation)
@@ -1049,6 +1179,14 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.TrabajoCientifico = trabajoCientificoMock{
+		mock: m,
+	}
+
+	m.TrabajoCientificoVersion = trabajoCientificoVersionMock{
+		mock: m,
+	}
+
 	return pc, m, m.Ensure
 }
 
@@ -1088,6 +1226,10 @@ type Mock struct {
 	SesionPonente sesionPonenteMock
 
 	SesionHistorial sesionHistorialMock
+
+	TrabajoCientifico trabajoCientificoMock
+
+	TrabajoCientificoVersion trabajoCientificoVersionMock
 }
 
 type usuarioMock struct {
@@ -1804,6 +1946,90 @@ func (m *sesionHistorialMockExec) Errors(err error) {
 	})
 }
 
+type trabajoCientificoMock struct {
+	mock *Mock
+}
+
+type TrabajoCientificoMockExpectParam interface {
+	ExtractQuery() builder.Query
+	trabajoCientificoModel()
+}
+
+func (m *trabajoCientificoMock) Expect(query TrabajoCientificoMockExpectParam) *trabajoCientificoMockExec {
+	return &trabajoCientificoMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type trabajoCientificoMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *trabajoCientificoMockExec) Returns(v TrabajoCientificoModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoCientificoMockExec) ReturnsMany(v []TrabajoCientificoModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoCientificoMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type trabajoCientificoVersionMock struct {
+	mock *Mock
+}
+
+type TrabajoCientificoVersionMockExpectParam interface {
+	ExtractQuery() builder.Query
+	trabajoCientificoVersionModel()
+}
+
+func (m *trabajoCientificoVersionMock) Expect(query TrabajoCientificoVersionMockExpectParam) *trabajoCientificoVersionMockExec {
+	return &trabajoCientificoVersionMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type trabajoCientificoVersionMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *trabajoCientificoVersionMockExec) Returns(v TrabajoCientificoVersionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoCientificoVersionMockExec) ReturnsMany(v []TrabajoCientificoVersionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoCientificoVersionMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
 // --- template models.gotpl ---
 
 // UsuarioModel represents the Usuario model and is a wrapper for accessing fields and methods
@@ -1832,11 +2058,12 @@ type RawUsuarioModel struct {
 
 // RelationsUsuario holds the relation data separately
 type RelationsUsuario struct {
-	Inscripciones   []InscripcionModel            `json:"inscripciones,omitempty"`
-	Notificaciones  []NotificacionModel           `json:"notificaciones,omitempty"`
-	SesionesPonente []SesionPonenteModel          `json:"sesionesPonente,omitempty"`
-	UsuarioRoles    []UsuarioRolesModel           `json:"UsuarioRoles,omitempty"`
-	Preferencias    *NotificacionPreferenciaModel `json:"preferencias,omitempty"`
+	Inscripciones       []InscripcionModel            `json:"inscripciones,omitempty"`
+	Notificaciones      []NotificacionModel           `json:"notificaciones,omitempty"`
+	SesionesPonente     []SesionPonenteModel          `json:"sesionesPonente,omitempty"`
+	UsuarioRoles        []UsuarioRolesModel           `json:"UsuarioRoles,omitempty"`
+	Preferencias        *NotificacionPreferenciaModel `json:"preferencias,omitempty"`
+	TrabajosCientificos []TrabajoCientificoModel      `json:"trabajosCientificos,omitempty"`
 }
 
 func (r UsuarioModel) Inscripciones() (value []InscripcionModel) {
@@ -1872,6 +2099,13 @@ func (r UsuarioModel) Preferencias() (value *NotificacionPreferenciaModel, ok bo
 		return value, false
 	}
 	return r.RelationsUsuario.Preferencias, true
+}
+
+func (r UsuarioModel) TrabajosCientificos() (value []TrabajoCientificoModel) {
+	if r.RelationsUsuario.TrabajosCientificos == nil {
+		panic("attempted to access trabajosCientificos but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.TrabajosCientificos
 }
 
 // RolesModel represents the Roles model and is a wrapper for accessing fields and methods
@@ -2058,9 +2292,10 @@ type RawEventoModel struct {
 
 // RelationsEvento holds the relation data separately
 type RelationsEvento struct {
-	Inscripciones  []InscripcionModel  `json:"inscripciones,omitempty"`
-	Notificaciones []NotificacionModel `json:"notificaciones,omitempty"`
-	Sesiones       []SesionModel       `json:"sesiones,omitempty"`
+	Inscripciones       []InscripcionModel       `json:"inscripciones,omitempty"`
+	Notificaciones      []NotificacionModel      `json:"notificaciones,omitempty"`
+	Sesiones            []SesionModel            `json:"sesiones,omitempty"`
+	TrabajosCientificos []TrabajoCientificoModel `json:"trabajosCientificos,omitempty"`
 }
 
 func (r EventoModel) Inscripciones() (value []InscripcionModel) {
@@ -2082,6 +2317,13 @@ func (r EventoModel) Sesiones() (value []SesionModel) {
 		panic("attempted to access sesiones but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsEvento.Sesiones
+}
+
+func (r EventoModel) TrabajosCientificos() (value []TrabajoCientificoModel) {
+	if r.RelationsEvento.TrabajosCientificos == nil {
+		panic("attempted to access trabajosCientificos but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsEvento.TrabajosCientificos
 }
 
 // InscripcionModel represents the Inscripcion model and is a wrapper for accessing fields and methods
@@ -2666,6 +2908,121 @@ func (r SesionHistorialModel) Sesion() (value *SesionModel) {
 	return r.RelationsSesionHistorial.Sesion
 }
 
+// TrabajoCientificoModel represents the TrabajoCientifico model and is a wrapper for accessing fields and methods
+type TrabajoCientificoModel struct {
+	InnerTrabajoCientifico
+	RelationsTrabajoCientifico
+}
+
+// InnerTrabajoCientifico holds the actual data
+type InnerTrabajoCientifico struct {
+	IDTrabajo         int      `json:"id_trabajo"`
+	IDEvento          int      `json:"id_evento"`
+	IDUsuario         int      `json:"id_usuario"`
+	Titulo            string   `json:"titulo"`
+	TituloNormalizado string   `json:"titulo_normalizado"`
+	Resumen           string   `json:"resumen"`
+	VersionActual     int      `json:"version_actual"`
+	Estado            string   `json:"estado"`
+	CreatedAt         DateTime `json:"createdAt"`
+	UpdatedAt         DateTime `json:"updatedAt"`
+}
+
+// RawTrabajoCientificoModel is a struct for TrabajoCientifico when used in raw queries
+type RawTrabajoCientificoModel struct {
+	IDTrabajo         RawInt      `json:"id_trabajo"`
+	IDEvento          RawInt      `json:"id_evento"`
+	IDUsuario         RawInt      `json:"id_usuario"`
+	Titulo            RawString   `json:"titulo"`
+	TituloNormalizado RawString   `json:"titulo_normalizado"`
+	Resumen           RawString   `json:"resumen"`
+	VersionActual     RawInt      `json:"version_actual"`
+	Estado            RawString   `json:"estado"`
+	CreatedAt         RawDateTime `json:"createdAt"`
+	UpdatedAt         RawDateTime `json:"updatedAt"`
+}
+
+// RelationsTrabajoCientifico holds the relation data separately
+type RelationsTrabajoCientifico struct {
+	Evento    *EventoModel                    `json:"evento,omitempty"`
+	Usuario   *UsuarioModel                   `json:"usuario,omitempty"`
+	Versiones []TrabajoCientificoVersionModel `json:"versiones,omitempty"`
+}
+
+func (r TrabajoCientificoModel) Evento() (value *EventoModel) {
+	if r.RelationsTrabajoCientifico.Evento == nil {
+		panic("attempted to access evento but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoCientifico.Evento
+}
+
+func (r TrabajoCientificoModel) Usuario() (value *UsuarioModel) {
+	if r.RelationsTrabajoCientifico.Usuario == nil {
+		panic("attempted to access usuario but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoCientifico.Usuario
+}
+
+func (r TrabajoCientificoModel) Versiones() (value []TrabajoCientificoVersionModel) {
+	if r.RelationsTrabajoCientifico.Versiones == nil {
+		panic("attempted to access versiones but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoCientifico.Versiones
+}
+
+// TrabajoCientificoVersionModel represents the TrabajoCientificoVersion model and is a wrapper for accessing fields and methods
+type TrabajoCientificoVersionModel struct {
+	InnerTrabajoCientificoVersion
+	RelationsTrabajoCientificoVersion
+}
+
+// InnerTrabajoCientificoVersion holds the actual data
+type InnerTrabajoCientificoVersion struct {
+	IDVersion          int      `json:"id_version"`
+	IDTrabajo          int      `json:"id_trabajo"`
+	NumeroVersion      int      `json:"numero_version"`
+	NombreArchivo      string   `json:"nombre_archivo"`
+	RutaArchivo        string   `json:"ruta_archivo"`
+	TamanoBytes        int      `json:"tamano_bytes"`
+	MimeType           string   `json:"mime_type"`
+	DescripcionCambios *string  `json:"descripcion_cambios,omitempty"`
+	EsActual           bool     `json:"es_actual"`
+	FechaEnvio         DateTime `json:"fecha_envio"`
+}
+
+// RawTrabajoCientificoVersionModel is a struct for TrabajoCientificoVersion when used in raw queries
+type RawTrabajoCientificoVersionModel struct {
+	IDVersion          RawInt      `json:"id_version"`
+	IDTrabajo          RawInt      `json:"id_trabajo"`
+	NumeroVersion      RawInt      `json:"numero_version"`
+	NombreArchivo      RawString   `json:"nombre_archivo"`
+	RutaArchivo        RawString   `json:"ruta_archivo"`
+	TamanoBytes        RawInt      `json:"tamano_bytes"`
+	MimeType           RawString   `json:"mime_type"`
+	DescripcionCambios *RawString  `json:"descripcion_cambios,omitempty"`
+	EsActual           RawBoolean  `json:"es_actual"`
+	FechaEnvio         RawDateTime `json:"fecha_envio"`
+}
+
+// RelationsTrabajoCientificoVersion holds the relation data separately
+type RelationsTrabajoCientificoVersion struct {
+	Trabajo *TrabajoCientificoModel `json:"trabajo,omitempty"`
+}
+
+func (r TrabajoCientificoVersionModel) DescripcionCambios() (value String, ok bool) {
+	if r.InnerTrabajoCientificoVersion.DescripcionCambios == nil {
+		return value, false
+	}
+	return *r.InnerTrabajoCientificoVersion.DescripcionCambios, true
+}
+
+func (r TrabajoCientificoVersionModel) Trabajo() (value *TrabajoCientificoModel) {
+	if r.RelationsTrabajoCientificoVersion.Trabajo == nil {
+		panic("attempted to access trabajo but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoCientificoVersion.Trabajo
+}
+
 // --- template query.gotpl ---
 
 // Usuario acts as a namespaces to access query methods for the Usuario model
@@ -2710,6 +3067,8 @@ type usuarioQuery struct {
 	UsuarioRoles usuarioQueryUsuarioRolesRelations
 
 	Preferencias usuarioQueryPreferenciasRelations
+
+	TrabajosCientificos usuarioQueryTrabajosCientificosRelations
 }
 
 func (usuarioQuery) Not(params ...UsuarioWhereParam) usuarioDefaultParam {
@@ -5288,6 +5647,178 @@ func (r usuarioQueryPreferenciasRelations) Unlink() usuarioSetParam {
 
 func (r usuarioQueryPreferenciasNotificacionPreferencia) Field() usuarioPrismaFields {
 	return usuarioFieldPreferencias
+}
+
+// base struct
+type usuarioQueryTrabajosCientificosTrabajoCientifico struct{}
+
+type usuarioQueryTrabajosCientificosRelations struct{}
+
+// Usuario -> TrabajosCientificos
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosCientificosRelations) Some(
+	params ...TrabajoCientificoWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> TrabajosCientificos
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosCientificosRelations) Every(
+	params ...TrabajoCientificoWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> TrabajosCientificos
+//
+// @relation
+// @required
+func (usuarioQueryTrabajosCientificosRelations) None(
+	params ...TrabajoCientificoWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQueryTrabajosCientificosRelations) Fetch(
+
+	params ...TrabajoCientificoWhereParam,
+
+) usuarioToTrabajosCientificosFindMany {
+	var v usuarioToTrabajosCientificosFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "trabajosCientificos"
+	v.query.Outputs = trabajoCientificoOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQueryTrabajosCientificosRelations) Link(
+	params ...TrabajoCientificoWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQueryTrabajosCientificosRelations) Unlink(
+	params ...TrabajoCientificoWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQueryTrabajosCientificosTrabajoCientifico) Field() usuarioPrismaFields {
+	return usuarioFieldTrabajosCientificos
 }
 
 // Roles acts as a namespaces to access query methods for the Roles model
@@ -10610,6 +11141,8 @@ type eventoQuery struct {
 	Notificaciones eventoQueryNotificacionesRelations
 
 	Sesiones eventoQuerySesionesRelations
+
+	TrabajosCientificos eventoQueryTrabajosCientificosRelations
 }
 
 func (eventoQuery) Not(params ...EventoWhereParam) eventoDefaultParam {
@@ -13650,6 +14183,178 @@ func (r eventoQuerySesionesRelations) Unlink(
 
 func (r eventoQuerySesionesSesion) Field() eventoPrismaFields {
 	return eventoFieldSesiones
+}
+
+// base struct
+type eventoQueryTrabajosCientificosTrabajoCientifico struct{}
+
+type eventoQueryTrabajosCientificosRelations struct{}
+
+// Evento -> TrabajosCientificos
+//
+// @relation
+// @required
+func (eventoQueryTrabajosCientificosRelations) Some(
+	params ...TrabajoCientificoWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Evento -> TrabajosCientificos
+//
+// @relation
+// @required
+func (eventoQueryTrabajosCientificosRelations) Every(
+	params ...TrabajoCientificoWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Evento -> TrabajosCientificos
+//
+// @relation
+// @required
+func (eventoQueryTrabajosCientificosRelations) None(
+	params ...TrabajoCientificoWhereParam,
+) eventoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoDefaultParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (eventoQueryTrabajosCientificosRelations) Fetch(
+
+	params ...TrabajoCientificoWhereParam,
+
+) eventoToTrabajosCientificosFindMany {
+	var v eventoToTrabajosCientificosFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "trabajosCientificos"
+	v.query.Outputs = trabajoCientificoOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r eventoQueryTrabajosCientificosRelations) Link(
+	params ...TrabajoCientificoWhereParam,
+) eventoSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return eventoSetParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r eventoQueryTrabajosCientificosRelations) Unlink(
+	params ...TrabajoCientificoWhereParam,
+) eventoSetParam {
+	var v eventoSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = eventoSetParam{
+		data: builder.Field{
+			Name: "trabajosCientificos",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r eventoQueryTrabajosCientificosTrabajoCientifico) Field() eventoPrismaFields {
+	return eventoFieldTrabajosCientificos
 }
 
 // Inscripcion acts as a namespaces to access query methods for the Inscripcion model
@@ -42919,6 +43624,7716 @@ func (r sesionHistorialQuerySesionSesion) Field() sesionHistorialPrismaFields {
 	return sesionHistorialFieldSesion
 }
 
+// TrabajoCientifico acts as a namespaces to access query methods for the TrabajoCientifico model
+var TrabajoCientifico = trabajoCientificoQuery{}
+
+// trabajoCientificoQuery exposes query functions for the trabajoCientifico model
+type trabajoCientificoQuery struct {
+
+	// IDTrabajo
+	//
+	// @required
+	IDTrabajo trabajoCientificoQueryIDTrabajoInt
+
+	// IDEvento
+	//
+	// @required
+	IDEvento trabajoCientificoQueryIDEventoInt
+
+	// IDUsuario
+	//
+	// @required
+	IDUsuario trabajoCientificoQueryIDUsuarioInt
+
+	// Titulo
+	//
+	// @required
+	Titulo trabajoCientificoQueryTituloString
+
+	// TituloNormalizado
+	//
+	// @required
+	TituloNormalizado trabajoCientificoQueryTituloNormalizadoString
+
+	// Resumen
+	//
+	// @required
+	Resumen trabajoCientificoQueryResumenString
+
+	// VersionActual
+	//
+	// @required
+	VersionActual trabajoCientificoQueryVersionActualInt
+
+	// Estado
+	//
+	// @required
+	Estado trabajoCientificoQueryEstadoString
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt trabajoCientificoQueryCreatedAtDateTime
+
+	// UpdatedAt
+	//
+	// @required
+	UpdatedAt trabajoCientificoQueryUpdatedAtDateTime
+
+	Evento trabajoCientificoQueryEventoRelations
+
+	Usuario trabajoCientificoQueryUsuarioRelations
+
+	Versiones trabajoCientificoQueryVersionesRelations
+}
+
+func (trabajoCientificoQuery) Not(params ...TrabajoCientificoWhereParam) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoCientificoQuery) Or(params ...TrabajoCientificoWhereParam) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoCientificoQuery) And(params ...TrabajoCientificoWhereParam) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoCientificoQuery) IDEventoTituloNormalizado(
+	_idEvento TrabajoCientificoWithPrismaIDEventoWhereParam,
+
+	_tituloNormalizado TrabajoCientificoWithPrismaTituloNormalizadoWhereParam,
+) TrabajoCientificoEqualsUniqueWhereParam {
+	var fields []builder.Field
+
+	fields = append(fields, _idEvento.field())
+	fields = append(fields, _tituloNormalizado.field())
+
+	return trabajoCientificoEqualsUniqueParam{
+		data: builder.Field{
+			Name:   "id_evento_titulo_normalizado",
+			Fields: builder.TransformEquals(fields),
+		},
+	}
+}
+
+// base struct
+type trabajoCientificoQueryIDTrabajoInt struct{}
+
+// Set the required value of IDTrabajo
+func (r trabajoCientificoQueryIDTrabajoInt) Set(value int) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDTrabajo dynamically
+func (r trabajoCientificoQueryIDTrabajoInt) SetIfPresent(value *Int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDTrabajo
+func (r trabajoCientificoQueryIDTrabajoInt) Increment(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) IncrementIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDTrabajo
+func (r trabajoCientificoQueryIDTrabajoInt) Decrement(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) DecrementIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDTrabajo
+func (r trabajoCientificoQueryIDTrabajoInt) Multiply(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) MultiplyIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDTrabajo
+func (r trabajoCientificoQueryIDTrabajoInt) Divide(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) DivideIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Equals(value int) trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam {
+
+	return trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) EqualsIfPresent(value *int) trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Cursor(cursor int) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) In(value []int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) InIfPresent(value []int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) NotIn(value []int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) NotInIfPresent(value []int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Lt(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) LtIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Lte(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) LteIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Gt(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) GtIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Gte(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) GteIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Not(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) NotIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoQueryIDTrabajoInt) LT(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoQueryIDTrabajoInt) LTIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoQueryIDTrabajoInt) LTE(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoQueryIDTrabajoInt) LTEIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoQueryIDTrabajoInt) GT(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoQueryIDTrabajoInt) GTIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoQueryIDTrabajoInt) GTE(value int) trabajoCientificoParamUnique {
+	return trabajoCientificoParamUnique{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoQueryIDTrabajoInt) GTEIfPresent(value *int) trabajoCientificoParamUnique {
+	if value == nil {
+		return trabajoCientificoParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoQueryIDTrabajoInt) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldIDTrabajo
+}
+
+// base struct
+type trabajoCientificoQueryIDEventoInt struct{}
+
+// Set the required value of IDEvento
+func (r trabajoCientificoQueryIDEventoInt) Set(value int) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDEvento dynamically
+func (r trabajoCientificoQueryIDEventoInt) SetIfPresent(value *Int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDEvento
+func (r trabajoCientificoQueryIDEventoInt) Increment(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) IncrementIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDEvento
+func (r trabajoCientificoQueryIDEventoInt) Decrement(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) DecrementIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDEvento
+func (r trabajoCientificoQueryIDEventoInt) Multiply(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) MultiplyIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDEvento
+func (r trabajoCientificoQueryIDEventoInt) Divide(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) DivideIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Equals(value int) trabajoCientificoWithPrismaIDEventoEqualsParam {
+
+	return trabajoCientificoWithPrismaIDEventoEqualsParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) EqualsIfPresent(value *int) trabajoCientificoWithPrismaIDEventoEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaIDEventoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Cursor(cursor int) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "id_evento",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) In(value []int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) InIfPresent(value []int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) NotIn(value []int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) NotInIfPresent(value []int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Lt(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) LtIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Lte(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) LteIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Gt(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) GtIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Gte(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) GteIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Not(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDEventoInt) NotIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoQueryIDEventoInt) LT(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoQueryIDEventoInt) LTIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoQueryIDEventoInt) LTE(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoQueryIDEventoInt) LTEIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoQueryIDEventoInt) GT(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoQueryIDEventoInt) GTIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoQueryIDEventoInt) GTE(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_evento",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoQueryIDEventoInt) GTEIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoQueryIDEventoInt) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldIDEvento
+}
+
+// base struct
+type trabajoCientificoQueryIDUsuarioInt struct{}
+
+// Set the required value of IDUsuario
+func (r trabajoCientificoQueryIDUsuarioInt) Set(value int) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDUsuario dynamically
+func (r trabajoCientificoQueryIDUsuarioInt) SetIfPresent(value *Int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDUsuario
+func (r trabajoCientificoQueryIDUsuarioInt) Increment(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) IncrementIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDUsuario
+func (r trabajoCientificoQueryIDUsuarioInt) Decrement(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) DecrementIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDUsuario
+func (r trabajoCientificoQueryIDUsuarioInt) Multiply(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) MultiplyIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDUsuario
+func (r trabajoCientificoQueryIDUsuarioInt) Divide(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) DivideIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Equals(value int) trabajoCientificoWithPrismaIDUsuarioEqualsParam {
+
+	return trabajoCientificoWithPrismaIDUsuarioEqualsParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) EqualsIfPresent(value *int) trabajoCientificoWithPrismaIDUsuarioEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaIDUsuarioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Cursor(cursor int) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) In(value []int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) InIfPresent(value []int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) NotIn(value []int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) NotInIfPresent(value []int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Lt(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) LtIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Lte(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) LteIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Gt(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) GtIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Gte(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) GteIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Not(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) NotIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoQueryIDUsuarioInt) LT(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoQueryIDUsuarioInt) LTIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoQueryIDUsuarioInt) LTE(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoQueryIDUsuarioInt) LTEIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoQueryIDUsuarioInt) GT(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoQueryIDUsuarioInt) GTIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoQueryIDUsuarioInt) GTE(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoQueryIDUsuarioInt) GTEIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoQueryIDUsuarioInt) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldIDUsuario
+}
+
+// base struct
+type trabajoCientificoQueryTituloString struct{}
+
+// Set the required value of Titulo
+func (r trabajoCientificoQueryTituloString) Set(value string) trabajoCientificoWithPrismaTituloSetParam {
+
+	return trabajoCientificoWithPrismaTituloSetParam{
+		data: builder.Field{
+			Name:  "titulo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Titulo dynamically
+func (r trabajoCientificoQueryTituloString) SetIfPresent(value *String) trabajoCientificoWithPrismaTituloSetParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaTituloSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Equals(value string) trabajoCientificoWithPrismaTituloEqualsParam {
+
+	return trabajoCientificoWithPrismaTituloEqualsParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) EqualsIfPresent(value *string) trabajoCientificoWithPrismaTituloEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaTituloEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "titulo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) Cursor(cursor string) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "titulo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) In(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) InIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryTituloString) NotIn(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) NotInIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryTituloString) Lt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) LtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Lte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) LteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Gt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) GtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Gte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) GteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Contains(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) ContainsIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) StartsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) StartsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) EndsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) EndsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Mode(value QueryMode) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) ModeIfPresent(value *QueryMode) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Not(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloString) NotIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoQueryTituloString) HasPrefix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoQueryTituloString) HasPrefixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoQueryTituloString) HasSuffix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoQueryTituloString) HasSuffixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoQueryTituloString) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldTitulo
+}
+
+// base struct
+type trabajoCientificoQueryTituloNormalizadoString struct{}
+
+// Set the required value of TituloNormalizado
+func (r trabajoCientificoQueryTituloNormalizadoString) Set(value string) trabajoCientificoWithPrismaTituloNormalizadoSetParam {
+
+	return trabajoCientificoWithPrismaTituloNormalizadoSetParam{
+		data: builder.Field{
+			Name:  "titulo_normalizado",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of TituloNormalizado dynamically
+func (r trabajoCientificoQueryTituloNormalizadoString) SetIfPresent(value *String) trabajoCientificoWithPrismaTituloNormalizadoSetParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaTituloNormalizadoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Equals(value string) trabajoCientificoWithPrismaTituloNormalizadoEqualsParam {
+
+	return trabajoCientificoWithPrismaTituloNormalizadoEqualsParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) EqualsIfPresent(value *string) trabajoCientificoWithPrismaTituloNormalizadoEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaTituloNormalizadoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "titulo_normalizado",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Cursor(cursor string) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "titulo_normalizado",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) In(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) InIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) NotIn(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) NotInIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Lt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) LtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Lte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) LteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Gt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) GtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Gte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) GteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Contains(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) ContainsIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) StartsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) StartsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) EndsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) EndsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Mode(value QueryMode) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) ModeIfPresent(value *QueryMode) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Not(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) NotIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoQueryTituloNormalizadoString) HasPrefix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoQueryTituloNormalizadoString) HasPrefixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoQueryTituloNormalizadoString) HasSuffix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "titulo_normalizado",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoQueryTituloNormalizadoString) HasSuffixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoQueryTituloNormalizadoString) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldTituloNormalizado
+}
+
+// base struct
+type trabajoCientificoQueryResumenString struct{}
+
+// Set the required value of Resumen
+func (r trabajoCientificoQueryResumenString) Set(value string) trabajoCientificoWithPrismaResumenSetParam {
+
+	return trabajoCientificoWithPrismaResumenSetParam{
+		data: builder.Field{
+			Name:  "resumen",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Resumen dynamically
+func (r trabajoCientificoQueryResumenString) SetIfPresent(value *String) trabajoCientificoWithPrismaResumenSetParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaResumenSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Equals(value string) trabajoCientificoWithPrismaResumenEqualsParam {
+
+	return trabajoCientificoWithPrismaResumenEqualsParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) EqualsIfPresent(value *string) trabajoCientificoWithPrismaResumenEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaResumenEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "resumen",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) Cursor(cursor string) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "resumen",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) In(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) InIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryResumenString) NotIn(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) NotInIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryResumenString) Lt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) LtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Lte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) LteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Gt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) GtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Gte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) GteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Contains(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) ContainsIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) StartsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) StartsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) EndsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) EndsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Mode(value QueryMode) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) ModeIfPresent(value *QueryMode) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Not(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryResumenString) NotIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoQueryResumenString) HasPrefix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoQueryResumenString) HasPrefixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoQueryResumenString) HasSuffix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "resumen",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoQueryResumenString) HasSuffixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoQueryResumenString) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldResumen
+}
+
+// base struct
+type trabajoCientificoQueryVersionActualInt struct{}
+
+// Set the required value of VersionActual
+func (r trabajoCientificoQueryVersionActualInt) Set(value int) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "version_actual",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of VersionActual dynamically
+func (r trabajoCientificoQueryVersionActualInt) SetIfPresent(value *Int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of VersionActual
+func (r trabajoCientificoQueryVersionActualInt) Increment(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) IncrementIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of VersionActual
+func (r trabajoCientificoQueryVersionActualInt) Decrement(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) DecrementIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of VersionActual
+func (r trabajoCientificoQueryVersionActualInt) Multiply(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) MultiplyIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of VersionActual
+func (r trabajoCientificoQueryVersionActualInt) Divide(value int) trabajoCientificoSetParam {
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) DivideIfPresent(value *int) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Equals(value int) trabajoCientificoWithPrismaVersionActualEqualsParam {
+
+	return trabajoCientificoWithPrismaVersionActualEqualsParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) EqualsIfPresent(value *int) trabajoCientificoWithPrismaVersionActualEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaVersionActualEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "version_actual",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Cursor(cursor int) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "version_actual",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) In(value []int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) InIfPresent(value []int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) NotIn(value []int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) NotInIfPresent(value []int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Lt(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) LtIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Lte(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) LteIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Gt(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) GtIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Gte(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) GteIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Not(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionActualInt) NotIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoQueryVersionActualInt) LT(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoQueryVersionActualInt) LTIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoQueryVersionActualInt) LTE(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoQueryVersionActualInt) LTEIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoQueryVersionActualInt) GT(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoQueryVersionActualInt) GTIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoQueryVersionActualInt) GTE(value int) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "version_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoQueryVersionActualInt) GTEIfPresent(value *int) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoQueryVersionActualInt) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldVersionActual
+}
+
+// base struct
+type trabajoCientificoQueryEstadoString struct{}
+
+// Set the required value of Estado
+func (r trabajoCientificoQueryEstadoString) Set(value string) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "estado",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Estado dynamically
+func (r trabajoCientificoQueryEstadoString) SetIfPresent(value *String) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Equals(value string) trabajoCientificoWithPrismaEstadoEqualsParam {
+
+	return trabajoCientificoWithPrismaEstadoEqualsParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) EqualsIfPresent(value *string) trabajoCientificoWithPrismaEstadoEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaEstadoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "estado",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) Cursor(cursor string) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "estado",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) In(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) InIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryEstadoString) NotIn(value []string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) NotInIfPresent(value []string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Lt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) LtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Lte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) LteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Gt(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) GtIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Gte(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) GteIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Contains(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) ContainsIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) StartsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) StartsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) EndsWith(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) EndsWithIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Mode(value QueryMode) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) ModeIfPresent(value *QueryMode) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Not(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEstadoString) NotIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoQueryEstadoString) HasPrefix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoQueryEstadoString) HasPrefixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoQueryEstadoString) HasSuffix(value string) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "estado",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoQueryEstadoString) HasSuffixIfPresent(value *string) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoQueryEstadoString) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldEstado
+}
+
+// base struct
+type trabajoCientificoQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r trabajoCientificoQueryCreatedAtDateTime) Set(value DateTime) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r trabajoCientificoQueryCreatedAtDateTime) SetIfPresent(value *DateTime) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Equals(value DateTime) trabajoCientificoWithPrismaCreatedAtEqualsParam {
+
+	return trabajoCientificoWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) trabajoCientificoWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Cursor(cursor DateTime) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) In(value []DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) InIfPresent(value []DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) NotIn(value []DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Lt(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) LtIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Lte(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) LteIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Gt(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) GtIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Gte(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) GteIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Not(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) NotIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Before(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoQueryCreatedAtDateTime) After(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoQueryCreatedAtDateTime) BeforeEquals(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoQueryCreatedAtDateTime) AfterEquals(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r trabajoCientificoQueryCreatedAtDateTime) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldCreatedAt
+}
+
+// base struct
+type trabajoCientificoQueryUpdatedAtDateTime struct{}
+
+// Set the required value of UpdatedAt
+func (r trabajoCientificoQueryUpdatedAtDateTime) Set(value DateTime) trabajoCientificoSetParam {
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of UpdatedAt dynamically
+func (r trabajoCientificoQueryUpdatedAtDateTime) SetIfPresent(value *DateTime) trabajoCientificoSetParam {
+	if value == nil {
+		return trabajoCientificoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Equals(value DateTime) trabajoCientificoWithPrismaUpdatedAtEqualsParam {
+
+	return trabajoCientificoWithPrismaUpdatedAtEqualsParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) EqualsIfPresent(value *DateTime) trabajoCientificoWithPrismaUpdatedAtEqualsParam {
+	if value == nil {
+		return trabajoCientificoWithPrismaUpdatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Order(direction SortOrder) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Cursor(cursor DateTime) trabajoCientificoCursorParam {
+	return trabajoCientificoCursorParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) In(value []DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) InIfPresent(value []DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) NotIn(value []DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) NotInIfPresent(value []DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Lt(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) LtIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Lte(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) LteIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Gt(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) GtIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Gte(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) GteIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Not(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) NotIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Before(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoQueryUpdatedAtDateTime) BeforeIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) After(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoQueryUpdatedAtDateTime) AfterIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) BeforeEquals(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoQueryUpdatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) AfterEquals(value DateTime) trabajoCientificoDefaultParam {
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoQueryUpdatedAtDateTime) AfterEqualsIfPresent(value *DateTime) trabajoCientificoDefaultParam {
+	if value == nil {
+		return trabajoCientificoDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r trabajoCientificoQueryUpdatedAtDateTime) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldUpdatedAt
+}
+
+// base struct
+type trabajoCientificoQueryEventoEvento struct{}
+
+type trabajoCientificoQueryEventoRelations struct{}
+
+// TrabajoCientifico -> Evento
+//
+// @relation
+// @required
+func (trabajoCientificoQueryEventoRelations) Where(
+	params ...EventoWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoCientificoQueryEventoRelations) Fetch() trabajoCientificoToEventoFindUnique {
+	var v trabajoCientificoToEventoFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "evento"
+	v.query.Outputs = eventoOutput
+
+	return v
+}
+
+func (r trabajoCientificoQueryEventoRelations) Link(
+	params EventoWhereParam,
+) trabajoCientificoWithPrismaEventoSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoCientificoWithPrismaEventoSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoCientificoWithPrismaEventoSetParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryEventoRelations) Unlink() trabajoCientificoWithPrismaEventoSetParam {
+	var v trabajoCientificoWithPrismaEventoSetParam
+
+	v = trabajoCientificoWithPrismaEventoSetParam{
+		data: builder.Field{
+			Name: "evento",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryEventoEvento) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldEvento
+}
+
+// base struct
+type trabajoCientificoQueryUsuarioUsuario struct{}
+
+type trabajoCientificoQueryUsuarioRelations struct{}
+
+// TrabajoCientifico -> Usuario
+//
+// @relation
+// @required
+func (trabajoCientificoQueryUsuarioRelations) Where(
+	params ...UsuarioWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoCientificoQueryUsuarioRelations) Fetch() trabajoCientificoToUsuarioFindUnique {
+	var v trabajoCientificoToUsuarioFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "usuario"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r trabajoCientificoQueryUsuarioRelations) Link(
+	params UsuarioWhereParam,
+) trabajoCientificoWithPrismaUsuarioSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoCientificoWithPrismaUsuarioSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoCientificoWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryUsuarioRelations) Unlink() trabajoCientificoWithPrismaUsuarioSetParam {
+	var v trabajoCientificoWithPrismaUsuarioSetParam
+
+	v = trabajoCientificoWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryUsuarioUsuario) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldUsuario
+}
+
+// base struct
+type trabajoCientificoQueryVersionesTrabajoCientificoVersion struct{}
+
+type trabajoCientificoQueryVersionesRelations struct{}
+
+// TrabajoCientifico -> Versiones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryVersionesRelations) Some(
+	params ...TrabajoCientificoVersionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "versiones",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// TrabajoCientifico -> Versiones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryVersionesRelations) Every(
+	params ...TrabajoCientificoVersionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "versiones",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// TrabajoCientifico -> Versiones
+//
+// @relation
+// @required
+func (trabajoCientificoQueryVersionesRelations) None(
+	params ...TrabajoCientificoVersionWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "versiones",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoCientificoQueryVersionesRelations) Fetch(
+
+	params ...TrabajoCientificoVersionWhereParam,
+
+) trabajoCientificoToVersionesFindMany {
+	var v trabajoCientificoToVersionesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "versiones"
+	v.query.Outputs = trabajoCientificoVersionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryVersionesRelations) Link(
+	params ...TrabajoCientificoVersionWhereParam,
+) trabajoCientificoSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "versiones",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryVersionesRelations) Unlink(
+	params ...TrabajoCientificoVersionWhereParam,
+) trabajoCientificoSetParam {
+	var v trabajoCientificoSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "versiones",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryVersionesTrabajoCientificoVersion) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldVersiones
+}
+
+// TrabajoCientificoVersion acts as a namespaces to access query methods for the TrabajoCientificoVersion model
+var TrabajoCientificoVersion = trabajoCientificoVersionQuery{}
+
+// trabajoCientificoVersionQuery exposes query functions for the trabajoCientificoVersion model
+type trabajoCientificoVersionQuery struct {
+
+	// IDVersion
+	//
+	// @required
+	IDVersion trabajoCientificoVersionQueryIDVersionInt
+
+	// IDTrabajo
+	//
+	// @required
+	IDTrabajo trabajoCientificoVersionQueryIDTrabajoInt
+
+	// NumeroVersion
+	//
+	// @required
+	NumeroVersion trabajoCientificoVersionQueryNumeroVersionInt
+
+	// NombreArchivo
+	//
+	// @required
+	NombreArchivo trabajoCientificoVersionQueryNombreArchivoString
+
+	// RutaArchivo
+	//
+	// @required
+	RutaArchivo trabajoCientificoVersionQueryRutaArchivoString
+
+	// TamanoBytes
+	//
+	// @required
+	TamanoBytes trabajoCientificoVersionQueryTamanoBytesInt
+
+	// MimeType
+	//
+	// @required
+	MimeType trabajoCientificoVersionQueryMimeTypeString
+
+	// DescripcionCambios
+	//
+	// @optional
+	DescripcionCambios trabajoCientificoVersionQueryDescripcionCambiosString
+
+	// EsActual
+	//
+	// @required
+	EsActual trabajoCientificoVersionQueryEsActualBoolean
+
+	// FechaEnvio
+	//
+	// @required
+	FechaEnvio trabajoCientificoVersionQueryFechaEnvioDateTime
+
+	Trabajo trabajoCientificoVersionQueryTrabajoRelations
+}
+
+func (trabajoCientificoVersionQuery) Not(params ...TrabajoCientificoVersionWhereParam) trabajoCientificoVersionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoCientificoVersionQuery) Or(params ...TrabajoCientificoVersionWhereParam) trabajoCientificoVersionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoCientificoVersionQuery) And(params ...TrabajoCientificoVersionWhereParam) trabajoCientificoVersionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoCientificoVersionQuery) IDTrabajoNumeroVersion(
+	_idTrabajo TrabajoCientificoVersionWithPrismaIDTrabajoWhereParam,
+
+	_numeroVersion TrabajoCientificoVersionWithPrismaNumeroVersionWhereParam,
+) TrabajoCientificoVersionEqualsUniqueWhereParam {
+	var fields []builder.Field
+
+	fields = append(fields, _idTrabajo.field())
+	fields = append(fields, _numeroVersion.field())
+
+	return trabajoCientificoVersionEqualsUniqueParam{
+		data: builder.Field{
+			Name:   "id_trabajo_numero_version",
+			Fields: builder.TransformEquals(fields),
+		},
+	}
+}
+
+// base struct
+type trabajoCientificoVersionQueryIDVersionInt struct{}
+
+// Set the required value of IDVersion
+func (r trabajoCientificoVersionQueryIDVersionInt) Set(value int) trabajoCientificoVersionSetParam {
+
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name:  "id_version",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDVersion dynamically
+func (r trabajoCientificoVersionQueryIDVersionInt) SetIfPresent(value *Int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDVersion
+func (r trabajoCientificoVersionQueryIDVersionInt) Increment(value int) trabajoCientificoVersionSetParam {
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) IncrementIfPresent(value *int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDVersion
+func (r trabajoCientificoVersionQueryIDVersionInt) Decrement(value int) trabajoCientificoVersionSetParam {
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) DecrementIfPresent(value *int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDVersion
+func (r trabajoCientificoVersionQueryIDVersionInt) Multiply(value int) trabajoCientificoVersionSetParam {
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) MultiplyIfPresent(value *int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDVersion
+func (r trabajoCientificoVersionQueryIDVersionInt) Divide(value int) trabajoCientificoVersionSetParam {
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) DivideIfPresent(value *int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Equals(value int) trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam {
+
+	return trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) EqualsIfPresent(value *int) trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "id_version",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Cursor(cursor int) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "id_version",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) In(value []int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) InIfPresent(value []int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) NotIn(value []int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) NotInIfPresent(value []int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Lt(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) LtIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Lte(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) LteIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Gt(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) GtIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Gte(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) GteIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Not(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) NotIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoVersionQueryIDVersionInt) LT(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoVersionQueryIDVersionInt) LTIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoVersionQueryIDVersionInt) LTE(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoVersionQueryIDVersionInt) LTEIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoVersionQueryIDVersionInt) GT(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoVersionQueryIDVersionInt) GTIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoVersionQueryIDVersionInt) GTE(value int) trabajoCientificoVersionParamUnique {
+	return trabajoCientificoVersionParamUnique{
+		data: builder.Field{
+			Name: "id_version",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoVersionQueryIDVersionInt) GTEIfPresent(value *int) trabajoCientificoVersionParamUnique {
+	if value == nil {
+		return trabajoCientificoVersionParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDVersionInt) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldIDVersion
+}
+
+// base struct
+type trabajoCientificoVersionQueryIDTrabajoInt struct{}
+
+// Set the required value of IDTrabajo
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Set(value int) trabajoCientificoVersionSetParam {
+
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDTrabajo dynamically
+func (r trabajoCientificoVersionQueryIDTrabajoInt) SetIfPresent(value *Int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDTrabajo
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Increment(value int) trabajoCientificoVersionSetParam {
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) IncrementIfPresent(value *int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDTrabajo
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Decrement(value int) trabajoCientificoVersionSetParam {
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) DecrementIfPresent(value *int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDTrabajo
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Multiply(value int) trabajoCientificoVersionSetParam {
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) MultiplyIfPresent(value *int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDTrabajo
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Divide(value int) trabajoCientificoVersionSetParam {
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) DivideIfPresent(value *int) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Equals(value int) trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) EqualsIfPresent(value *int) trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Cursor(cursor int) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) In(value []int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) InIfPresent(value []int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) NotIn(value []int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) NotInIfPresent(value []int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Lt(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) LtIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Lte(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) LteIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Gt(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) GtIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Gte(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) GteIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Not(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) NotIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) LT(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoVersionQueryIDTrabajoInt) LTIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) LTE(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoVersionQueryIDTrabajoInt) LTEIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) GT(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoVersionQueryIDTrabajoInt) GTIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) GTE(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoVersionQueryIDTrabajoInt) GTEIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoVersionQueryIDTrabajoInt) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldIDTrabajo
+}
+
+// base struct
+type trabajoCientificoVersionQueryNumeroVersionInt struct{}
+
+// Set the required value of NumeroVersion
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Set(value int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+
+	return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{
+		data: builder.Field{
+			Name:  "numero_version",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of NumeroVersion dynamically
+func (r trabajoCientificoVersionQueryNumeroVersionInt) SetIfPresent(value *Int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of NumeroVersion
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Increment(value int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) IncrementIfPresent(value *int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of NumeroVersion
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Decrement(value int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) DecrementIfPresent(value *int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of NumeroVersion
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Multiply(value int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) MultiplyIfPresent(value *int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of NumeroVersion
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Divide(value int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) DivideIfPresent(value *int) trabajoCientificoVersionWithPrismaNumeroVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaNumeroVersionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Equals(value int) trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) EqualsIfPresent(value *int) trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "numero_version",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Cursor(cursor int) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "numero_version",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) In(value []int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) InIfPresent(value []int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) NotIn(value []int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) NotInIfPresent(value []int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Lt(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) LtIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Lte(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) LteIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Gt(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) GtIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Gte(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) GteIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Not(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) NotIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) LT(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoVersionQueryNumeroVersionInt) LTIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) LTE(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoVersionQueryNumeroVersionInt) LTEIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) GT(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoVersionQueryNumeroVersionInt) GTIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) GTE(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "numero_version",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoVersionQueryNumeroVersionInt) GTEIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoVersionQueryNumeroVersionInt) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldNumeroVersion
+}
+
+// base struct
+type trabajoCientificoVersionQueryNombreArchivoString struct{}
+
+// Set the required value of NombreArchivo
+func (r trabajoCientificoVersionQueryNombreArchivoString) Set(value string) trabajoCientificoVersionWithPrismaNombreArchivoSetParam {
+
+	return trabajoCientificoVersionWithPrismaNombreArchivoSetParam{
+		data: builder.Field{
+			Name:  "nombre_archivo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of NombreArchivo dynamically
+func (r trabajoCientificoVersionQueryNombreArchivoString) SetIfPresent(value *String) trabajoCientificoVersionWithPrismaNombreArchivoSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaNombreArchivoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Equals(value string) trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) EqualsIfPresent(value *string) trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "nombre_archivo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Cursor(cursor string) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "nombre_archivo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) In(value []string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) InIfPresent(value []string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) NotIn(value []string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) NotInIfPresent(value []string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Lt(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) LtIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Lte(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) LteIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Gt(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) GtIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Gte(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) GteIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Contains(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) ContainsIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) StartsWith(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) StartsWithIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) EndsWith(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) EndsWithIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Mode(value QueryMode) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) ModeIfPresent(value *QueryMode) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Not(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) NotIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) HasPrefix(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoVersionQueryNombreArchivoString) HasPrefixIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) HasSuffix(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "nombre_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoVersionQueryNombreArchivoString) HasSuffixIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoVersionQueryNombreArchivoString) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldNombreArchivo
+}
+
+// base struct
+type trabajoCientificoVersionQueryRutaArchivoString struct{}
+
+// Set the required value of RutaArchivo
+func (r trabajoCientificoVersionQueryRutaArchivoString) Set(value string) trabajoCientificoVersionWithPrismaRutaArchivoSetParam {
+
+	return trabajoCientificoVersionWithPrismaRutaArchivoSetParam{
+		data: builder.Field{
+			Name:  "ruta_archivo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of RutaArchivo dynamically
+func (r trabajoCientificoVersionQueryRutaArchivoString) SetIfPresent(value *String) trabajoCientificoVersionWithPrismaRutaArchivoSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaRutaArchivoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Equals(value string) trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) EqualsIfPresent(value *string) trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "ruta_archivo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Cursor(cursor string) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "ruta_archivo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) In(value []string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) InIfPresent(value []string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) NotIn(value []string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) NotInIfPresent(value []string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Lt(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) LtIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Lte(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) LteIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Gt(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) GtIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Gte(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) GteIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Contains(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) ContainsIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) StartsWith(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) StartsWithIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) EndsWith(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) EndsWithIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Mode(value QueryMode) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) ModeIfPresent(value *QueryMode) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Not(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) NotIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) HasPrefix(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoVersionQueryRutaArchivoString) HasPrefixIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) HasSuffix(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "ruta_archivo",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoVersionQueryRutaArchivoString) HasSuffixIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoVersionQueryRutaArchivoString) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldRutaArchivo
+}
+
+// base struct
+type trabajoCientificoVersionQueryTamanoBytesInt struct{}
+
+// Set the required value of TamanoBytes
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Set(value int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+
+	return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{
+		data: builder.Field{
+			Name:  "tamano_bytes",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of TamanoBytes dynamically
+func (r trabajoCientificoVersionQueryTamanoBytesInt) SetIfPresent(value *Int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of TamanoBytes
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Increment(value int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) IncrementIfPresent(value *int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of TamanoBytes
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Decrement(value int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) DecrementIfPresent(value *int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of TamanoBytes
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Multiply(value int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) MultiplyIfPresent(value *int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of TamanoBytes
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Divide(value int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) DivideIfPresent(value *int) trabajoCientificoVersionWithPrismaTamanoBytesSetParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaTamanoBytesSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Equals(value int) trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) EqualsIfPresent(value *int) trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "tamano_bytes",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Cursor(cursor int) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "tamano_bytes",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) In(value []int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) InIfPresent(value []int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) NotIn(value []int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) NotInIfPresent(value []int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Lt(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) LtIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Lte(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) LteIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Gt(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) GtIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Gte(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) GteIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Not(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) NotIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) LT(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoVersionQueryTamanoBytesInt) LTIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) LTE(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoVersionQueryTamanoBytesInt) LTEIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) GT(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoVersionQueryTamanoBytesInt) GTIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) GTE(value int) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "tamano_bytes",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoVersionQueryTamanoBytesInt) GTEIfPresent(value *int) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoVersionQueryTamanoBytesInt) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldTamanoBytes
+}
+
+// base struct
+type trabajoCientificoVersionQueryMimeTypeString struct{}
+
+// Set the required value of MimeType
+func (r trabajoCientificoVersionQueryMimeTypeString) Set(value string) trabajoCientificoVersionSetParam {
+
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name:  "mime_type",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of MimeType dynamically
+func (r trabajoCientificoVersionQueryMimeTypeString) SetIfPresent(value *String) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Equals(value string) trabajoCientificoVersionWithPrismaMimeTypeEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaMimeTypeEqualsParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) EqualsIfPresent(value *string) trabajoCientificoVersionWithPrismaMimeTypeEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaMimeTypeEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "mime_type",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Cursor(cursor string) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "mime_type",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) In(value []string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) InIfPresent(value []string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) NotIn(value []string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) NotInIfPresent(value []string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Lt(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) LtIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Lte(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) LteIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Gt(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) GtIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Gte(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) GteIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Contains(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) ContainsIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) StartsWith(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) StartsWithIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) EndsWith(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) EndsWithIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Mode(value QueryMode) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) ModeIfPresent(value *QueryMode) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Not(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) NotIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoVersionQueryMimeTypeString) HasPrefix(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoVersionQueryMimeTypeString) HasPrefixIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoVersionQueryMimeTypeString) HasSuffix(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "mime_type",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoVersionQueryMimeTypeString) HasSuffixIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoVersionQueryMimeTypeString) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldMimeType
+}
+
+// base struct
+type trabajoCientificoVersionQueryDescripcionCambiosString struct{}
+
+// Set the optional value of DescripcionCambios
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Set(value string) trabajoCientificoVersionSetParam {
+
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name:  "descripcion_cambios",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of DescripcionCambios dynamically
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) SetIfPresent(value *String) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of DescripcionCambios dynamically
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) SetOptional(value *String) trabajoCientificoVersionSetParam {
+	if value == nil {
+
+		var v *string
+		return trabajoCientificoVersionSetParam{
+			data: builder.Field{
+				Name:  "descripcion_cambios",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Equals(value string) trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) EqualsIfPresent(value *string) trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) EqualsOptional(value *String) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) IsNull() trabajoCientificoVersionDefaultParam {
+	var str *string = nil
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "descripcion_cambios",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Cursor(cursor string) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "descripcion_cambios",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) In(value []string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) InIfPresent(value []string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) NotIn(value []string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) NotInIfPresent(value []string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Lt(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) LtIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Lte(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) LteIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Gt(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) GtIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Gte(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) GteIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Contains(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) ContainsIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) StartsWith(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) StartsWithIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) EndsWith(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) EndsWithIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Mode(value QueryMode) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) ModeIfPresent(value *QueryMode) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Not(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) NotIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) HasPrefix(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) HasPrefixIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) HasSuffix(value string) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "descripcion_cambios",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) HasSuffixIfPresent(value *string) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoVersionQueryDescripcionCambiosString) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldDescripcionCambios
+}
+
+// base struct
+type trabajoCientificoVersionQueryEsActualBoolean struct{}
+
+// Set the required value of EsActual
+func (r trabajoCientificoVersionQueryEsActualBoolean) Set(value bool) trabajoCientificoVersionSetParam {
+
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name:  "es_actual",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of EsActual dynamically
+func (r trabajoCientificoVersionQueryEsActualBoolean) SetIfPresent(value *Boolean) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoVersionQueryEsActualBoolean) Equals(value bool) trabajoCientificoVersionWithPrismaEsActualEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaEsActualEqualsParam{
+		data: builder.Field{
+			Name: "es_actual",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryEsActualBoolean) EqualsIfPresent(value *bool) trabajoCientificoVersionWithPrismaEsActualEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaEsActualEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryEsActualBoolean) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "es_actual",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryEsActualBoolean) Cursor(cursor bool) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "es_actual",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryEsActualBoolean) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldEsActual
+}
+
+// base struct
+type trabajoCientificoVersionQueryFechaEnvioDateTime struct{}
+
+// Set the required value of FechaEnvio
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Set(value DateTime) trabajoCientificoVersionSetParam {
+
+	return trabajoCientificoVersionSetParam{
+		data: builder.Field{
+			Name:  "fecha_envio",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaEnvio dynamically
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) SetIfPresent(value *DateTime) trabajoCientificoVersionSetParam {
+	if value == nil {
+		return trabajoCientificoVersionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Equals(value DateTime) trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam {
+
+	return trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) EqualsIfPresent(value *DateTime) trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam {
+	if value == nil {
+		return trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Order(direction SortOrder) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_envio",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Cursor(cursor DateTime) trabajoCientificoVersionCursorParam {
+	return trabajoCientificoVersionCursorParam{
+		data: builder.Field{
+			Name:  "fecha_envio",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) In(value []DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) InIfPresent(value []DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) NotIn(value []DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) NotInIfPresent(value []DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Lt(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) LtIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Lte(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) LteIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Gt(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) GtIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Gte(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) GteIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Not(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) NotIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Before(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) BeforeIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) After(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) AfterIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) BeforeEquals(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) BeforeEqualsIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) AfterEquals(value DateTime) trabajoCientificoVersionDefaultParam {
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "fecha_envio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) AfterEqualsIfPresent(value *DateTime) trabajoCientificoVersionDefaultParam {
+	if value == nil {
+		return trabajoCientificoVersionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r trabajoCientificoVersionQueryFechaEnvioDateTime) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldFechaEnvio
+}
+
+// base struct
+type trabajoCientificoVersionQueryTrabajoTrabajoCientifico struct{}
+
+type trabajoCientificoVersionQueryTrabajoRelations struct{}
+
+// TrabajoCientificoVersion -> Trabajo
+//
+// @relation
+// @required
+func (trabajoCientificoVersionQueryTrabajoRelations) Where(
+	params ...TrabajoCientificoWhereParam,
+) trabajoCientificoVersionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoVersionDefaultParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoCientificoVersionQueryTrabajoRelations) Fetch() trabajoCientificoVersionToTrabajoFindUnique {
+	var v trabajoCientificoVersionToTrabajoFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "trabajo"
+	v.query.Outputs = trabajoCientificoOutput
+
+	return v
+}
+
+func (r trabajoCientificoVersionQueryTrabajoRelations) Link(
+	params TrabajoCientificoWhereParam,
+) trabajoCientificoVersionWithPrismaTrabajoSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoCientificoVersionWithPrismaTrabajoSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoCientificoVersionWithPrismaTrabajoSetParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoVersionQueryTrabajoRelations) Unlink() trabajoCientificoVersionWithPrismaTrabajoSetParam {
+	var v trabajoCientificoVersionWithPrismaTrabajoSetParam
+
+	v = trabajoCientificoVersionWithPrismaTrabajoSetParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoCientificoVersionQueryTrabajoTrabajoCientifico) Field() trabajoCientificoVersionPrismaFields {
+	return trabajoCientificoVersionFieldTrabajo
+}
+
 // --- template actions.gotpl ---
 var countOutput = []builder.Output{
 	{Name: "count"},
@@ -43880,6 +52295,84 @@ func (p usuarioWithPrismaPreferenciasEqualsUniqueParam) preferenciasField() {}
 
 func (usuarioWithPrismaPreferenciasEqualsUniqueParam) unique() {}
 func (usuarioWithPrismaPreferenciasEqualsUniqueParam) equals() {}
+
+type UsuarioWithPrismaTrabajosCientificosEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	trabajosCientificosField()
+}
+
+type UsuarioWithPrismaTrabajosCientificosSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	trabajosCientificosField()
+}
+
+type usuarioWithPrismaTrabajosCientificosSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosCientificosSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosCientificosSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosCientificosSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaTrabajosCientificosSetParam) trabajosCientificosField() {}
+
+type UsuarioWithPrismaTrabajosCientificosWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	trabajosCientificosField()
+}
+
+type usuarioWithPrismaTrabajosCientificosEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosCientificosEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosCientificosEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosCientificosEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaTrabajosCientificosEqualsParam) trabajosCientificosField() {}
+
+func (usuarioWithPrismaTrabajosCientificosSetParam) settable()  {}
+func (usuarioWithPrismaTrabajosCientificosEqualsParam) equals() {}
+
+type usuarioWithPrismaTrabajosCientificosEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) usuarioModel()             {}
+func (p usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) trabajosCientificosField() {}
+
+func (usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaTrabajosCientificosEqualsUniqueParam) equals() {}
 
 type rolesActions struct {
 	// client holds the prisma client
@@ -47101,6 +55594,84 @@ func (p eventoWithPrismaSesionesEqualsUniqueParam) sesionesField() {}
 
 func (eventoWithPrismaSesionesEqualsUniqueParam) unique() {}
 func (eventoWithPrismaSesionesEqualsUniqueParam) equals() {}
+
+type EventoWithPrismaTrabajosCientificosEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	eventoModel()
+	trabajosCientificosField()
+}
+
+type EventoWithPrismaTrabajosCientificosSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	trabajosCientificosField()
+}
+
+type eventoWithPrismaTrabajosCientificosSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaTrabajosCientificosSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaTrabajosCientificosSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaTrabajosCientificosSetParam) eventoModel() {}
+
+func (p eventoWithPrismaTrabajosCientificosSetParam) trabajosCientificosField() {}
+
+type EventoWithPrismaTrabajosCientificosWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	eventoModel()
+	trabajosCientificosField()
+}
+
+type eventoWithPrismaTrabajosCientificosEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaTrabajosCientificosEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaTrabajosCientificosEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaTrabajosCientificosEqualsParam) eventoModel() {}
+
+func (p eventoWithPrismaTrabajosCientificosEqualsParam) trabajosCientificosField() {}
+
+func (eventoWithPrismaTrabajosCientificosSetParam) settable()  {}
+func (eventoWithPrismaTrabajosCientificosEqualsParam) equals() {}
+
+type eventoWithPrismaTrabajosCientificosEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p eventoWithPrismaTrabajosCientificosEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p eventoWithPrismaTrabajosCientificosEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p eventoWithPrismaTrabajosCientificosEqualsUniqueParam) eventoModel()              {}
+func (p eventoWithPrismaTrabajosCientificosEqualsUniqueParam) trabajosCientificosField() {}
+
+func (eventoWithPrismaTrabajosCientificosEqualsUniqueParam) unique() {}
+func (eventoWithPrismaTrabajosCientificosEqualsUniqueParam) equals() {}
 
 type inscripcionActions struct {
 	// client holds the prisma client
@@ -56248,6 +64819,2255 @@ func (p sesionHistorialWithPrismaSesionEqualsUniqueParam) sesionField()         
 func (sesionHistorialWithPrismaSesionEqualsUniqueParam) unique() {}
 func (sesionHistorialWithPrismaSesionEqualsUniqueParam) equals() {}
 
+type trabajoCientificoActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var trabajoCientificoOutput = []builder.Output{
+	{Name: "id_trabajo"},
+	{Name: "id_evento"},
+	{Name: "id_usuario"},
+	{Name: "titulo"},
+	{Name: "titulo_normalizado"},
+	{Name: "resumen"},
+	{Name: "version_actual"},
+	{Name: "estado"},
+	{Name: "createdAt"},
+	{Name: "updatedAt"},
+}
+
+type TrabajoCientificoRelationWith interface {
+	getQuery() builder.Query
+	with()
+	trabajoCientificoRelation()
+}
+
+type TrabajoCientificoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+}
+
+type trabajoCientificoDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoDefaultParam) trabajoCientificoModel() {}
+
+type TrabajoCientificoOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+}
+
+type trabajoCientificoOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoOrderByParam) trabajoCientificoModel() {}
+
+type TrabajoCientificoCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	isCursor()
+}
+
+type trabajoCientificoCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoCursorParam) isCursor() {}
+
+func (p trabajoCientificoCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoCursorParam) trabajoCientificoModel() {}
+
+type TrabajoCientificoParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	trabajoCientificoModel()
+}
+
+type trabajoCientificoParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoParamUnique) trabajoCientificoModel() {}
+
+func (trabajoCientificoParamUnique) unique() {}
+
+func (p trabajoCientificoParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+}
+
+type trabajoCientificoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoEqualsParam) trabajoCientificoModel() {}
+
+func (trabajoCientificoEqualsParam) equals() {}
+
+func (p trabajoCientificoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	trabajoCientificoModel()
+}
+
+type trabajoCientificoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoEqualsUniqueParam) trabajoCientificoModel() {}
+
+func (trabajoCientificoEqualsUniqueParam) unique() {}
+func (trabajoCientificoEqualsUniqueParam) equals() {}
+
+func (p trabajoCientificoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoSetParam interface {
+	field() builder.Field
+	settable()
+	trabajoCientificoModel()
+}
+
+type trabajoCientificoSetParam struct {
+	data builder.Field
+}
+
+func (trabajoCientificoSetParam) settable() {}
+
+func (p trabajoCientificoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoSetParam) trabajoCientificoModel() {}
+
+type TrabajoCientificoWithPrismaIDTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	idTrabajoField()
+}
+
+type TrabajoCientificoWithPrismaIDTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	idTrabajoField()
+}
+
+type trabajoCientificoWithPrismaIDTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaIDTrabajoSetParam) idTrabajoField() {}
+
+type TrabajoCientificoWithPrismaIDTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	idTrabajoField()
+}
+
+type trabajoCientificoWithPrismaIDTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaIDTrabajoEqualsParam) idTrabajoField() {}
+
+func (trabajoCientificoWithPrismaIDTrabajoSetParam) settable()  {}
+func (trabajoCientificoWithPrismaIDTrabajoEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam) idTrabajoField()         {}
+
+func (trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaIDTrabajoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaIDEventoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	idEventoField()
+}
+
+type TrabajoCientificoWithPrismaIDEventoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	idEventoField()
+}
+
+type trabajoCientificoWithPrismaIDEventoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDEventoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDEventoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDEventoSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaIDEventoSetParam) idEventoField() {}
+
+type TrabajoCientificoWithPrismaIDEventoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	idEventoField()
+}
+
+type trabajoCientificoWithPrismaIDEventoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDEventoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDEventoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDEventoEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaIDEventoEqualsParam) idEventoField() {}
+
+func (trabajoCientificoWithPrismaIDEventoSetParam) settable()  {}
+func (trabajoCientificoWithPrismaIDEventoEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaIDEventoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDEventoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDEventoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDEventoEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaIDEventoEqualsUniqueParam) idEventoField()          {}
+
+func (trabajoCientificoWithPrismaIDEventoEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaIDEventoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaIDUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	idUsuarioField()
+}
+
+type TrabajoCientificoWithPrismaIDUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	idUsuarioField()
+}
+
+type trabajoCientificoWithPrismaIDUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaIDUsuarioSetParam) idUsuarioField() {}
+
+type TrabajoCientificoWithPrismaIDUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	idUsuarioField()
+}
+
+type trabajoCientificoWithPrismaIDUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaIDUsuarioEqualsParam) idUsuarioField() {}
+
+func (trabajoCientificoWithPrismaIDUsuarioSetParam) settable()  {}
+func (trabajoCientificoWithPrismaIDUsuarioEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaIDUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaIDUsuarioEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaIDUsuarioEqualsUniqueParam) idUsuarioField()         {}
+
+func (trabajoCientificoWithPrismaIDUsuarioEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaIDUsuarioEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaTituloEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	tituloField()
+}
+
+type TrabajoCientificoWithPrismaTituloSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	tituloField()
+}
+
+type trabajoCientificoWithPrismaTituloSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaTituloSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaTituloSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaTituloSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaTituloSetParam) tituloField() {}
+
+type TrabajoCientificoWithPrismaTituloWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	tituloField()
+}
+
+type trabajoCientificoWithPrismaTituloEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaTituloEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaTituloEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaTituloEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaTituloEqualsParam) tituloField() {}
+
+func (trabajoCientificoWithPrismaTituloSetParam) settable()  {}
+func (trabajoCientificoWithPrismaTituloEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaTituloEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaTituloEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaTituloEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaTituloEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaTituloEqualsUniqueParam) tituloField()            {}
+
+func (trabajoCientificoWithPrismaTituloEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaTituloEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaTituloNormalizadoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	tituloNormalizadoField()
+}
+
+type TrabajoCientificoWithPrismaTituloNormalizadoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	tituloNormalizadoField()
+}
+
+type trabajoCientificoWithPrismaTituloNormalizadoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoSetParam) tituloNormalizadoField() {}
+
+type TrabajoCientificoWithPrismaTituloNormalizadoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	tituloNormalizadoField()
+}
+
+type trabajoCientificoWithPrismaTituloNormalizadoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoEqualsParam) tituloNormalizadoField() {}
+
+func (trabajoCientificoWithPrismaTituloNormalizadoSetParam) settable()  {}
+func (trabajoCientificoWithPrismaTituloNormalizadoEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaTituloNormalizadoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaTituloNormalizadoEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaTituloNormalizadoEqualsUniqueParam) tituloNormalizadoField() {}
+
+func (trabajoCientificoWithPrismaTituloNormalizadoEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaTituloNormalizadoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaResumenEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	resumenField()
+}
+
+type TrabajoCientificoWithPrismaResumenSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	resumenField()
+}
+
+type trabajoCientificoWithPrismaResumenSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaResumenSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaResumenSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaResumenSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaResumenSetParam) resumenField() {}
+
+type TrabajoCientificoWithPrismaResumenWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	resumenField()
+}
+
+type trabajoCientificoWithPrismaResumenEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaResumenEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaResumenEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaResumenEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaResumenEqualsParam) resumenField() {}
+
+func (trabajoCientificoWithPrismaResumenSetParam) settable()  {}
+func (trabajoCientificoWithPrismaResumenEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaResumenEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaResumenEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaResumenEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaResumenEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaResumenEqualsUniqueParam) resumenField()           {}
+
+func (trabajoCientificoWithPrismaResumenEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaResumenEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaVersionActualEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	versionActualField()
+}
+
+type TrabajoCientificoWithPrismaVersionActualSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	versionActualField()
+}
+
+type trabajoCientificoWithPrismaVersionActualSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaVersionActualSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaVersionActualSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaVersionActualSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaVersionActualSetParam) versionActualField() {}
+
+type TrabajoCientificoWithPrismaVersionActualWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	versionActualField()
+}
+
+type trabajoCientificoWithPrismaVersionActualEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaVersionActualEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaVersionActualEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaVersionActualEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaVersionActualEqualsParam) versionActualField() {}
+
+func (trabajoCientificoWithPrismaVersionActualSetParam) settable()  {}
+func (trabajoCientificoWithPrismaVersionActualEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaVersionActualEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaVersionActualEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaVersionActualEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaVersionActualEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaVersionActualEqualsUniqueParam) versionActualField()     {}
+
+func (trabajoCientificoWithPrismaVersionActualEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaVersionActualEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaEstadoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	estadoField()
+}
+
+type TrabajoCientificoWithPrismaEstadoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	estadoField()
+}
+
+type trabajoCientificoWithPrismaEstadoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEstadoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEstadoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEstadoSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaEstadoSetParam) estadoField() {}
+
+type TrabajoCientificoWithPrismaEstadoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	estadoField()
+}
+
+type trabajoCientificoWithPrismaEstadoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEstadoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEstadoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEstadoEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaEstadoEqualsParam) estadoField() {}
+
+func (trabajoCientificoWithPrismaEstadoSetParam) settable()  {}
+func (trabajoCientificoWithPrismaEstadoEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaEstadoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEstadoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEstadoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEstadoEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaEstadoEqualsUniqueParam) estadoField()            {}
+
+func (trabajoCientificoWithPrismaEstadoEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaEstadoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	createdAtField()
+}
+
+type TrabajoCientificoWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	createdAtField()
+}
+
+type trabajoCientificoWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type TrabajoCientificoWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	createdAtField()
+}
+
+type trabajoCientificoWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (trabajoCientificoWithPrismaCreatedAtSetParam) settable()  {}
+func (trabajoCientificoWithPrismaCreatedAtEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaCreatedAtEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaCreatedAtEqualsUniqueParam) createdAtField()         {}
+
+func (trabajoCientificoWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaUpdatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	updatedAtField()
+}
+
+type TrabajoCientificoWithPrismaUpdatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	updatedAtField()
+}
+
+type trabajoCientificoWithPrismaUpdatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaUpdatedAtSetParam) updatedAtField() {}
+
+type TrabajoCientificoWithPrismaUpdatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	updatedAtField()
+}
+
+type trabajoCientificoWithPrismaUpdatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaUpdatedAtEqualsParam) updatedAtField() {}
+
+func (trabajoCientificoWithPrismaUpdatedAtSetParam) settable()  {}
+func (trabajoCientificoWithPrismaUpdatedAtEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) updatedAtField()         {}
+
+func (trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaUpdatedAtEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaEventoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	eventoField()
+}
+
+type TrabajoCientificoWithPrismaEventoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	eventoField()
+}
+
+type trabajoCientificoWithPrismaEventoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEventoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEventoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEventoSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaEventoSetParam) eventoField() {}
+
+type TrabajoCientificoWithPrismaEventoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	eventoField()
+}
+
+type trabajoCientificoWithPrismaEventoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEventoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEventoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEventoEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaEventoEqualsParam) eventoField() {}
+
+func (trabajoCientificoWithPrismaEventoSetParam) settable()  {}
+func (trabajoCientificoWithPrismaEventoEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaEventoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaEventoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaEventoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaEventoEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaEventoEqualsUniqueParam) eventoField()            {}
+
+func (trabajoCientificoWithPrismaEventoEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaEventoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	usuarioField()
+}
+
+type TrabajoCientificoWithPrismaUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	usuarioField()
+}
+
+type trabajoCientificoWithPrismaUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaUsuarioSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaUsuarioSetParam) usuarioField() {}
+
+type TrabajoCientificoWithPrismaUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	usuarioField()
+}
+
+type trabajoCientificoWithPrismaUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaUsuarioEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaUsuarioEqualsParam) usuarioField() {}
+
+func (trabajoCientificoWithPrismaUsuarioSetParam) settable()  {}
+func (trabajoCientificoWithPrismaUsuarioEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaUsuarioEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaUsuarioEqualsUniqueParam) usuarioField()           {}
+
+func (trabajoCientificoWithPrismaUsuarioEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaUsuarioEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoWithPrismaVersionesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	versionesField()
+}
+
+type TrabajoCientificoWithPrismaVersionesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	versionesField()
+}
+
+type trabajoCientificoWithPrismaVersionesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaVersionesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaVersionesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaVersionesSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaVersionesSetParam) versionesField() {}
+
+type TrabajoCientificoWithPrismaVersionesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	versionesField()
+}
+
+type trabajoCientificoWithPrismaVersionesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaVersionesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaVersionesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaVersionesEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaVersionesEqualsParam) versionesField() {}
+
+func (trabajoCientificoWithPrismaVersionesSetParam) settable()  {}
+func (trabajoCientificoWithPrismaVersionesEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaVersionesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaVersionesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaVersionesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaVersionesEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaVersionesEqualsUniqueParam) versionesField()         {}
+
+func (trabajoCientificoWithPrismaVersionesEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaVersionesEqualsUniqueParam) equals() {}
+
+type trabajoCientificoVersionActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var trabajoCientificoVersionOutput = []builder.Output{
+	{Name: "id_version"},
+	{Name: "id_trabajo"},
+	{Name: "numero_version"},
+	{Name: "nombre_archivo"},
+	{Name: "ruta_archivo"},
+	{Name: "tamano_bytes"},
+	{Name: "mime_type"},
+	{Name: "descripcion_cambios"},
+	{Name: "es_actual"},
+	{Name: "fecha_envio"},
+}
+
+type TrabajoCientificoVersionRelationWith interface {
+	getQuery() builder.Query
+	with()
+	trabajoCientificoVersionRelation()
+}
+
+type TrabajoCientificoVersionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+}
+
+type trabajoCientificoVersionDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionDefaultParam) trabajoCientificoVersionModel() {}
+
+type TrabajoCientificoVersionOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+}
+
+type trabajoCientificoVersionOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionOrderByParam) trabajoCientificoVersionModel() {}
+
+type TrabajoCientificoVersionCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	isCursor()
+}
+
+type trabajoCientificoVersionCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionCursorParam) isCursor() {}
+
+func (p trabajoCientificoVersionCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionCursorParam) trabajoCientificoVersionModel() {}
+
+type TrabajoCientificoVersionParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	trabajoCientificoVersionModel()
+}
+
+type trabajoCientificoVersionParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionParamUnique) trabajoCientificoVersionModel() {}
+
+func (trabajoCientificoVersionParamUnique) unique() {}
+
+func (p trabajoCientificoVersionParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoVersionEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+}
+
+type trabajoCientificoVersionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionEqualsParam) trabajoCientificoVersionModel() {}
+
+func (trabajoCientificoVersionEqualsParam) equals() {}
+
+func (p trabajoCientificoVersionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoVersionEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	trabajoCientificoVersionModel()
+}
+
+type trabajoCientificoVersionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionEqualsUniqueParam) trabajoCientificoVersionModel() {}
+
+func (trabajoCientificoVersionEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionEqualsUniqueParam) equals() {}
+
+func (p trabajoCientificoVersionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoVersionSetParam interface {
+	field() builder.Field
+	settable()
+	trabajoCientificoVersionModel()
+}
+
+type trabajoCientificoVersionSetParam struct {
+	data builder.Field
+}
+
+func (trabajoCientificoVersionSetParam) settable() {}
+
+func (p trabajoCientificoVersionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionSetParam) trabajoCientificoVersionModel() {}
+
+type TrabajoCientificoVersionWithPrismaIDVersionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	idVersionField()
+}
+
+type TrabajoCientificoVersionWithPrismaIDVersionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	idVersionField()
+}
+
+type trabajoCientificoVersionWithPrismaIDVersionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionSetParam) idVersionField() {}
+
+type TrabajoCientificoVersionWithPrismaIDVersionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	idVersionField()
+}
+
+type trabajoCientificoVersionWithPrismaIDVersionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionEqualsParam) idVersionField() {}
+
+func (trabajoCientificoVersionWithPrismaIDVersionSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaIDVersionEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam) idVersionField() {}
+
+func (trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaIDVersionEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaIDTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	idTrabajoField()
+}
+
+type TrabajoCientificoVersionWithPrismaIDTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	idTrabajoField()
+}
+
+type trabajoCientificoVersionWithPrismaIDTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoSetParam) idTrabajoField() {}
+
+type TrabajoCientificoVersionWithPrismaIDTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	idTrabajoField()
+}
+
+type trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam) idTrabajoField() {}
+
+func (trabajoCientificoVersionWithPrismaIDTrabajoSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaIDTrabajoEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaIDTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaIDTrabajoEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaIDTrabajoEqualsUniqueParam) idTrabajoField() {}
+
+func (trabajoCientificoVersionWithPrismaIDTrabajoEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaIDTrabajoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaNumeroVersionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	numeroVersionField()
+}
+
+type TrabajoCientificoVersionWithPrismaNumeroVersionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	numeroVersionField()
+}
+
+type trabajoCientificoVersionWithPrismaNumeroVersionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionSetParam) numeroVersionField() {}
+
+type TrabajoCientificoVersionWithPrismaNumeroVersionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	numeroVersionField()
+}
+
+type trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam) numeroVersionField() {}
+
+func (trabajoCientificoVersionWithPrismaNumeroVersionSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaNumeroVersionEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaNumeroVersionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaNumeroVersionEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaNumeroVersionEqualsUniqueParam) numeroVersionField() {}
+
+func (trabajoCientificoVersionWithPrismaNumeroVersionEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaNumeroVersionEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaNombreArchivoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	nombreArchivoField()
+}
+
+type TrabajoCientificoVersionWithPrismaNombreArchivoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	nombreArchivoField()
+}
+
+type trabajoCientificoVersionWithPrismaNombreArchivoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoSetParam) nombreArchivoField() {}
+
+type TrabajoCientificoVersionWithPrismaNombreArchivoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	nombreArchivoField()
+}
+
+type trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam) nombreArchivoField() {}
+
+func (trabajoCientificoVersionWithPrismaNombreArchivoSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaNombreArchivoEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaNombreArchivoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaNombreArchivoEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaNombreArchivoEqualsUniqueParam) nombreArchivoField() {}
+
+func (trabajoCientificoVersionWithPrismaNombreArchivoEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaNombreArchivoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaRutaArchivoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	rutaArchivoField()
+}
+
+type TrabajoCientificoVersionWithPrismaRutaArchivoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	rutaArchivoField()
+}
+
+type trabajoCientificoVersionWithPrismaRutaArchivoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoSetParam) rutaArchivoField() {}
+
+type TrabajoCientificoVersionWithPrismaRutaArchivoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	rutaArchivoField()
+}
+
+type trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam) rutaArchivoField() {}
+
+func (trabajoCientificoVersionWithPrismaRutaArchivoSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaRutaArchivoEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaRutaArchivoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaRutaArchivoEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaRutaArchivoEqualsUniqueParam) rutaArchivoField() {}
+
+func (trabajoCientificoVersionWithPrismaRutaArchivoEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaRutaArchivoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaTamanoBytesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	tamanoBytesField()
+}
+
+type TrabajoCientificoVersionWithPrismaTamanoBytesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	tamanoBytesField()
+}
+
+type trabajoCientificoVersionWithPrismaTamanoBytesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesSetParam) tamanoBytesField() {}
+
+type TrabajoCientificoVersionWithPrismaTamanoBytesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	tamanoBytesField()
+}
+
+type trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam) tamanoBytesField() {}
+
+func (trabajoCientificoVersionWithPrismaTamanoBytesSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaTamanoBytesEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaTamanoBytesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaTamanoBytesEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaTamanoBytesEqualsUniqueParam) tamanoBytesField() {}
+
+func (trabajoCientificoVersionWithPrismaTamanoBytesEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaTamanoBytesEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaMimeTypeEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	mimeTypeField()
+}
+
+type TrabajoCientificoVersionWithPrismaMimeTypeSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	mimeTypeField()
+}
+
+type trabajoCientificoVersionWithPrismaMimeTypeSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeSetParam) mimeTypeField() {}
+
+type TrabajoCientificoVersionWithPrismaMimeTypeWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	mimeTypeField()
+}
+
+type trabajoCientificoVersionWithPrismaMimeTypeEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeEqualsParam) mimeTypeField() {}
+
+func (trabajoCientificoVersionWithPrismaMimeTypeSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaMimeTypeEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaMimeTypeEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaMimeTypeEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaMimeTypeEqualsUniqueParam) mimeTypeField() {}
+
+func (trabajoCientificoVersionWithPrismaMimeTypeEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaMimeTypeEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaDescripcionCambiosEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	descripcionCambiosField()
+}
+
+type TrabajoCientificoVersionWithPrismaDescripcionCambiosSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	descripcionCambiosField()
+}
+
+type trabajoCientificoVersionWithPrismaDescripcionCambiosSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosSetParam) trabajoCientificoVersionModel() {
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosSetParam) descripcionCambiosField() {}
+
+type TrabajoCientificoVersionWithPrismaDescripcionCambiosWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	descripcionCambiosField()
+}
+
+type trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam) trabajoCientificoVersionModel() {
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam) descripcionCambiosField() {}
+
+func (trabajoCientificoVersionWithPrismaDescripcionCambiosSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsUniqueParam) descripcionCambiosField() {
+}
+
+func (trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaDescripcionCambiosEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaEsActualEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	esActualField()
+}
+
+type TrabajoCientificoVersionWithPrismaEsActualSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	esActualField()
+}
+
+type trabajoCientificoVersionWithPrismaEsActualSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaEsActualSetParam) esActualField() {}
+
+type TrabajoCientificoVersionWithPrismaEsActualWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	esActualField()
+}
+
+type trabajoCientificoVersionWithPrismaEsActualEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaEsActualEqualsParam) esActualField() {}
+
+func (trabajoCientificoVersionWithPrismaEsActualSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaEsActualEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaEsActualEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaEsActualEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaEsActualEqualsUniqueParam) esActualField() {}
+
+func (trabajoCientificoVersionWithPrismaEsActualEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaEsActualEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaFechaEnvioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	fechaEnvioField()
+}
+
+type TrabajoCientificoVersionWithPrismaFechaEnvioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	fechaEnvioField()
+}
+
+type trabajoCientificoVersionWithPrismaFechaEnvioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioSetParam) fechaEnvioField() {}
+
+type TrabajoCientificoVersionWithPrismaFechaEnvioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	fechaEnvioField()
+}
+
+type trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam) fechaEnvioField() {}
+
+func (trabajoCientificoVersionWithPrismaFechaEnvioSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaFechaEnvioEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaFechaEnvioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaFechaEnvioEqualsUniqueParam) trabajoCientificoVersionModel() {
+}
+func (p trabajoCientificoVersionWithPrismaFechaEnvioEqualsUniqueParam) fechaEnvioField() {}
+
+func (trabajoCientificoVersionWithPrismaFechaEnvioEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaFechaEnvioEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoVersionWithPrismaTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoVersionModel()
+	trabajoField()
+}
+
+type TrabajoCientificoVersionWithPrismaTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	trabajoField()
+}
+
+type trabajoCientificoVersionWithPrismaTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoSetParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoSetParam) trabajoField() {}
+
+type TrabajoCientificoVersionWithPrismaTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoVersionModel()
+	trabajoField()
+}
+
+type trabajoCientificoVersionWithPrismaTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoEqualsParam) trabajoCientificoVersionModel() {}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoEqualsParam) trabajoField() {}
+
+func (trabajoCientificoVersionWithPrismaTrabajoSetParam) settable()  {}
+func (trabajoCientificoVersionWithPrismaTrabajoEqualsParam) equals() {}
+
+type trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) trabajoCientificoVersionModel() {}
+func (p trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) trabajoField()                  {}
+
+func (trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) unique() {}
+func (trabajoCientificoVersionWithPrismaTrabajoEqualsUniqueParam) equals() {}
+
 // --- template create.gotpl ---
 
 // Creates a single usuario.
@@ -57447,6 +68267,158 @@ func (r sesionHistorialCreateOne) Exec(ctx context.Context) (*SesionHistorialMod
 
 func (r sesionHistorialCreateOne) Tx() SesionHistorialUniqueTxResult {
 	v := newSesionHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single trabajoCientifico.
+func (r trabajoCientificoActions) CreateOne(
+	_titulo TrabajoCientificoWithPrismaTituloSetParam,
+	_tituloNormalizado TrabajoCientificoWithPrismaTituloNormalizadoSetParam,
+	_resumen TrabajoCientificoWithPrismaResumenSetParam,
+	_evento TrabajoCientificoWithPrismaEventoSetParam,
+	_usuario TrabajoCientificoWithPrismaUsuarioSetParam,
+
+	optional ...TrabajoCientificoSetParam,
+) trabajoCientificoCreateOne {
+	var v trabajoCientificoCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "TrabajoCientifico"
+	v.query.Outputs = trabajoCientificoOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _titulo.field())
+	fields = append(fields, _tituloNormalizado.field())
+	fields = append(fields, _resumen.field())
+	fields = append(fields, _evento.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r trabajoCientificoCreateOne) With(params ...TrabajoCientificoRelationWith) trabajoCientificoCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type trabajoCientificoCreateOne struct {
+	query builder.Query
+}
+
+func (p trabajoCientificoCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoCreateOne) trabajoCientificoModel() {}
+
+func (r trabajoCientificoCreateOne) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoCreateOne) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single trabajoCientificoVersion.
+func (r trabajoCientificoVersionActions) CreateOne(
+	_numeroVersion TrabajoCientificoVersionWithPrismaNumeroVersionSetParam,
+	_nombreArchivo TrabajoCientificoVersionWithPrismaNombreArchivoSetParam,
+	_rutaArchivo TrabajoCientificoVersionWithPrismaRutaArchivoSetParam,
+	_tamanoBytes TrabajoCientificoVersionWithPrismaTamanoBytesSetParam,
+	_trabajo TrabajoCientificoVersionWithPrismaTrabajoSetParam,
+
+	optional ...TrabajoCientificoVersionSetParam,
+) trabajoCientificoVersionCreateOne {
+	var v trabajoCientificoVersionCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "TrabajoCientificoVersion"
+	v.query.Outputs = trabajoCientificoVersionOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _numeroVersion.field())
+	fields = append(fields, _nombreArchivo.field())
+	fields = append(fields, _rutaArchivo.field())
+	fields = append(fields, _tamanoBytes.field())
+	fields = append(fields, _trabajo.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r trabajoCientificoVersionCreateOne) With(params ...TrabajoCientificoVersionRelationWith) trabajoCientificoVersionCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type trabajoCientificoVersionCreateOne struct {
+	query builder.Query
+}
+
+func (p trabajoCientificoVersionCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoVersionCreateOne) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionCreateOne) Exec(ctx context.Context) (*TrabajoCientificoVersionModel, error) {
+	var v TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionCreateOne) Tx() TrabajoCientificoVersionUniqueTxResult {
+	v := newTrabajoCientificoVersionUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -60218,6 +71190,560 @@ func (r usuarioToPreferenciasDeleteMany) Exec(ctx context.Context) (*BatchResult
 }
 
 func (r usuarioToPreferenciasDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToTrabajosCientificosFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) with()            {}
+func (r usuarioToTrabajosCientificosFindUnique) usuarioModel()    {}
+func (r usuarioToTrabajosCientificosFindUnique) usuarioRelation() {}
+
+func (r usuarioToTrabajosCientificosFindUnique) With(params ...TrabajoCientificoRelationWith) usuarioToTrabajosCientificosFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) Select(params ...usuarioPrismaFields) usuarioToTrabajosCientificosFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) Omit(params ...usuarioPrismaFields) usuarioToTrabajosCientificosFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) Update(params ...UsuarioSetParam) usuarioToTrabajosCientificosUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToTrabajosCientificosUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToTrabajosCientificosUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosCientificosUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosCientificosUpdateUnique) usuarioModel() {}
+
+func (r usuarioToTrabajosCientificosUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosCientificosUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToTrabajosCientificosFindUnique) Delete() usuarioToTrabajosCientificosDeleteUnique {
+	var v usuarioToTrabajosCientificosDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToTrabajosCientificosDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosCientificosDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToTrabajosCientificosDeleteUnique) usuarioModel() {}
+
+func (r usuarioToTrabajosCientificosDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosCientificosDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToTrabajosCientificosFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) with()            {}
+func (r usuarioToTrabajosCientificosFindFirst) usuarioModel()    {}
+func (r usuarioToTrabajosCientificosFindFirst) usuarioRelation() {}
+
+func (r usuarioToTrabajosCientificosFindFirst) With(params ...TrabajoCientificoRelationWith) usuarioToTrabajosCientificosFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) Select(params ...usuarioPrismaFields) usuarioToTrabajosCientificosFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) Omit(params ...usuarioPrismaFields) usuarioToTrabajosCientificosFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) OrderBy(params ...TrabajoCientificoOrderByParam) usuarioToTrabajosCientificosFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) Skip(count int) usuarioToTrabajosCientificosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) Take(count int) usuarioToTrabajosCientificosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToTrabajosCientificosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosCientificosFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToTrabajosCientificosFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosCientificosFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosCientificosFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosCientificosFindMany) with()            {}
+func (r usuarioToTrabajosCientificosFindMany) usuarioModel()    {}
+func (r usuarioToTrabajosCientificosFindMany) usuarioRelation() {}
+
+func (r usuarioToTrabajosCientificosFindMany) With(params ...TrabajoCientificoRelationWith) usuarioToTrabajosCientificosFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindMany) Select(params ...usuarioPrismaFields) usuarioToTrabajosCientificosFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindMany) Omit(params ...usuarioPrismaFields) usuarioToTrabajosCientificosFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindMany) OrderBy(params ...TrabajoCientificoOrderByParam) usuarioToTrabajosCientificosFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindMany) Skip(count int) usuarioToTrabajosCientificosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindMany) Take(count int) usuarioToTrabajosCientificosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindMany) Cursor(cursor UsuarioCursorParam) usuarioToTrabajosCientificosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToTrabajosCientificosFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosCientificosFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToTrabajosCientificosFindMany) Update(params ...UsuarioSetParam) usuarioToTrabajosCientificosUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToTrabajosCientificosUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToTrabajosCientificosUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosCientificosUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToTrabajosCientificosUpdateMany) usuarioModel() {}
+
+func (r usuarioToTrabajosCientificosUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosCientificosUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToTrabajosCientificosFindMany) Delete() usuarioToTrabajosCientificosDeleteMany {
+	var v usuarioToTrabajosCientificosDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToTrabajosCientificosDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToTrabajosCientificosDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToTrabajosCientificosDeleteMany) usuarioModel() {}
+
+func (r usuarioToTrabajosCientificosDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToTrabajosCientificosDeleteMany) Tx() UsuarioManyTxResult {
 	v := newUsuarioManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -69008,6 +80534,560 @@ func (r eventoToSesionesDeleteMany) Exec(ctx context.Context) (*BatchResult, err
 }
 
 func (r eventoToSesionesDeleteMany) Tx() EventoManyTxResult {
+	v := newEventoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type eventoToTrabajosCientificosFindUnique struct {
+	query builder.Query
+}
+
+func (r eventoToTrabajosCientificosFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToTrabajosCientificosFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToTrabajosCientificosFindUnique) with()           {}
+func (r eventoToTrabajosCientificosFindUnique) eventoModel()    {}
+func (r eventoToTrabajosCientificosFindUnique) eventoRelation() {}
+
+func (r eventoToTrabajosCientificosFindUnique) With(params ...TrabajoCientificoRelationWith) eventoToTrabajosCientificosFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindUnique) Select(params ...eventoPrismaFields) eventoToTrabajosCientificosFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindUnique) Omit(params ...eventoPrismaFields) eventoToTrabajosCientificosFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindUnique) Exec(ctx context.Context) (
+	*EventoModel,
+	error,
+) {
+	var v *EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToTrabajosCientificosFindUnique) ExecInner(ctx context.Context) (
+	*InnerEvento,
+	error,
+) {
+	var v *InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToTrabajosCientificosFindUnique) Update(params ...EventoSetParam) eventoToTrabajosCientificosUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Evento"
+
+	var v eventoToTrabajosCientificosUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type eventoToTrabajosCientificosUpdateUnique struct {
+	query builder.Query
+}
+
+func (r eventoToTrabajosCientificosUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToTrabajosCientificosUpdateUnique) eventoModel() {}
+
+func (r eventoToTrabajosCientificosUpdateUnique) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToTrabajosCientificosUpdateUnique) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r eventoToTrabajosCientificosFindUnique) Delete() eventoToTrabajosCientificosDeleteUnique {
+	var v eventoToTrabajosCientificosDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Evento"
+
+	return v
+}
+
+type eventoToTrabajosCientificosDeleteUnique struct {
+	query builder.Query
+}
+
+func (r eventoToTrabajosCientificosDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p eventoToTrabajosCientificosDeleteUnique) eventoModel() {}
+
+func (r eventoToTrabajosCientificosDeleteUnique) Exec(ctx context.Context) (*EventoModel, error) {
+	var v EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToTrabajosCientificosDeleteUnique) Tx() EventoUniqueTxResult {
+	v := newEventoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type eventoToTrabajosCientificosFindFirst struct {
+	query builder.Query
+}
+
+func (r eventoToTrabajosCientificosFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToTrabajosCientificosFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToTrabajosCientificosFindFirst) with()           {}
+func (r eventoToTrabajosCientificosFindFirst) eventoModel()    {}
+func (r eventoToTrabajosCientificosFindFirst) eventoRelation() {}
+
+func (r eventoToTrabajosCientificosFindFirst) With(params ...TrabajoCientificoRelationWith) eventoToTrabajosCientificosFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindFirst) Select(params ...eventoPrismaFields) eventoToTrabajosCientificosFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindFirst) Omit(params ...eventoPrismaFields) eventoToTrabajosCientificosFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindFirst) OrderBy(params ...TrabajoCientificoOrderByParam) eventoToTrabajosCientificosFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindFirst) Skip(count int) eventoToTrabajosCientificosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindFirst) Take(count int) eventoToTrabajosCientificosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindFirst) Cursor(cursor EventoCursorParam) eventoToTrabajosCientificosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindFirst) Exec(ctx context.Context) (
+	*EventoModel,
+	error,
+) {
+	var v *EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r eventoToTrabajosCientificosFindFirst) ExecInner(ctx context.Context) (
+	*InnerEvento,
+	error,
+) {
+	var v *InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type eventoToTrabajosCientificosFindMany struct {
+	query builder.Query
+}
+
+func (r eventoToTrabajosCientificosFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToTrabajosCientificosFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToTrabajosCientificosFindMany) with()           {}
+func (r eventoToTrabajosCientificosFindMany) eventoModel()    {}
+func (r eventoToTrabajosCientificosFindMany) eventoRelation() {}
+
+func (r eventoToTrabajosCientificosFindMany) With(params ...TrabajoCientificoRelationWith) eventoToTrabajosCientificosFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindMany) Select(params ...eventoPrismaFields) eventoToTrabajosCientificosFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindMany) Omit(params ...eventoPrismaFields) eventoToTrabajosCientificosFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range eventoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindMany) OrderBy(params ...TrabajoCientificoOrderByParam) eventoToTrabajosCientificosFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindMany) Skip(count int) eventoToTrabajosCientificosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindMany) Take(count int) eventoToTrabajosCientificosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindMany) Cursor(cursor EventoCursorParam) eventoToTrabajosCientificosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r eventoToTrabajosCientificosFindMany) Exec(ctx context.Context) (
+	[]EventoModel,
+	error,
+) {
+	var v []EventoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r eventoToTrabajosCientificosFindMany) ExecInner(ctx context.Context) (
+	[]InnerEvento,
+	error,
+) {
+	var v []InnerEvento
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r eventoToTrabajosCientificosFindMany) Update(params ...EventoSetParam) eventoToTrabajosCientificosUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Evento"
+
+	r.query.Outputs = countOutput
+
+	var v eventoToTrabajosCientificosUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type eventoToTrabajosCientificosUpdateMany struct {
+	query builder.Query
+}
+
+func (r eventoToTrabajosCientificosUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r eventoToTrabajosCientificosUpdateMany) eventoModel() {}
+
+func (r eventoToTrabajosCientificosUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToTrabajosCientificosUpdateMany) Tx() EventoManyTxResult {
+	v := newEventoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r eventoToTrabajosCientificosFindMany) Delete() eventoToTrabajosCientificosDeleteMany {
+	var v eventoToTrabajosCientificosDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Evento"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type eventoToTrabajosCientificosDeleteMany struct {
+	query builder.Query
+}
+
+func (r eventoToTrabajosCientificosDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p eventoToTrabajosCientificosDeleteMany) eventoModel() {}
+
+func (r eventoToTrabajosCientificosDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r eventoToTrabajosCientificosDeleteMany) Tx() EventoManyTxResult {
 	v := newEventoManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -86232,6 +98312,3522 @@ func (r sesionHistorialDeleteMany) Tx() SesionHistorialManyTxResult {
 	return v
 }
 
+type trabajoCientificoToEventoFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEventoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEventoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEventoFindUnique) with()                      {}
+func (r trabajoCientificoToEventoFindUnique) trabajoCientificoModel()    {}
+func (r trabajoCientificoToEventoFindUnique) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToEventoFindUnique) With(params ...EventoRelationWith) trabajoCientificoToEventoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindUnique) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToEventoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindUnique) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToEventoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEventoFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEventoFindUnique) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToEventoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientifico"
+
+	var v trabajoCientificoToEventoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToEventoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEventoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEventoUpdateUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToEventoUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToEventoUpdateUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToEventoFindUnique) Delete() trabajoCientificoToEventoDeleteUnique {
+	var v trabajoCientificoToEventoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientifico"
+
+	return v
+}
+
+type trabajoCientificoToEventoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEventoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToEventoDeleteUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToEventoDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToEventoDeleteUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToEventoFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEventoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEventoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEventoFindFirst) with()                      {}
+func (r trabajoCientificoToEventoFindFirst) trabajoCientificoModel()    {}
+func (r trabajoCientificoToEventoFindFirst) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToEventoFindFirst) With(params ...EventoRelationWith) trabajoCientificoToEventoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindFirst) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToEventoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindFirst) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToEventoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindFirst) OrderBy(params ...EventoOrderByParam) trabajoCientificoToEventoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindFirst) Skip(count int) trabajoCientificoToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToEventoFindFirst) Take(count int) trabajoCientificoToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToEventoFindFirst) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToEventoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToEventoFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEventoFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoToEventoFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEventoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEventoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEventoFindMany) with()                      {}
+func (r trabajoCientificoToEventoFindMany) trabajoCientificoModel()    {}
+func (r trabajoCientificoToEventoFindMany) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToEventoFindMany) With(params ...EventoRelationWith) trabajoCientificoToEventoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindMany) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToEventoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindMany) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToEventoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindMany) OrderBy(params ...EventoOrderByParam) trabajoCientificoToEventoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToEventoFindMany) Skip(count int) trabajoCientificoToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToEventoFindMany) Take(count int) trabajoCientificoToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToEventoFindMany) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToEventoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToEventoFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoModel,
+	error,
+) {
+	var v []TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEventoFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientifico,
+	error,
+) {
+	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToEventoFindMany) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToEventoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientifico"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoToEventoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToEventoUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEventoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToEventoUpdateMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToEventoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToEventoUpdateMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToEventoFindMany) Delete() trabajoCientificoToEventoDeleteMany {
+	var v trabajoCientificoToEventoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientifico"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoToEventoDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToEventoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToEventoDeleteMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToEventoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToEventoDeleteMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToUsuarioFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) with()                      {}
+func (r trabajoCientificoToUsuarioFindUnique) trabajoCientificoModel()    {}
+func (r trabajoCientificoToUsuarioFindUnique) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToUsuarioFindUnique) With(params ...UsuarioRelationWith) trabajoCientificoToUsuarioFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToUsuarioUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientifico"
+
+	var v trabajoCientificoToUsuarioUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToUsuarioUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToUsuarioUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToUsuarioUpdateUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToUsuarioUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToUsuarioUpdateUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToUsuarioFindUnique) Delete() trabajoCientificoToUsuarioDeleteUnique {
+	var v trabajoCientificoToUsuarioDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientifico"
+
+	return v
+}
+
+type trabajoCientificoToUsuarioDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToUsuarioDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToUsuarioDeleteUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToUsuarioDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToUsuarioDeleteUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToUsuarioFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) with()                      {}
+func (r trabajoCientificoToUsuarioFindFirst) trabajoCientificoModel()    {}
+func (r trabajoCientificoToUsuarioFindFirst) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToUsuarioFindFirst) With(params ...UsuarioRelationWith) trabajoCientificoToUsuarioFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) OrderBy(params ...UsuarioOrderByParam) trabajoCientificoToUsuarioFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) Skip(count int) trabajoCientificoToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) Take(count int) trabajoCientificoToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToUsuarioFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoToUsuarioFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToUsuarioFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToUsuarioFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToUsuarioFindMany) with()                      {}
+func (r trabajoCientificoToUsuarioFindMany) trabajoCientificoModel()    {}
+func (r trabajoCientificoToUsuarioFindMany) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToUsuarioFindMany) With(params ...UsuarioRelationWith) trabajoCientificoToUsuarioFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindMany) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToUsuarioFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindMany) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToUsuarioFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindMany) OrderBy(params ...UsuarioOrderByParam) trabajoCientificoToUsuarioFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindMany) Skip(count int) trabajoCientificoToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindMany) Take(count int) trabajoCientificoToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindMany) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToUsuarioFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoModel,
+	error,
+) {
+	var v []TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToUsuarioFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientifico,
+	error,
+) {
+	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToUsuarioFindMany) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToUsuarioUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientifico"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoToUsuarioUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToUsuarioUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToUsuarioUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToUsuarioUpdateMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToUsuarioUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToUsuarioUpdateMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToUsuarioFindMany) Delete() trabajoCientificoToUsuarioDeleteMany {
+	var v trabajoCientificoToUsuarioDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientifico"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoToUsuarioDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToUsuarioDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToUsuarioDeleteMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToUsuarioDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToUsuarioDeleteMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToVersionesFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToVersionesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToVersionesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToVersionesFindUnique) with()                      {}
+func (r trabajoCientificoToVersionesFindUnique) trabajoCientificoModel()    {}
+func (r trabajoCientificoToVersionesFindUnique) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToVersionesFindUnique) With(params ...TrabajoCientificoVersionRelationWith) trabajoCientificoToVersionesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindUnique) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToVersionesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindUnique) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToVersionesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToVersionesFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToVersionesFindUnique) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToVersionesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientifico"
+
+	var v trabajoCientificoToVersionesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToVersionesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToVersionesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToVersionesUpdateUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToVersionesUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToVersionesUpdateUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToVersionesFindUnique) Delete() trabajoCientificoToVersionesDeleteUnique {
+	var v trabajoCientificoToVersionesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientifico"
+
+	return v
+}
+
+type trabajoCientificoToVersionesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToVersionesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToVersionesDeleteUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToVersionesDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToVersionesDeleteUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToVersionesFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToVersionesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToVersionesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToVersionesFindFirst) with()                      {}
+func (r trabajoCientificoToVersionesFindFirst) trabajoCientificoModel()    {}
+func (r trabajoCientificoToVersionesFindFirst) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToVersionesFindFirst) With(params ...TrabajoCientificoVersionRelationWith) trabajoCientificoToVersionesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindFirst) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToVersionesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindFirst) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToVersionesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindFirst) OrderBy(params ...TrabajoCientificoVersionOrderByParam) trabajoCientificoToVersionesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindFirst) Skip(count int) trabajoCientificoToVersionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindFirst) Take(count int) trabajoCientificoToVersionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindFirst) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToVersionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToVersionesFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoToVersionesFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToVersionesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToVersionesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToVersionesFindMany) with()                      {}
+func (r trabajoCientificoToVersionesFindMany) trabajoCientificoModel()    {}
+func (r trabajoCientificoToVersionesFindMany) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToVersionesFindMany) With(params ...TrabajoCientificoVersionRelationWith) trabajoCientificoToVersionesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindMany) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToVersionesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindMany) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToVersionesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindMany) OrderBy(params ...TrabajoCientificoVersionOrderByParam) trabajoCientificoToVersionesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindMany) Skip(count int) trabajoCientificoToVersionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindMany) Take(count int) trabajoCientificoToVersionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindMany) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToVersionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToVersionesFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoModel,
+	error,
+) {
+	var v []TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToVersionesFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientifico,
+	error,
+) {
+	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToVersionesFindMany) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToVersionesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientifico"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoToVersionesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToVersionesUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToVersionesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToVersionesUpdateMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToVersionesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToVersionesUpdateMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToVersionesFindMany) Delete() trabajoCientificoToVersionesDeleteMany {
+	var v trabajoCientificoToVersionesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientifico"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoToVersionesDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToVersionesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToVersionesDeleteMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToVersionesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToVersionesDeleteMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoFindUnique) with()                      {}
+func (r trabajoCientificoFindUnique) trabajoCientificoModel()    {}
+func (r trabajoCientificoFindUnique) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoActions) FindUnique(
+	params TrabajoCientificoEqualsUniqueWhereParam,
+) trabajoCientificoFindUnique {
+	var v trabajoCientificoFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "TrabajoCientifico"
+	v.query.Outputs = trabajoCientificoOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoCientificoFindUnique) With(params ...TrabajoCientificoRelationWith) trabajoCientificoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoFindUnique) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoFindUnique) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoFindUnique) Update(params ...TrabajoCientificoSetParam) trabajoCientificoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientifico"
+
+	var v trabajoCientificoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoUpdateUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoUpdateUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoFindUnique) Delete() trabajoCientificoDeleteUnique {
+	var v trabajoCientificoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientifico"
+
+	return v
+}
+
+type trabajoCientificoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoDeleteUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoDeleteUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoFindFirst) with()                      {}
+func (r trabajoCientificoFindFirst) trabajoCientificoModel()    {}
+func (r trabajoCientificoFindFirst) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoActions) FindFirst(
+	params ...TrabajoCientificoWhereParam,
+) trabajoCientificoFindFirst {
+	var v trabajoCientificoFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "TrabajoCientifico"
+	v.query.Outputs = trabajoCientificoOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoFindFirst) With(params ...TrabajoCientificoRelationWith) trabajoCientificoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoFindFirst) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoFindFirst) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoFindFirst) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoCientificoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoFindFirst) Skip(count int) trabajoCientificoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoFindFirst) Take(count int) trabajoCientificoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoFindFirst) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoFindMany) with()                      {}
+func (r trabajoCientificoFindMany) trabajoCientificoModel()    {}
+func (r trabajoCientificoFindMany) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoActions) FindMany(
+	params ...TrabajoCientificoWhereParam,
+) trabajoCientificoFindMany {
+	var v trabajoCientificoFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "TrabajoCientifico"
+	v.query.Outputs = trabajoCientificoOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoFindMany) With(params ...TrabajoCientificoRelationWith) trabajoCientificoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoFindMany) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoFindMany) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoFindMany) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoCientificoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoFindMany) Skip(count int) trabajoCientificoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoFindMany) Take(count int) trabajoCientificoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoFindMany) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoModel,
+	error,
+) {
+	var v []TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientifico,
+	error,
+) {
+	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoFindMany) Update(params ...TrabajoCientificoSetParam) trabajoCientificoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientifico"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoUpdateMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoUpdateMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoFindMany) Delete() trabajoCientificoDeleteMany {
+	var v trabajoCientificoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientifico"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoDeleteMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoDeleteMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoVersionToTrabajoFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) with()                             {}
+func (r trabajoCientificoVersionToTrabajoFindUnique) trabajoCientificoVersionModel()    {}
+func (r trabajoCientificoVersionToTrabajoFindUnique) trabajoCientificoVersionRelation() {}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) With(params ...TrabajoCientificoRelationWith) trabajoCientificoVersionToTrabajoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) Select(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionToTrabajoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) Omit(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionToTrabajoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoVersionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoVersionModel,
+	error,
+) {
+	var v *TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientificoVersion,
+	error,
+) {
+	var v *InnerTrabajoCientificoVersion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) Update(params ...TrabajoCientificoVersionSetParam) trabajoCientificoVersionToTrabajoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientificoVersion"
+
+	var v trabajoCientificoVersionToTrabajoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoVersionToTrabajoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionToTrabajoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionToTrabajoUpdateUnique) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionToTrabajoUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoVersionModel, error) {
+	var v TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoUpdateUnique) Tx() TrabajoCientificoVersionUniqueTxResult {
+	v := newTrabajoCientificoVersionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoVersionToTrabajoFindUnique) Delete() trabajoCientificoVersionToTrabajoDeleteUnique {
+	var v trabajoCientificoVersionToTrabajoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientificoVersion"
+
+	return v
+}
+
+type trabajoCientificoVersionToTrabajoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionToTrabajoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoVersionToTrabajoDeleteUnique) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionToTrabajoDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoVersionModel, error) {
+	var v TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoDeleteUnique) Tx() TrabajoCientificoVersionUniqueTxResult {
+	v := newTrabajoCientificoVersionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoVersionToTrabajoFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) with()                             {}
+func (r trabajoCientificoVersionToTrabajoFindFirst) trabajoCientificoVersionModel()    {}
+func (r trabajoCientificoVersionToTrabajoFindFirst) trabajoCientificoVersionRelation() {}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) With(params ...TrabajoCientificoRelationWith) trabajoCientificoVersionToTrabajoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) Select(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionToTrabajoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) Omit(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionToTrabajoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoVersionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoCientificoVersionToTrabajoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) Skip(count int) trabajoCientificoVersionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) Take(count int) trabajoCientificoVersionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) Cursor(cursor TrabajoCientificoVersionCursorParam) trabajoCientificoVersionToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoVersionModel,
+	error,
+) {
+	var v *TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientificoVersion,
+	error,
+) {
+	var v *InnerTrabajoCientificoVersion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoVersionToTrabajoFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) with()                             {}
+func (r trabajoCientificoVersionToTrabajoFindMany) trabajoCientificoVersionModel()    {}
+func (r trabajoCientificoVersionToTrabajoFindMany) trabajoCientificoVersionRelation() {}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) With(params ...TrabajoCientificoRelationWith) trabajoCientificoVersionToTrabajoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) Select(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionToTrabajoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) Omit(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionToTrabajoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoVersionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoCientificoVersionToTrabajoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) Skip(count int) trabajoCientificoVersionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) Take(count int) trabajoCientificoVersionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) Cursor(cursor TrabajoCientificoVersionCursorParam) trabajoCientificoVersionToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoVersionModel,
+	error,
+) {
+	var v []TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientificoVersion,
+	error,
+) {
+	var v []InnerTrabajoCientificoVersion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) Update(params ...TrabajoCientificoVersionSetParam) trabajoCientificoVersionToTrabajoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientificoVersion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoVersionToTrabajoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoVersionToTrabajoUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionToTrabajoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionToTrabajoUpdateMany) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionToTrabajoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoUpdateMany) Tx() TrabajoCientificoVersionManyTxResult {
+	v := newTrabajoCientificoVersionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoVersionToTrabajoFindMany) Delete() trabajoCientificoVersionToTrabajoDeleteMany {
+	var v trabajoCientificoVersionToTrabajoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientificoVersion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoVersionToTrabajoDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionToTrabajoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoVersionToTrabajoDeleteMany) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionToTrabajoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionToTrabajoDeleteMany) Tx() TrabajoCientificoVersionManyTxResult {
+	v := newTrabajoCientificoVersionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoVersionFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionFindUnique) with()                             {}
+func (r trabajoCientificoVersionFindUnique) trabajoCientificoVersionModel()    {}
+func (r trabajoCientificoVersionFindUnique) trabajoCientificoVersionRelation() {}
+
+func (r trabajoCientificoVersionActions) FindUnique(
+	params TrabajoCientificoVersionEqualsUniqueWhereParam,
+) trabajoCientificoVersionFindUnique {
+	var v trabajoCientificoVersionFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "TrabajoCientificoVersion"
+	v.query.Outputs = trabajoCientificoVersionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoCientificoVersionFindUnique) With(params ...TrabajoCientificoVersionRelationWith) trabajoCientificoVersionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindUnique) Select(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindUnique) Omit(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoVersionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoVersionModel,
+	error,
+) {
+	var v *TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientificoVersion,
+	error,
+) {
+	var v *InnerTrabajoCientificoVersion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionFindUnique) Update(params ...TrabajoCientificoVersionSetParam) trabajoCientificoVersionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientificoVersion"
+
+	var v trabajoCientificoVersionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoVersionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionUpdateUnique) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoVersionModel, error) {
+	var v TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionUpdateUnique) Tx() TrabajoCientificoVersionUniqueTxResult {
+	v := newTrabajoCientificoVersionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoVersionFindUnique) Delete() trabajoCientificoVersionDeleteUnique {
+	var v trabajoCientificoVersionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientificoVersion"
+
+	return v
+}
+
+type trabajoCientificoVersionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoVersionDeleteUnique) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoVersionModel, error) {
+	var v TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionDeleteUnique) Tx() TrabajoCientificoVersionUniqueTxResult {
+	v := newTrabajoCientificoVersionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoVersionFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionFindFirst) with()                             {}
+func (r trabajoCientificoVersionFindFirst) trabajoCientificoVersionModel()    {}
+func (r trabajoCientificoVersionFindFirst) trabajoCientificoVersionRelation() {}
+
+func (r trabajoCientificoVersionActions) FindFirst(
+	params ...TrabajoCientificoVersionWhereParam,
+) trabajoCientificoVersionFindFirst {
+	var v trabajoCientificoVersionFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "TrabajoCientificoVersion"
+	v.query.Outputs = trabajoCientificoVersionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoVersionFindFirst) With(params ...TrabajoCientificoVersionRelationWith) trabajoCientificoVersionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindFirst) Select(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindFirst) Omit(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoVersionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindFirst) OrderBy(params ...TrabajoCientificoVersionOrderByParam) trabajoCientificoVersionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindFirst) Skip(count int) trabajoCientificoVersionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionFindFirst) Take(count int) trabajoCientificoVersionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionFindFirst) Cursor(cursor TrabajoCientificoVersionCursorParam) trabajoCientificoVersionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoVersionModel,
+	error,
+) {
+	var v *TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientificoVersion,
+	error,
+) {
+	var v *InnerTrabajoCientificoVersion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoVersionFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionFindMany) with()                             {}
+func (r trabajoCientificoVersionFindMany) trabajoCientificoVersionModel()    {}
+func (r trabajoCientificoVersionFindMany) trabajoCientificoVersionRelation() {}
+
+func (r trabajoCientificoVersionActions) FindMany(
+	params ...TrabajoCientificoVersionWhereParam,
+) trabajoCientificoVersionFindMany {
+	var v trabajoCientificoVersionFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "TrabajoCientificoVersion"
+	v.query.Outputs = trabajoCientificoVersionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoVersionFindMany) With(params ...TrabajoCientificoVersionRelationWith) trabajoCientificoVersionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindMany) Select(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindMany) Omit(params ...trabajoCientificoVersionPrismaFields) trabajoCientificoVersionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoVersionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindMany) OrderBy(params ...TrabajoCientificoVersionOrderByParam) trabajoCientificoVersionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoVersionFindMany) Skip(count int) trabajoCientificoVersionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionFindMany) Take(count int) trabajoCientificoVersionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionFindMany) Cursor(cursor TrabajoCientificoVersionCursorParam) trabajoCientificoVersionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoVersionFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoVersionModel,
+	error,
+) {
+	var v []TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientificoVersion,
+	error,
+) {
+	var v []InnerTrabajoCientificoVersion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoVersionFindMany) Update(params ...TrabajoCientificoVersionSetParam) trabajoCientificoVersionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientificoVersion"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoVersionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoVersionUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionUpdateMany) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionUpdateMany) Tx() TrabajoCientificoVersionManyTxResult {
+	v := newTrabajoCientificoVersionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoVersionFindMany) Delete() trabajoCientificoVersionDeleteMany {
+	var v trabajoCientificoVersionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientificoVersion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoVersionDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoVersionDeleteMany) trabajoCientificoVersionModel() {}
+
+func (r trabajoCientificoVersionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionDeleteMany) Tx() TrabajoCientificoVersionManyTxResult {
+	v := newTrabajoCientificoVersionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template transaction.gotpl ---
 
 func newUsuarioUniqueTxResult() UsuarioUniqueTxResult {
@@ -87044,6 +102640,102 @@ func (p SesionHistorialManyTxResult) ExtractQuery() builder.Query {
 func (p SesionHistorialManyTxResult) IsTx() {}
 
 func (r SesionHistorialManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoCientificoUniqueTxResult() TrabajoCientificoUniqueTxResult {
+	return TrabajoCientificoUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoCientificoUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoCientificoUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoCientificoUniqueTxResult) IsTx() {}
+
+func (r TrabajoCientificoUniqueTxResult) Result() (v *TrabajoCientificoModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoCientificoManyTxResult() TrabajoCientificoManyTxResult {
+	return TrabajoCientificoManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoCientificoManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoCientificoManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoCientificoManyTxResult) IsTx() {}
+
+func (r TrabajoCientificoManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoCientificoVersionUniqueTxResult() TrabajoCientificoVersionUniqueTxResult {
+	return TrabajoCientificoVersionUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoCientificoVersionUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoCientificoVersionUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoCientificoVersionUniqueTxResult) IsTx() {}
+
+func (r TrabajoCientificoVersionUniqueTxResult) Result() (v *TrabajoCientificoVersionModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoCientificoVersionManyTxResult() TrabajoCientificoVersionManyTxResult {
+	return TrabajoCientificoVersionManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoCientificoVersionManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoCientificoVersionManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoCientificoVersionManyTxResult) IsTx() {}
+
+func (r TrabajoCientificoVersionManyTxResult) Result() (v *BatchResult) {
 	if err := r.result.Get(r.query.TxResult, &v); err != nil {
 		panic(err)
 	}
@@ -89507,6 +105199,316 @@ func (r sesionHistorialUpsertOne) Tx() SesionHistorialUniqueTxResult {
 	return v
 }
 
+type trabajoCientificoUpsertOne struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoUpsertOne) with()                      {}
+func (r trabajoCientificoUpsertOne) trabajoCientificoModel()    {}
+func (r trabajoCientificoUpsertOne) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoActions) UpsertOne(
+	params TrabajoCientificoEqualsUniqueWhereParam,
+) trabajoCientificoUpsertOne {
+	var v trabajoCientificoUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "TrabajoCientifico"
+	v.query.Outputs = trabajoCientificoOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoCientificoUpsertOne) Create(
+
+	_titulo TrabajoCientificoWithPrismaTituloSetParam,
+	_tituloNormalizado TrabajoCientificoWithPrismaTituloNormalizadoSetParam,
+	_resumen TrabajoCientificoWithPrismaResumenSetParam,
+	_evento TrabajoCientificoWithPrismaEventoSetParam,
+	_usuario TrabajoCientificoWithPrismaUsuarioSetParam,
+
+	optional ...TrabajoCientificoSetParam,
+) trabajoCientificoUpsertOne {
+	var v trabajoCientificoUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _titulo.field())
+	fields = append(fields, _tituloNormalizado.field())
+	fields = append(fields, _resumen.field())
+	fields = append(fields, _evento.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoUpsertOne) Update(
+	params ...TrabajoCientificoSetParam,
+) trabajoCientificoUpsertOne {
+	var v trabajoCientificoUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoUpsertOne) CreateOrUpdate(
+
+	_titulo TrabajoCientificoWithPrismaTituloSetParam,
+	_tituloNormalizado TrabajoCientificoWithPrismaTituloNormalizadoSetParam,
+	_resumen TrabajoCientificoWithPrismaResumenSetParam,
+	_evento TrabajoCientificoWithPrismaEventoSetParam,
+	_usuario TrabajoCientificoWithPrismaUsuarioSetParam,
+
+	optional ...TrabajoCientificoSetParam,
+) trabajoCientificoUpsertOne {
+	var v trabajoCientificoUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _titulo.field())
+	fields = append(fields, _tituloNormalizado.field())
+	fields = append(fields, _resumen.field())
+	fields = append(fields, _evento.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoUpsertOne) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoUpsertOne) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoVersionUpsertOne struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionUpsertOne) with()                             {}
+func (r trabajoCientificoVersionUpsertOne) trabajoCientificoVersionModel()    {}
+func (r trabajoCientificoVersionUpsertOne) trabajoCientificoVersionRelation() {}
+
+func (r trabajoCientificoVersionActions) UpsertOne(
+	params TrabajoCientificoVersionEqualsUniqueWhereParam,
+) trabajoCientificoVersionUpsertOne {
+	var v trabajoCientificoVersionUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "TrabajoCientificoVersion"
+	v.query.Outputs = trabajoCientificoVersionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoCientificoVersionUpsertOne) Create(
+
+	_numeroVersion TrabajoCientificoVersionWithPrismaNumeroVersionSetParam,
+	_nombreArchivo TrabajoCientificoVersionWithPrismaNombreArchivoSetParam,
+	_rutaArchivo TrabajoCientificoVersionWithPrismaRutaArchivoSetParam,
+	_tamanoBytes TrabajoCientificoVersionWithPrismaTamanoBytesSetParam,
+	_trabajo TrabajoCientificoVersionWithPrismaTrabajoSetParam,
+
+	optional ...TrabajoCientificoVersionSetParam,
+) trabajoCientificoVersionUpsertOne {
+	var v trabajoCientificoVersionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _numeroVersion.field())
+	fields = append(fields, _nombreArchivo.field())
+	fields = append(fields, _rutaArchivo.field())
+	fields = append(fields, _tamanoBytes.field())
+	fields = append(fields, _trabajo.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoVersionUpsertOne) Update(
+	params ...TrabajoCientificoVersionSetParam,
+) trabajoCientificoVersionUpsertOne {
+	var v trabajoCientificoVersionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoVersionUpsertOne) CreateOrUpdate(
+
+	_numeroVersion TrabajoCientificoVersionWithPrismaNumeroVersionSetParam,
+	_nombreArchivo TrabajoCientificoVersionWithPrismaNombreArchivoSetParam,
+	_rutaArchivo TrabajoCientificoVersionWithPrismaRutaArchivoSetParam,
+	_tamanoBytes TrabajoCientificoVersionWithPrismaTamanoBytesSetParam,
+	_trabajo TrabajoCientificoVersionWithPrismaTrabajoSetParam,
+
+	optional ...TrabajoCientificoVersionSetParam,
+) trabajoCientificoVersionUpsertOne {
+	var v trabajoCientificoVersionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _numeroVersion.field())
+	fields = append(fields, _nombreArchivo.field())
+	fields = append(fields, _rutaArchivo.field())
+	fields = append(fields, _tamanoBytes.field())
+	fields = append(fields, _trabajo.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoVersionUpsertOne) Exec(ctx context.Context) (*TrabajoCientificoVersionModel, error) {
+	var v TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoVersionUpsertOne) Tx() TrabajoCientificoVersionUniqueTxResult {
+	v := newTrabajoCientificoVersionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template raw.gotpl ---
 
 type usuarioAggregateRaw struct {
@@ -90880,6 +106882,168 @@ func (r sesionHistorialAggregateRaw) Exec(ctx context.Context) ([]SesionHistoria
 
 func (r sesionHistorialAggregateRaw) ExecInner(ctx context.Context) ([]InnerSesionHistorial, error) {
 	var v []InnerSesionHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type trabajoCientificoAggregateRaw struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoAggregateRaw) with()                      {}
+func (r trabajoCientificoAggregateRaw) trabajoCientificoModel()    {}
+func (r trabajoCientificoAggregateRaw) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoActions) FindRaw(filter interface{}, options ...interface{}) trabajoCientificoAggregateRaw {
+	var v trabajoCientificoAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoCientifico"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoCientificoActions) AggregateRaw(pipeline []interface{}, options ...interface{}) trabajoCientificoAggregateRaw {
+	var v trabajoCientificoAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoCientifico"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoCientificoAggregateRaw) Exec(ctx context.Context) ([]TrabajoCientificoModel, error) {
+	var v []TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r trabajoCientificoAggregateRaw) ExecInner(ctx context.Context) ([]InnerTrabajoCientifico, error) {
+	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type trabajoCientificoVersionAggregateRaw struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoVersionAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoVersionAggregateRaw) with()                             {}
+func (r trabajoCientificoVersionAggregateRaw) trabajoCientificoVersionModel()    {}
+func (r trabajoCientificoVersionAggregateRaw) trabajoCientificoVersionRelation() {}
+
+func (r trabajoCientificoVersionActions) FindRaw(filter interface{}, options ...interface{}) trabajoCientificoVersionAggregateRaw {
+	var v trabajoCientificoVersionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoCientificoVersion"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoCientificoVersionActions) AggregateRaw(pipeline []interface{}, options ...interface{}) trabajoCientificoVersionAggregateRaw {
+	var v trabajoCientificoVersionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoCientificoVersion"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoCientificoVersionAggregateRaw) Exec(ctx context.Context) ([]TrabajoCientificoVersionModel, error) {
+	var v []TrabajoCientificoVersionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r trabajoCientificoVersionAggregateRaw) ExecInner(ctx context.Context) ([]InnerTrabajoCientificoVersion, error) {
+	var v []InnerTrabajoCientificoVersion
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}

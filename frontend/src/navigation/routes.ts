@@ -11,4 +11,5 @@ export const ROUTES = {
   myInscriptions: "/inscriptions/mine",
   inscriptionsAdmin: "/inscriptions/admin",
   inscriptionsReports: "/inscriptions/reports",
+  scientificWorks: "/scientific-works",
 };

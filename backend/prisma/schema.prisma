@@ -19,6 +19,7 @@ model Usuario {
   sesionesPonente SesionPonente[]
   UsuarioRoles    UsuarioRoles[]
   preferencias    NotificacionPreferencia?
+  trabajosCientificos TrabajoCientifico[]
 }
 
 model Roles {
@@ -68,6 +69,7 @@ model Evento {
   inscripciones                 Inscripcion[]
   notificaciones                Notificacion[] @relation("EventoNotificaciones")
   sesiones                      Sesion[]
+  trabajosCientificos           TrabajoCientifico[]
 }
 
 model Inscripcion {
@@ -201,4 +203,40 @@ model SesionHistorial {
   valores_despues String?
 
   sesion          Sesion   @relation(fields: [id_sesion], references: [id_sesion])
+}
+
+model TrabajoCientifico {
+  id_trabajo          Int       @id @default(autoincrement())
+  id_evento           Int
+  id_usuario          Int
+  titulo              String
+  titulo_normalizado  String
+  resumen             String
+  version_actual      Int       @default(1)
+  estado              String    @default("RECIBIDO")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  evento              Evento  @relation(fields: [id_evento], references: [id_evento])
+  usuario             Usuario @relation(fields: [id_usuario], references: [id_usuario])
+  versiones           TrabajoCientificoVersion[]
+
+  @@unique([id_evento, titulo_normalizado])
+}
+
+model TrabajoCientificoVersion {
+  id_version           Int      @id @default(autoincrement())
+  id_trabajo           Int
+  numero_version       Int
+  nombre_archivo       String
+  ruta_archivo         String
+  tamano_bytes         Int
+  mime_type            String   @default("application/pdf")
+  descripcion_cambios  String?
+  es_actual            Boolean  @default(true)
+  fecha_envio          DateTime @default(now())
+
+  trabajo             TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+
+  @@unique([id_trabajo, numero_version])
 }
