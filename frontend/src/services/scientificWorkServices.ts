@@ -36,10 +36,15 @@ export interface ScientificWorkManagementItem {
   id_evento: number;
   id_autor: number;
   autor: string;
+  afiliacion_autor: string;
   titulo: string;
   resumen: string;
   estado: string;
   decision_comite: string;
+  revisado_previamente: boolean;
+  cantidad_evaluaciones: number;
+  cantidad_evaluaciones_otros: number;
+  calificacion_promedio?: number;
   fecha_ultimo_envio: string;
   version_actual: number;
   archivo_actual?: {
@@ -63,6 +68,13 @@ export interface ScientificWorkEvaluationItem {
   puntaje?: number;
   comentarios: string;
   updated_at: string;
+}
+
+export interface ScientificWorkEvaluationSummary {
+  id_trabajo: number;
+  cantidad_evaluaciones: number;
+  calificacion_promedio?: number;
+  evaluaciones: ScientificWorkEvaluationItem[];
 }
 
 export async function listScientificWorks(userId: number): Promise<{ status: number; data: any }> {
@@ -249,8 +261,11 @@ export async function submitScientificWorkEvaluation(payload: {
   user_id: number;
   id_trabajo: number;
   recomendacion: string;
-  puntaje?: number;
+  puntaje: number;
   comentarios: string;
+  fortalezas: string;
+  debilidades: string;
+  recomendaciones: string;
 }): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.post("/api/trabajos-cientificos/revisor/evaluar", payload);

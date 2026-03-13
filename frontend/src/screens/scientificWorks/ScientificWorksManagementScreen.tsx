@@ -15,6 +15,7 @@ import {
   listScientificWorksForCommittee,
   listScientificWorksForReviewer,
   ScientificWorkEvaluationItem,
+  ScientificWorkEvaluationSummary,
   ScientificWorkManagementItem,
   ScientificWorkReviewerItem,
   submitScientificWorkEvaluation,
@@ -45,7 +46,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
 
   const [works, setWorks] = useState<ScientificWorkManagementItem[]>([]);
   const [reviewers, setReviewers] = useState<ScientificWorkReviewerItem[]>([]);
-  const [evaluations, setEvaluations] = useState<ScientificWorkEvaluationItem[]>([]);
+  const [evaluationSummary, setEvaluationSummary] = useState<ScientificWorkEvaluationSummary | null>(null);
 
   const [selectedWork, setSelectedWork] = useState<ScientificWorkManagementItem | null>(null);
 
@@ -64,7 +65,9 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
 
   const [recomendacion, setRecomendacion] = useState("PENDIENTE");
   const [puntaje, setPuntaje] = useState("");
-  const [comentarios, setComentarios] = useState("");
+  const [fortalezas, setFortalezas] = useState("");
+  const [debilidades, setDebilidades] = useState("");
+  const [recomendaciones, setRecomendaciones] = useState("");
 
   useEffect(() => {
     if (!canCommittee && !canReviewer) {
@@ -185,7 +188,22 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
       return;
     }
 
-    setEvaluations(Array.isArray(res.data) ? res.data : []);
+    if (res.data && Array.isArray(res.data.evaluaciones)) {
+      setEvaluationSummary(res.data as ScientificWorkEvaluationSummary);
+    } else {
+      const rows = Array.isArray(res.data) ? (res.data as ScientificWorkEvaluationItem[]) : [];
+      const scored = rows.filter((ev) => typeof ev.puntaje === "number") as Array<
+        ScientificWorkEvaluationItem & { puntaje: number }
+      >;
+      const average =
+        scored.length > 0 ? scored.reduce((acc, current) => acc + current.puntaje, 0) / scored.length : undefined;
+      setEvaluationSummary({
+        id_trabajo: work.id_trabajo,
+        cantidad_evaluaciones: rows.length,
+        calificacion_promedio: average,
+        evaluaciones: rows,
+      });
+    }
     setEvaluationsOpen(true);
   }
 
@@ -228,31 +246,43 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setSelectedWork(work);
     setRecomendacion("PENDIENTE");
     setPuntaje("");
-    setComentarios("");
+    setFortalezas("");
+    setDebilidades("");
+    setRecomendaciones("");
     setEvaluationOpen(true);
   }
 
   async function submitEvaluation() {
     if (!authUser?.id || !selectedWork) return;
 
-    if (!comentarios.trim()) {
+    if (!fortalezas.trim() && !debilidades.trim() && !recomendaciones.trim()) {
       showToast({
         title: "Validación",
-        message: "Debes agregar comentarios de evaluación.",
+        message: "Debes registrar fortalezas, debilidades o recomendaciones.",
         status: "error",
       });
       return;
     }
 
-    const parsedScore =
-      puntaje.trim() === "" ? undefined : Number.isFinite(Number(puntaje)) ? Number(puntaje) : undefined;
+    const parsedScore = Number(puntaje);
+    if (!Number.isInteger(parsedScore) || parsedScore < 1 || parsedScore > 5) {
+      showToast({
+        title: "Validación",
+        message: "La calificación debe estar entre 1 y 5.",
+        status: "error",
+      });
+      return;
+    }
 
     const res = await submitScientificWorkEvaluation({
       user_id: authUser.id,
       id_trabajo: selectedWork.id_trabajo,
       recomendacion: recomendacion,
       puntaje: parsedScore,
-      comentarios: comentarios.trim(),
+      comentarios: "",
+      fortalezas: fortalezas.trim(),
+      debilidades: debilidades.trim(),
+      recomendaciones: recomendaciones.trim(),
     });
 
     if (res.status >= 400) {
@@ -410,8 +440,18 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
                 <p className="text-sm text-slate-300 line-clamp-4">{work.resumen}</p>
                 <div className="flex flex-wrap gap-3 text-xs text-slate-400">
                   <span>Autor: {work.autor || "N/D"}</span>
+                  <span>Afiliación: {work.afiliacion_autor || "N/D"}</span>
                   <span>Estado: {work.estado}</span>
                   <span>Decisión: {formatDecisionLabel(work.decision_comite)}</span>
+                  <span>Evaluaciones: {work.cantidad_evaluaciones ?? 0}</span>
+                  <span>
+                    Promedio: {typeof work.calificacion_promedio === "number" ? work.calificacion_promedio.toFixed(2) : "N/D"}
+                  </span>
+                  {mode === "REVISOR" && (
+                    <span>
+                      Revisado por otros: {work.revisado_previamente ? `Sí (${work.cantidad_evaluaciones_otros})` : "No"}
+                    </span>
+                  )}
                   <span>Versión: {work.version_actual}</span>
                   <span>Último envío: {work.fecha_ultimo_envio || "Sin fecha"}</span>
                 </div>
@@ -475,10 +515,19 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
 
       <Modal open={evaluationsOpen} onClose={() => setEvaluationsOpen(false)} title="Evaluaciones del trabajo">
         <div className="space-y-3 max-h-[420px] overflow-auto">
-          {evaluations.length === 0 && (
+          <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-slate-300">
+            <p>Total evaluaciones: {evaluationSummary?.cantidad_evaluaciones ?? 0}</p>
+            <p>
+              Calificación promedio: {typeof evaluationSummary?.calificacion_promedio === "number"
+                ? evaluationSummary.calificacion_promedio.toFixed(2)
+                : "N/D"}
+            </p>
+          </div>
+
+          {(evaluationSummary?.evaluaciones?.length ?? 0) === 0 && (
             <p className="text-sm text-slate-300">Aún no hay evaluaciones registradas.</p>
           )}
-          {evaluations.map((ev) => (
+          {(evaluationSummary?.evaluaciones ?? []).map((ev) => (
             <div key={ev.id_evaluacion} className="rounded-lg border border-slate-700 bg-slate-900 p-3">
               <div className="text-sm text-slate-200">
                 <strong>Revisor:</strong> {ev.revisor || ev.id_revisor}
@@ -537,17 +586,35 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
             <option value="RECHAZAR">RECHAZAR</option>
             <option value="PENDIENTE">PENDIENTE</option>
           </select>
-          <input
+          <select
             className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            placeholder="Puntaje (0-100, opcional)"
             value={puntaje}
             onChange={(e) => setPuntaje(e.target.value)}
+          >
+            <option value="">Selecciona una calificación (1-5)</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+          <textarea
+            className="w-full min-h-[120px] rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+            placeholder="Fortalezas"
+            value={fortalezas}
+            onChange={(e) => setFortalezas(e.target.value)}
           />
           <textarea
             className="w-full min-h-[120px] rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            placeholder="Comentarios de evaluación"
-            value={comentarios}
-            onChange={(e) => setComentarios(e.target.value)}
+            placeholder="Debilidades"
+            value={debilidades}
+            onChange={(e) => setDebilidades(e.target.value)}
+          />
+          <textarea
+            className="w-full min-h-[120px] rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+            placeholder="Recomendaciones"
+            value={recomendaciones}
+            onChange={(e) => setRecomendaciones(e.target.value)}
           />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setEvaluationOpen(false)}>

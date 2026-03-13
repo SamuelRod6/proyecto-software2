@@ -26,9 +26,9 @@ type Service struct {
 
 var (
 	ErrTrabajoDuplicado = errors.New("Ya existe un trabajo con ese título dentro del evento")
-	ErrEventoNoValido  = errors.New("El evento no existe")
-	ErrTrabajoNoExiste = errors.New("El trabajo científico no existe")
-	ErrSinAcceso       = errors.New("No tiene acceso a este trabajo científico")
+	ErrEventoNoValido   = errors.New("El evento no existe")
+	ErrTrabajoNoExiste  = errors.New("El trabajo científico no existe")
+	ErrSinAcceso        = errors.New("No tiene acceso a este trabajo científico")
 )
 
 var venezuelaLocation = time.FixedZone("VET", -4*60*60)
@@ -341,8 +341,28 @@ func (s *Service) GetVersionFile(ctx context.Context, versionID, userID int) (*d
 		return nil, ErrTrabajoNoExiste
 	}
 
-	trabajo, err := s.repo.FindTrabajoByIDAndUser(ctx, version.IDTrabajo, userID)
+	trabajo, err := s.repo.FindTrabajoByID(ctx, version.IDTrabajo)
 	if err != nil || trabajo == nil {
+		return nil, ErrTrabajoNoExiste
+	}
+
+	if trabajo.IDUsuario == userID {
+		return version, nil
+	}
+
+	canCommittee, err := s.hasRoleOrAdmin(ctx, userID, "COMITE CIENTIFICO")
+	if err != nil {
+		return nil, err
+	}
+	if canCommittee {
+		return version, nil
+	}
+
+	isAssigned, err := s.repo.IsReviewerAssigned(ctx, version.IDTrabajo, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isAssigned {
 		return nil, ErrSinAcceso
 	}
 
@@ -414,6 +434,83 @@ func findAuthorName(ctx context.Context, s *Service, userID int) string {
 	return user.Nombre
 }
 
+func normalizeTextBlock(value string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+}
+
+func buildEvaluationComments(req dto.SubmitEvaluationRequest) string {
+	if normalized := normalizeTextBlock(req.Comentarios); normalized != "" {
+		return normalized
+	}
+
+	fortalezas := normalizeTextBlock(req.Fortalezas)
+	debilidades := normalizeTextBlock(req.Debilidades)
+	recomendaciones := normalizeTextBlock(req.Recomendaciones)
+
+	parts := make([]string, 0, 3)
+	if fortalezas != "" {
+		parts = append(parts, "Fortalezas: "+fortalezas)
+	}
+	if debilidades != "" {
+		parts = append(parts, "Debilidades: "+debilidades)
+	}
+	if recomendaciones != "" {
+		parts = append(parts, "Recomendaciones: "+recomendaciones)
+	}
+
+	return strings.Join(parts, "\n")
+}
+
+func computeAverageScore(rows []db.TrabajoEvaluacionModel) *float64 {
+	total := 0
+	count := 0
+
+	for _, row := range rows {
+		value, ok := row.Puntaje()
+		if !ok {
+			continue
+		}
+		total += value
+		count++
+	}
+
+	if count == 0 {
+		return nil
+	}
+
+	avg := float64(total) / float64(count)
+	return &avg
+}
+
+func buildEvaluationItems(ctx context.Context, s *Service, rows []db.TrabajoEvaluacionModel) []dto.EvaluationItem {
+	out := make([]dto.EvaluationItem, 0, len(rows))
+
+	for _, row := range rows {
+		reviewerName := ""
+		var puntaje *int
+		reviewer, findErr := s.repo.FindUserByID(ctx, row.IDRevisor)
+		if findErr == nil && reviewer != nil {
+			reviewerName = reviewer.Nombre
+		}
+		if value, ok := row.Puntaje(); ok {
+			puntaje = &value
+		}
+
+		out = append(out, dto.EvaluationItem{
+			IDEvaluacion:  row.IDEvaluacion,
+			IDTrabajo:     row.IDTrabajo,
+			IDRevisor:     row.IDRevisor,
+			Revisor:       reviewerName,
+			Recomendacion: row.Recomendacion,
+			Puntaje:       puntaje,
+			Comentarios:   row.Comentarios,
+			UpdatedAt:     formatDateTimeVE(row.UpdatedAt),
+		})
+	}
+
+	return out
+}
+
 func (s *Service) hasRoleOrAdmin(ctx context.Context, userID int, roleName string) (bool, error) {
 	hasRole, err := s.repo.UserHasRole(ctx, userID, roleName)
 	if err != nil {
@@ -431,26 +528,27 @@ func (s *Service) hasRoleOrAdmin(ctx context.Context, userID int, roleName strin
 }
 
 func (s *Service) ListTrabajosComite(ctx context.Context, f dto.TrabajoComiteFilter) ([]dto.TrabajoComiteItem, error) {
-    hasRole, err := s.hasRoleOrAdmin(ctx, f.UserID, "COMITE CIENTIFICO")
-    if err != nil {
-        return nil, err
-    }
-    if !hasRole {
-        return nil, ErrSinAcceso
-    }
+	hasRole, err := s.hasRoleOrAdmin(ctx, f.UserID, "COMITE CIENTIFICO")
+	if err != nil {
+		return nil, err
+	}
+	if !hasRole {
+		return nil, ErrSinAcceso
+	}
 
-    rows, err := s.repo.ListTrabajosComite(ctx, f)
-    if err != nil {
-        return nil, err
-    }
+	rows, err := s.repo.ListTrabajosComite(ctx, f)
+	if err != nil {
+		return nil, err
+	}
 
-    out := make([]dto.TrabajoComiteItem, 0, len(rows))
-    for _, row := range rows {
-        currentVersion, _ := s.repo.FindCurrentVersion(ctx, row.IDTrabajo)
-        fechaUltimoEnvio := ""
+	out := make([]dto.TrabajoComiteItem, 0, len(rows))
+	for _, row := range rows {
+		currentVersion, _ := s.repo.FindCurrentVersion(ctx, row.IDTrabajo)
+		evaluaciones, _ := s.repo.ListEvaluacionesByTrabajo(ctx, row.IDTrabajo)
+		fechaUltimoEnvio := ""
 		var archivoActual *dto.VersionResponse
-        if currentVersion != nil {
-            fechaUltimoEnvio = formatDateTimeVE(currentVersion.FechaEnvio)
+		if currentVersion != nil {
+			fechaUltimoEnvio = formatDateTimeVE(currentVersion.FechaEnvio)
 			archivoActual = &dto.VersionResponse{
 				IDVersion:          currentVersion.IDVersion,
 				IDTrabajo:          currentVersion.IDTrabajo,
@@ -462,126 +560,135 @@ func (s *Service) ListTrabajosComite(ctx context.Context, f dto.TrabajoComiteFil
 				EsActual:           currentVersion.EsActual,
 				FechaEnvio:         formatDateTimeVE(currentVersion.FechaEnvio),
 			}
-        }
+		}
 
-        autor := findAuthorName(ctx, s, row.IDUsuario)
+		autor := findAuthorName(ctx, s, row.IDUsuario)
+		afiliacionAutor, _ := s.repo.FindAuthorAffiliation(ctx, row.IDEvento, row.IDUsuario)
+		promedio := computeAverageScore(evaluaciones)
+		cantidad := len(evaluaciones)
 
-        out = append(out, dto.TrabajoComiteItem{
-            IDTrabajo:        row.IDTrabajo,
-            IDEvento:         row.IDEvento,
-            IDAutor:          row.IDUsuario,
-            Autor:            autor,
-            Titulo:           row.Titulo,
-            Resumen:          row.Resumen,
-            Estado:           row.Estado,
-            DecisionComite:   normalizeDecisionComite(row.DecisionComite),
-            FechaUltimoEnvio: fechaUltimoEnvio,
-            VersionActual:    row.VersionActual,
-			ArchivoActual:    archivoActual,
-        })
-    }
+		out = append(out, dto.TrabajoComiteItem{
+			IDTrabajo:                 row.IDTrabajo,
+			IDEvento:                  row.IDEvento,
+			IDAutor:                   row.IDUsuario,
+			Autor:                     autor,
+			AfiliacionAutor:           afiliacionAutor,
+			Titulo:                    row.Titulo,
+			Resumen:                   row.Resumen,
+			Estado:                    row.Estado,
+			DecisionComite:            normalizeDecisionComite(row.DecisionComite),
+			RevisadoPreviamente:       cantidad > 0,
+			CantidadEvaluaciones:      cantidad,
+			CantidadEvaluacionesOtros: cantidad,
+			CalificacionPromedio:      promedio,
+			FechaUltimoEnvio:          fechaUltimoEnvio,
+			VersionActual:             row.VersionActual,
+			ArchivoActual:             archivoActual,
+		})
+	}
 
-    return out, nil
+	return out, nil
 }
 
 func (s *Service) ListRevisores(ctx context.Context, userID int) ([]dto.ReviewerListItem, error) {
 	hasRole, err := s.hasRoleOrAdmin(ctx, userID, "COMITE CIENTIFICO")
-    if err != nil {
-        return nil, err
-    }
-    if !hasRole {
-        return nil, ErrSinAcceso
-    }
+	if err != nil {
+		return nil, err
+	}
+	if !hasRole {
+		return nil, ErrSinAcceso
+	}
 
-    rows, err := s.repo.ListRevisores(ctx)
-    if err != nil {
-        return nil, err
-    }
+	rows, err := s.repo.ListRevisores(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-    out := make([]dto.ReviewerListItem, 0, len(rows))
-    for _, row := range rows {
-        out = append(out, dto.ReviewerListItem{
-            IDUsuario: row.IDUsuario,
-            Nombre:    row.Nombre,
-            Email:     row.Email,
-        })
-    }
+	out := make([]dto.ReviewerListItem, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, dto.ReviewerListItem{
+			IDUsuario: row.IDUsuario,
+			Nombre:    row.Nombre,
+			Email:     row.Email,
+		})
+	}
 
-    return out, nil
+	return out, nil
 }
 
 func (s *Service) AssignReviewers(ctx context.Context, req dto.AssignReviewersRequest) error {
-    if req.UserID <= 0 || req.IDTrabajo <= 0 || len(req.Revisores) == 0 {
-        return errors.New("datos de asignacion invalidos")
-    }
+	if req.UserID <= 0 || req.IDTrabajo <= 0 || len(req.Revisores) == 0 {
+		return errors.New("datos de asignacion invalidos")
+	}
 
 	hasRole, err := s.hasRoleOrAdmin(ctx, req.UserID, "COMITE CIENTIFICO")
-    if err != nil {
-        return err
-    }
-    if !hasRole {
-        return ErrSinAcceso
-    }
+	if err != nil {
+		return err
+	}
+	if !hasRole {
+		return ErrSinAcceso
+	}
 
-    trabajo, err := s.repo.FindTrabajoByID(ctx, req.IDTrabajo)
-    if err != nil || trabajo == nil {
-        return ErrTrabajoNoExiste
-    }
+	trabajo, err := s.repo.FindTrabajoByID(ctx, req.IDTrabajo)
+	if err != nil || trabajo == nil {
+		return ErrTrabajoNoExiste
+	}
 
-    seen := map[int]struct{}{}
-    for _, revisorID := range req.Revisores {
-        if revisorID <= 0 {
-            continue
-        }
-        if _, ok := seen[revisorID]; ok {
-            continue
-        }
-        seen[revisorID] = struct{}{}
+	seen := map[int]struct{}{}
+	for _, revisorID := range req.Revisores {
+		if revisorID <= 0 {
+			continue
+		}
+		if _, ok := seen[revisorID]; ok {
+			continue
+		}
+		seen[revisorID] = struct{}{}
 
-        isReviewer, roleErr := s.repo.UserHasRole(ctx, revisorID, "REVISOR")
-        if roleErr != nil {
-            return roleErr
-        }
-        if !isReviewer {
-            return fmt.Errorf("el usuario %d no posee el rol REVISOR", revisorID)
-        }
+		isReviewer, roleErr := s.repo.UserHasRole(ctx, revisorID, "REVISOR")
+		if roleErr != nil {
+			return roleErr
+		}
+		if !isReviewer {
+			return fmt.Errorf("el usuario %d no posee el rol REVISOR", revisorID)
+		}
 
-        if err := s.repo.AssignReviewer(ctx, req.IDTrabajo, revisorID, req.UserID); err != nil {
-            return err
-        }
+		if err := s.repo.AssignReviewer(ctx, req.IDTrabajo, revisorID, req.UserID); err != nil {
+			return err
+		}
 
-        _, _ = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
-            UserID:  revisorID,
-            EventID: &trabajo.IDEvento,
+		_, _ = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+			UserID:  revisorID,
+			EventID: &trabajo.IDEvento,
 			Type:    notificationdto.NotificationTypeTrabajoAsignado,
 			Message: fmt.Sprintf(notificationdto.MsgTrabajoAsignado, trabajo.Titulo),
-        })
-    }
+		})
+	}
 
-    return nil
+	return nil
 }
 
 func (s *Service) ListTrabajosAsignadosRevisor(ctx context.Context, userID int) ([]dto.TrabajoComiteItem, error) {
-    hasRole, err := s.repo.UserHasRole(ctx, userID, "REVISOR")
-    if err != nil {
-        return nil, err
-    }
-    if !hasRole {
-        return nil, ErrSinAcceso
-    }
+	hasRole, err := s.repo.UserHasRole(ctx, userID, "REVISOR")
+	if err != nil {
+		return nil, err
+	}
+	if !hasRole {
+		return nil, ErrSinAcceso
+	}
 
-    rows, err := s.repo.ListTrabajosAsignadosRevisor(ctx, userID)
-    if err != nil {
-        return nil, err
-    }
+	rows, err := s.repo.ListTrabajosAsignadosRevisor(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 
-    out := make([]dto.TrabajoComiteItem, 0, len(rows))
-    for _, row := range rows {
-        currentVersion, _ := s.repo.FindCurrentVersion(ctx, row.IDTrabajo)
-        fechaUltimoEnvio := ""
+	out := make([]dto.TrabajoComiteItem, 0, len(rows))
+	for _, row := range rows {
+		currentVersion, _ := s.repo.FindCurrentVersion(ctx, row.IDTrabajo)
+		evaluaciones, _ := s.repo.ListEvaluacionesByTrabajo(ctx, row.IDTrabajo)
+		fechaUltimoEnvio := ""
 		var archivoActual *dto.VersionResponse
-        if currentVersion != nil {
-            fechaUltimoEnvio = formatDateTimeVE(currentVersion.FechaEnvio)
+		if currentVersion != nil {
+			fechaUltimoEnvio = formatDateTimeVE(currentVersion.FechaEnvio)
 			archivoActual = &dto.VersionResponse{
 				IDVersion:          currentVersion.IDVersion,
 				IDTrabajo:          currentVersion.IDTrabajo,
@@ -593,76 +700,91 @@ func (s *Service) ListTrabajosAsignadosRevisor(ctx context.Context, userID int) 
 				EsActual:           currentVersion.EsActual,
 				FechaEnvio:         formatDateTimeVE(currentVersion.FechaEnvio),
 			}
-        }
+		}
 
-        autor := findAuthorName(ctx, s, row.IDUsuario)
+		autor := findAuthorName(ctx, s, row.IDUsuario)
+		afiliacionAutor, _ := s.repo.FindAuthorAffiliation(ctx, row.IDEvento, row.IDUsuario)
+		promedio := computeAverageScore(evaluaciones)
+		cantidad := len(evaluaciones)
+		cantidadOtros := 0
+		for _, ev := range evaluaciones {
+			if ev.IDRevisor != userID {
+				cantidadOtros++
+			}
+		}
 
-        out = append(out, dto.TrabajoComiteItem{
-            IDTrabajo:        row.IDTrabajo,
-            IDEvento:         row.IDEvento,
-            IDAutor:          row.IDUsuario,
-            Autor:            autor,
-            Titulo:           row.Titulo,
-            Resumen:          row.Resumen,
-            Estado:           row.Estado,
-            DecisionComite:   normalizeDecisionComite(row.DecisionComite),
-            FechaUltimoEnvio: fechaUltimoEnvio,
-            VersionActual:    row.VersionActual,
-			ArchivoActual:    archivoActual,
-        })
-    }
+		out = append(out, dto.TrabajoComiteItem{
+			IDTrabajo:                 row.IDTrabajo,
+			IDEvento:                  row.IDEvento,
+			IDAutor:                   row.IDUsuario,
+			Autor:                     autor,
+			AfiliacionAutor:           afiliacionAutor,
+			Titulo:                    row.Titulo,
+			Resumen:                   row.Resumen,
+			Estado:                    row.Estado,
+			DecisionComite:            normalizeDecisionComite(row.DecisionComite),
+			RevisadoPreviamente:       cantidadOtros > 0,
+			CantidadEvaluaciones:      cantidad,
+			CantidadEvaluacionesOtros: cantidadOtros,
+			CalificacionPromedio:      promedio,
+			FechaUltimoEnvio:          fechaUltimoEnvio,
+			VersionActual:             row.VersionActual,
+			ArchivoActual:             archivoActual,
+		})
+	}
 
-    return out, nil
+	return out, nil
 }
 
 func (s *Service) SubmitEvaluation(ctx context.Context, req dto.SubmitEvaluationRequest) error {
-    if req.UserID <= 0 || req.IDTrabajo <= 0 {
-        return errors.New("datos de evaluacion invalidos")
-    }
+	if req.UserID <= 0 || req.IDTrabajo <= 0 {
+		return errors.New("datos de evaluacion invalidos")
+	}
 
-    hasRole, err := s.repo.UserHasRole(ctx, req.UserID, "REVISOR")
-    if err != nil {
-        return err
-    }
-    if !hasRole {
-        return ErrSinAcceso
-    }
+	hasRole, err := s.repo.UserHasRole(ctx, req.UserID, "REVISOR")
+	if err != nil {
+		return err
+	}
+	if !hasRole {
+		return ErrSinAcceso
+	}
 
-    trabajo, err := s.repo.FindTrabajoByID(ctx, req.IDTrabajo)
-    if err != nil || trabajo == nil {
-        return ErrTrabajoNoExiste
-    }
+	trabajo, err := s.repo.FindTrabajoByID(ctx, req.IDTrabajo)
+	if err != nil || trabajo == nil {
+		return ErrTrabajoNoExiste
+	}
 
-    asignados, err := s.repo.ListTrabajosAsignadosRevisor(ctx, req.UserID)
-    if err != nil {
-        return err
-    }
+	asignados, err := s.repo.ListTrabajosAsignadosRevisor(ctx, req.UserID)
+	if err != nil {
+		return err
+	}
 
-    assigned := false
-    for _, t := range asignados {
-        if t.IDTrabajo == req.IDTrabajo {
-            assigned = true
-            break
-        }
-    }
-    if !assigned {
-        return ErrSinAcceso
-    }
+	assigned := false
+	for _, t := range asignados {
+		if t.IDTrabajo == req.IDTrabajo {
+			assigned = true
+			break
+		}
+	}
+	if !assigned {
+		return ErrSinAcceso
+	}
 
-    req.Recomendacion = normalizeRecomendacion(req.Recomendacion)
-    req.Comentarios = strings.TrimSpace(req.Comentarios)
-    if req.Comentarios == "" {
-        return errors.New("los comentarios de la evaluacion son obligatorios")
-    }
-    if req.Puntaje != nil {
-        if *req.Puntaje < 0 || *req.Puntaje > 100 {
-            return errors.New("el puntaje debe estar entre 0 y 100")
-        }
-    }
+	req.Recomendacion = normalizeRecomendacion(req.Recomendacion)
+	req.Comentarios = buildEvaluationComments(req)
+	if req.Comentarios == "" {
+		return errors.New("debe registrar observaciones de evaluacion (fortalezas, debilidades o recomendaciones)")
+	}
+	if req.Puntaje == nil {
+		return errors.New("el puntaje es obligatorio y debe estar en una escala de 1 a 5")
+	}
+	if *req.Puntaje < 1 || *req.Puntaje > 5 {
+		return errors.New("el puntaje debe estar entre 1 y 5")
+	}
 
-    if err := s.repo.UpsertEvaluacion(ctx, req); err != nil {
-        return err
-    }
+	if err := s.repo.UpsertEvaluacion(ctx, req); err != nil {
+		return err
+	}
 
 	reviewerLabel := fmt.Sprintf("%d", req.UserID)
 	reviewer, reviewerErr := s.repo.FindUserByID(ctx, req.UserID)
@@ -673,101 +795,83 @@ func (s *Service) SubmitEvaluation(ctx context.Context, req dto.SubmitEvaluation
 		}
 	}
 
-    committeeUsers, _ := s.repo.FindCommitteeUsers(ctx)
-    for _, user := range committeeUsers {
-        _, _ = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
-            UserID:  user.IDUsuario,
-            EventID: &trabajo.IDEvento,
+	committeeUsers, _ := s.repo.FindCommitteeUsers(ctx)
+	for _, user := range committeeUsers {
+		_, _ = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+			UserID:  user.IDUsuario,
+			EventID: &trabajo.IDEvento,
 			Type:    notificationdto.NotificationTypeEvaluacionRecibida,
 			Message: fmt.Sprintf(notificationdto.MsgEvaluacionRecibida, reviewerLabel, trabajo.Titulo),
-        })
-    }
+		})
+	}
 
-    return nil
+	return nil
 }
 
-func (s *Service) ListEvaluacionesByTrabajo(ctx context.Context, userID, trabajoID int) ([]dto.EvaluationItem, error) {
+func (s *Service) ListEvaluacionesByTrabajo(ctx context.Context, userID, trabajoID int) (*dto.EvaluationSummary, error) {
 	hasRole, err := s.hasRoleOrAdmin(ctx, userID, "COMITE CIENTIFICO")
-    if err != nil {
-        return nil, err
-    }
-    if !hasRole {
-        return nil, ErrSinAcceso
-    }
+	if err != nil {
+		return nil, err
+	}
+	if !hasRole {
+		return nil, ErrSinAcceso
+	}
 
-    trabajo, err := s.repo.FindTrabajoByID(ctx, trabajoID)
-    if err != nil || trabajo == nil {
-        return nil, ErrTrabajoNoExiste
-    }
+	trabajo, err := s.repo.FindTrabajoByID(ctx, trabajoID)
+	if err != nil || trabajo == nil {
+		return nil, ErrTrabajoNoExiste
+	}
 
-    rows, err := s.repo.ListEvaluacionesByTrabajo(ctx, trabajoID)
-    if err != nil {
-        return nil, err
-    }
+	rows, err := s.repo.ListEvaluacionesByTrabajo(ctx, trabajoID)
+	if err != nil {
+		return nil, err
+	}
 
-    out := make([]dto.EvaluationItem, 0, len(rows))
-    for _, row := range rows {
-        reviewerName := ""
-		var puntaje *int
-        reviewer, findErr := s.repo.FindUserByID(ctx, row.IDRevisor)
-        if findErr == nil && reviewer != nil {
-            reviewerName = reviewer.Nombre
-        }
-		if value, ok := row.Puntaje(); ok {
-			puntaje = &value
-		}
-
-        out = append(out, dto.EvaluationItem{
-            IDEvaluacion:  row.IDEvaluacion,
-            IDTrabajo:     row.IDTrabajo,
-            IDRevisor:     row.IDRevisor,
-            Revisor:       reviewerName,
-            Recomendacion: row.Recomendacion,
-			Puntaje:       puntaje,
-            Comentarios:   row.Comentarios,
-            UpdatedAt:     formatDateTimeVE(row.UpdatedAt),
-        })
-    }
-
-    return out, nil
+	evaluaciones := buildEvaluationItems(ctx, s, rows)
+	return &dto.EvaluationSummary{
+		IDTrabajo:            trabajoID,
+		CantidadEvaluaciones: len(evaluaciones),
+		CalificacionPromedio: computeAverageScore(rows),
+		Evaluaciones:         evaluaciones,
+	}, nil
 }
 
 func (s *Service) DecideTrabajo(ctx context.Context, req dto.DecisionRequest) error {
-    if req.UserID <= 0 || req.IDTrabajo <= 0 {
-        return errors.New("datos de decision invalidos")
-    }
+	if req.UserID <= 0 || req.IDTrabajo <= 0 {
+		return errors.New("datos de decision invalidos")
+	}
 
 	hasRole, err := s.hasRoleOrAdmin(ctx, req.UserID, "COMITE CIENTIFICO")
-    if err != nil {
-        return err
-    }
-    if !hasRole {
-        return ErrSinAcceso
-    }
+	if err != nil {
+		return err
+	}
+	if !hasRole {
+		return ErrSinAcceso
+	}
 
-    trabajo, err := s.repo.FindTrabajoByID(ctx, req.IDTrabajo)
-    if err != nil || trabajo == nil {
-        return ErrTrabajoNoExiste
-    }
+	trabajo, err := s.repo.FindTrabajoByID(ctx, req.IDTrabajo)
+	if err != nil || trabajo == nil {
+		return ErrTrabajoNoExiste
+	}
 
-    req.DecisionComite = normalizeDecisionComite(req.DecisionComite)
-    req.ComentarioComite = strings.TrimSpace(req.ComentarioComite)
+	req.DecisionComite = normalizeDecisionComite(req.DecisionComite)
+	req.ComentarioComite = strings.TrimSpace(req.ComentarioComite)
 
-    if err := s.repo.UpdateDecisionComite(ctx, req); err != nil {
-        return err
-    }
+	if err := s.repo.UpdateDecisionComite(ctx, req); err != nil {
+		return err
+	}
 
 	msg := fmt.Sprintf(notificationdto.MsgEstadoTrabajo, trabajo.Titulo, req.DecisionComite)
 	if req.ComentarioComite != "" {
 		msg = fmt.Sprintf(notificationdto.MsgEstadoTrabajoConComentario, trabajo.Titulo, req.DecisionComite, req.ComentarioComite)
 	}
 
-    _, _ = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
-        UserID:  trabajo.IDUsuario,
-        EventID: &trabajo.IDEvento,
+	_, _ = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+		UserID:  trabajo.IDUsuario,
+		EventID: &trabajo.IDEvento,
 		Type:    notificationdto.NotificationTypeEstadoTrabajo,
-        Message: msg,
-    })
+		Message: msg,
+	})
 
-    return nil
+	return nil
 }
