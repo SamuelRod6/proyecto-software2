@@ -17,6 +17,7 @@ import (
 	roles "project/backend/internal/roles/service"
 	mensajeshandler "project/backend/internal/mensajes/handler"
 	sesioneshandler "project/backend/internal/sesiones/handler"
+	smtphandler "project/backend/internal/shared/smtp"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
 
@@ -86,9 +87,16 @@ func main() {
 	http.HandleFunc("/api/user/assign-roles", userHandler.UpdateUserRolesHandler)
 
 	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
+	http.HandleFunc("/api/auth/register/request-key", authHandler.RequestRegisterTemporaryKeyHandler)
+	http.HandleFunc("/api/auth/register/verify-key", authHandler.VerifyRegisterTemporaryKeyHandler)
 	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)
 	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
+	http.HandleFunc("/api/auth/password-recovery/request", authHandler.RequestPasswordRecoveryHandler)
+	http.HandleFunc("/api/auth/password-recovery/verify", authHandler.VerifyPasswordRecoveryHandler)
+	http.HandleFunc("/api/auth/password-recovery/reset", authHandler.ConfirmPasswordRecoveryHandler)
 	http.HandleFunc("/api/auth/logout", authHandler.LogoutHandler)
+	http.HandleFunc("/api/smtp/send", smtphandler.SendEmailHandler)
+	http.HandleFunc("/api/smtp/sandbox", smtphandler.SandboxEmailHandler)
 
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
 	http.HandleFunc("/api/users", userHandler.UsersListHandler)

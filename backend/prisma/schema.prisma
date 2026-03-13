@@ -19,8 +19,20 @@ model Usuario {
   sesionesPonente SesionPonente[]
   UsuarioRoles    UsuarioRoles[]
   preferencias    NotificacionPreferencia?
-  participaciones  ConversacionParticipante[]
-  mensajesEnviados Mensaje[] @relation("MensajesEnviados")
+  recoveryTokens  PasswordRecoveryToken[]
+}
+
+model PasswordRecoveryToken {
+  id         Int      @id @default(autoincrement())
+  id_usuario Int
+  token_hash String
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime @default(now())
+  usuario    Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@index([id_usuario])
+  @@index([token_hash])
 }
 
 model Roles {

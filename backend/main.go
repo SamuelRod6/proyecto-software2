@@ -67,8 +67,13 @@ func main() {
 	http.HandleFunc("/api/user/assign-roles", userHandler.UpdateUserRolesHandler)
 
 	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
+	http.HandleFunc("/api/auth/register/request-key", authHandler.RequestRegisterTemporaryKeyHandler)
+	http.HandleFunc("/api/auth/register/verify-key", authHandler.VerifyRegisterTemporaryKeyHandler)
 	http.HandleFunc("/api/auth/login", authHandler.LoginHandler)
 	http.HandleFunc("/api/auth/reset-password", authHandler.ResetPasswordHandler)
+	http.HandleFunc("/api/auth/password-recovery/request", authHandler.RequestPasswordRecoveryHandler)
+	http.HandleFunc("/api/auth/password-recovery/verify", authHandler.VerifyPasswordRecoveryHandler)
+	http.HandleFunc("/api/auth/password-recovery/reset", authHandler.ConfirmPasswordRecoveryHandler)
 	http.HandleFunc("/api/auth/logout", authHandler.LogoutHandler)
 
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
