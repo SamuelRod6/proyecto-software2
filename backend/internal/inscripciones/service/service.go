@@ -158,12 +158,14 @@ func statusTransitionTemplate(estadoAnterior, estadoNuevo string) (string, strin
 	transition := normalizeStatusTemplateKey(estadoAnterior) + "->" + normalizeStatusTemplateKey(estadoNuevo)
 
 	switch transition {
-	case "en revision->aceptado", "en revision->aprobado":
-		return "Tu trabajo fue aceptado", "Buenas noticias: tu trabajo científico fue aceptado para continuar con el proceso del evento."
-	case "en revision->rechazado":
-		return "Resultado de revisión", "La revisión del trabajo científico finalizó y el resultado fue rechazado."
 	case "pendiente->pagado":
 		return "Pago validado", "Recibimos y validamos el pago de tu inscripción."
+	case "pendiente->aprobado":
+		return "Inscripción aprobada", "Tu inscripción fue aprobada luego de validar los requisitos administrativos."
+	case "pendiente->rechazado":
+		return "Inscripción rechazada", "Tu inscripción fue rechazada luego de la validación administrativa."
+	case "pagado->pendiente", "aprobado->pendiente", "rechazado->pendiente":
+		return "Inscripción en pendiente", "Tu inscripción cambió nuevamente al estado pendiente para una nueva revisión administrativa."
 	case "pagado->aprobado":
 		return "Inscripción aprobada", "Tu inscripción fue aprobada luego de validar los requisitos administrativos."
 	case "pagado->rechazado":
@@ -177,12 +179,14 @@ func statusTransitionType(estadoAnterior, estadoNuevo string) string {
 	transition := normalizeStatusTemplateKey(estadoAnterior) + "->" + normalizeStatusTemplateKey(estadoNuevo)
 
 	switch transition {
-	case "en revision->aceptado", "en revision->aprobado":
-		return "aceptado"
-	case "en revision->rechazado":
-		return "rechazado"
 	case "pendiente->pagado":
 		return "pagado"
+	case "pendiente->aprobado":
+		return "aprobado"
+	case "pendiente->rechazado":
+		return "rechazado"
+	case "pagado->pendiente", "aprobado->pendiente", "rechazado->pendiente":
+		return "pendiente"
 	case "pagado->aprobado":
 		return "aprobado"
 	case "pagado->rechazado":

@@ -92,10 +92,10 @@ export default function MyInscriptionsScreen(): JSX.Element {
 
   const typeOptions = [
     { value: "estado", label: "Todos los cambios de estado" },
-    { value: "aceptado", label: "Aceptado" },
     { value: "rechazado", label: "Rechazado" },
     { value: "pagado", label: "Pago validado" },
-    { value: "aprobado", label: "Aprobado administrativo" },
+    { value: "aprobado", label: "Aprobado" },
+    { value: "pendiente", label: "Pendiente"},
   ];
 
   const authUser = getAuthUser();
