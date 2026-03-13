@@ -63,3 +63,37 @@ func TestStatusTransitionTemplateDefault(t *testing.T) {
 		t.Fatal("body should use default intro for unmapped transition")
 	}
 }
+
+func TestParsePreferenceTypes(t *testing.T) {
+	types := parsePreferenceTypes("aceptado; rechazado|pagado estado")
+	expected := []string{"aceptado", "rechazado", "pagado", "estado"}
+	for _, key := range expected {
+		if _, ok := types[key]; !ok {
+			t.Fatalf("expected parsed types to contain %s", key)
+		}
+	}
+}
+
+func TestStatusTransitionTypeMapping(t *testing.T) {
+	cases := []struct {
+		name       string
+		from       string
+		to         string
+		expectedTy string
+	}{
+		{name: "revision to accepted", from: "En revisión", to: "Aceptado", expectedTy: "aceptado"},
+		{name: "revision to approved", from: "En revisión", to: "Aprobado", expectedTy: "aceptado"},
+		{name: "revision to rejected", from: "En revisión", to: "Rechazado", expectedTy: "rechazado"},
+		{name: "pending to paid", from: "Pendiente", to: "Pagado", expectedTy: "pagado"},
+		{name: "paid to approved", from: "Pagado", to: "Aprobado", expectedTy: "aprobado"},
+		{name: "fallback", from: "Pendiente", to: "Aprobado", expectedTy: "estado"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := statusTransitionType(tc.from, tc.to); got != tc.expectedTy {
+				t.Fatalf("expected %s, got %s", tc.expectedTy, got)
+			}
+		})
+	}
+}

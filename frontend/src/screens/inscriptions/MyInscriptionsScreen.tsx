@@ -12,6 +12,7 @@ import { NotificationContext } from "../../contexts/Notifications/NotificationCo
 import {
   downloadReceipt,
   getInscriptions,
+  getInscriptionHistory,
   getNotifications,
   getPreferences,
   updatePreferences,
@@ -26,6 +27,16 @@ interface Evento {
   fecha_inicio: string;
   fecha_fin: string;
   ubicacion: string;
+}
+
+interface HistorialItem {
+  id_historial: number;
+  id_inscripcion: number;
+  estado_anterior: string;
+  estado_nuevo: string;
+  nota: string;
+  actor: string;
+  fecha_cambio: string;
 }
 
 function parseTypes(tipos: string): string[] {
@@ -63,6 +74,10 @@ export default function MyInscriptionsScreen(): JSX.Element {
   const [frequency, setFrequency] = useState("inmediata");
   const [types, setTypes] = useState("estado");
   const [enabled, setEnabled] = useState(true);
+  const [historyItems, setHistoryItems] = useState<HistorialItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistoryInscriptionId, setSelectedHistoryInscriptionId] =
+    useState<number | null>(null);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const { showToast } = useToast();
@@ -102,8 +117,22 @@ export default function MyInscriptionsScreen(): JSX.Element {
     if (insRes.status >= 400) {
       setError("No se pudo cargar tus inscripciones.");
       setItems([]);
+      setSelectedHistoryInscriptionId(null);
+      setHistoryItems([]);
     } else {
-      setItems(Array.isArray(insRes.data) ? insRes.data : []);
+      const inscripciones = Array.isArray(insRes.data) ? insRes.data : [];
+      setItems(inscripciones);
+      if (inscripciones.length === 0) {
+        setSelectedHistoryInscriptionId(null);
+        setHistoryItems([]);
+      } else {
+        setSelectedHistoryInscriptionId((current) => {
+          if (current && inscripciones.some((item) => item.id_inscripcion === current)) {
+            return current;
+          }
+          return inscripciones[0].id_inscripcion;
+        });
+      }
     }
 
     if (prefRes.status < 400 && prefRes.data) {
@@ -129,8 +158,36 @@ export default function MyInscriptionsScreen(): JSX.Element {
     loadData();
   }, [canLoad]);
 
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!selectedHistoryInscriptionId || !canLoad) {
+        setHistoryItems([]);
+        return;
+      }
+
+      setHistoryLoading(true);
+      const { status, data } = await getInscriptionHistory(selectedHistoryInscriptionId);
+      if (status >= 400 || !Array.isArray(data)) {
+        setHistoryItems([]);
+      } else {
+        setHistoryItems(data as HistorialItem[]);
+      }
+      setHistoryLoading(false);
+    };
+
+    loadHistory();
+  }, [selectedHistoryInscriptionId, canLoad]);
+
   const grouped = useMemo(() => items, [items]);
   const selectedTypes = useMemo(() => parseTypes(types), [types]);
+  const historyInscriptionOptions = useMemo(
+    () =>
+      grouped.map((item) => ({
+        value: String(item.id_inscripcion),
+        label: `${item.evento_nombre} (#${item.id_inscripcion})`,
+      })),
+    [grouped],
+  );
 
   const mergedNotifications = useMemo(() => {
     const inscriptionNotifications = notifications.map((notif) => ({
@@ -464,6 +521,59 @@ export default function MyInscriptionsScreen(): JSX.Element {
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-700 bg-slate-800/80 p-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-[#F5E427]">
+            Historial de cambios de estado
+          </h2>
+        </div>
+        <p className="mt-2 text-sm text-slate-400">
+          Revisa la trazabilidad de cambios por inscripción.
+        </p>
+
+        <div className="mt-4 max-w-xl">
+          <SelectInput
+            value={selectedHistoryInscriptionId ? String(selectedHistoryInscriptionId) : ""}
+            onChange={(value) => {
+              const nextValue = Array.isArray(value) ? (value[0] ?? "") : value;
+              const parsed = Number(nextValue);
+              setSelectedHistoryInscriptionId(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+            }}
+            options={historyInscriptionOptions}
+            inputLabel="Inscripción"
+            placeholder="Selecciona una inscripción"
+            allowCustom={false}
+            isClearable
+          />
+        </div>
+
+        <div className="mt-4 max-h-[320px] overflow-y-auto space-y-3 pr-2">
+          {historyLoading ? (
+            <p className="text-sm text-slate-400">Cargando historial...</p>
+          ) : historyItems.length === 0 ? (
+            <p className="text-sm text-slate-400">Sin cambios registrados.</p>
+          ) : (
+            historyItems.map((history) => (
+              <div
+                key={history.id_historial}
+                className="rounded-md border border-slate-700 bg-slate-900/60 p-3"
+              >
+                <p className="text-sm font-semibold text-slate-200">
+                  {history.estado_anterior?.trim() || "Sin estado"} -&gt; {history.estado_nuevo}
+                </p>
+                <p className="text-xs text-slate-400">{history.fecha_cambio}</p>
+                {history.nota ? (
+                  <p className="mt-1 text-sm text-slate-300">{history.nota}</p>
+                ) : null}
+                {history.actor ? (
+                  <p className="mt-1 text-xs text-slate-500">Actor: {history.actor}</p>
+                ) : null}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </section>
