@@ -84,19 +84,24 @@ func (h *Handler) HistorialHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := r.URL.Query().Get("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
-		httperror.WriteJSON(w, http.StatusBadRequest, "id inválido")
+	filters, err := parseHistorialFilters(r)
+	if err != nil {
+		httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	rows, err := h.svc.Historial(ctx, id)
+	rows, err := h.svc.Historial(ctx, filters)
 	if err != nil {
 		httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	format := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("format")))
+	if format == "pdf" {
+		writePDFHistorial(w, rows)
 		return
 	}
 
@@ -107,6 +112,7 @@ func (h *Handler) HistorialHandler(w http.ResponseWriter, r *http.Request) {
 			IDInscripcion:  row.IDInscripcion,
 			EstadoAnterior: row.EstadoAnterior,
 			EstadoNuevo:    row.EstadoNuevo,
+			TipoCambio:     row.TipoCambio,
 			Nota:           row.Nota,
 			Actor:          row.Actor,
 			FechaCambio:    row.FechaCambio,
@@ -575,6 +581,48 @@ func parseReportFilters(r *http.Request) (map[string]interface{}, error) {
 	return parseListFilters(r)
 }
 
+func parseHistorialFilters(r *http.Request) (map[string]interface{}, error) {
+	filters := map[string]interface{}{}
+
+	idStr := strings.TrimSpace(r.URL.Query().Get("id"))
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		return nil, fmt.Errorf("id inválido")
+	}
+	filters["id_inscripcion"] = id
+
+	if estado := strings.TrimSpace(r.URL.Query().Get("estado")); estado != "" {
+		filters["estado"] = validation.NormalizeStatus(estado)
+	}
+
+	if tipoCambio := strings.TrimSpace(r.URL.Query().Get("tipo_cambio")); tipoCambio != "" {
+		filters["tipo_cambio"] = strings.Title(strings.ToLower(tipoCambio))
+	}
+
+	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" {
+		filters["q"] = q
+	}
+
+	loc := time.Now().Location()
+	if desde := strings.TrimSpace(r.URL.Query().Get("desde")); desde != "" {
+		parsed, parseErr := validation.ParseDate(desde, loc)
+		if parseErr != nil {
+			return nil, fmt.Errorf("fecha desde inválida")
+		}
+		filters["desde"] = parsed
+	}
+
+	if hasta := strings.TrimSpace(r.URL.Query().Get("hasta")); hasta != "" {
+		parsed, parseErr := validation.ParseDate(hasta, loc)
+		if parseErr != nil {
+			return nil, fmt.Errorf("fecha hasta inválida")
+		}
+		filters["hasta"] = parsed.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	}
+
+	return filters, nil
+}
+
 func writeCSVReport(w http.ResponseWriter, porEstado map[string]int, total int) {
 	var builder strings.Builder
 	builder.WriteString("estado,total\n")
@@ -601,6 +649,37 @@ func writePDFReport(w http.ResponseWriter, porEstado map[string]int, total int) 
 	w.Header().Set("Content-Disposition", "attachment; filename=reportes_inscripciones.pdf")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(pdf)
+}
+
+func writePDFHistorial(w http.ResponseWriter, rows []repo.HistorialRow) {
+	lines := []string{"Historial de cambios de inscripción", ""}
+	if len(rows) == 0 {
+		lines = append(lines, "No hay cambios registrados")
+	} else {
+		for _, row := range rows {
+			lines = append(lines,
+				fmt.Sprintf("Fecha: %s", row.FechaCambio),
+				fmt.Sprintf("Cambio: %s -> %s", row.EstadoAnterior, row.EstadoNuevo),
+				fmt.Sprintf("Tipo: %s", row.TipoCambio),
+				fmt.Sprintf("Actor: %s", valueOrDefault(row.Actor, "Sin actor")),
+				fmt.Sprintf("Comentario: %s", valueOrDefault(row.Nota, "Sin comentarios")),
+				"",
+			)
+		}
+	}
+
+	pdf := buildSimplePDF(lines)
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", "attachment; filename=historial_inscripcion.pdf")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(pdf)
+}
+
+func valueOrDefault(value string, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
 }
 
 func buildSimplePDF(lines []string) []byte {
