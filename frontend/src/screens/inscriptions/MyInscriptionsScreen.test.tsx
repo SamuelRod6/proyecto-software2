@@ -25,6 +25,7 @@ jest.mock("../../services/inscriptionServices", () => ({
         data: { id_usuario: 10, frecuencia: "inmediata", tipos: "estado", habilitado: true },
     })),
     getNotifications: jest.fn(async () => ({ status: 200, data: [] })),
+    getInscriptionHistory: jest.fn(async () => ({ status: 200, data: [] })),
     downloadReceipt: jest.fn(async () => ({ status: 200, data: new Blob(["pdf"], { type: "application/pdf" }) })),
     updatePreferences: jest.fn(async () => ({ status: 200, data: { id_usuario: 10, frecuencia: "inmediata", tipos: "estado", habilitado: true } })),
 }));
