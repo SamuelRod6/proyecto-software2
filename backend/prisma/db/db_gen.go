@@ -84,17 +84,19 @@ datasource db {
 }
 
 model Usuario {
-  id_usuario      Int                      @id @default(autoincrement())
-  nombre          String                   @unique
-  email           String                   @unique
-  password_hash   String
-  createdAt       DateTime                 @default(now())
-  inscripciones   Inscripcion[]
-  notificaciones  Notificacion[]           @relation("UsuarioNotificaciones")
-  sesionesPonente SesionPonente[]
-  UsuarioRoles    UsuarioRoles[]
-  preferencias    NotificacionPreferencia?
-  recoveryTokens  PasswordRecoveryToken[]
+  id_usuario       Int                        @id @default(autoincrement())
+  nombre           String                     @unique
+  email            String                     @unique
+  password_hash    String
+  createdAt        DateTime                   @default(now())
+  inscripciones    Inscripcion[]
+  notificaciones   Notificacion[]             @relation("UsuarioNotificaciones")
+  sesionesPonente  SesionPonente[]
+  conversaciones   ConversacionParticipante[]
+  mensajesEnviados Mensaje[]                  @relation("MensajesEnviados")
+  UsuarioRoles     UsuarioRoles[]
+  preferencias     NotificacionPreferencia?
+  recoveryTokens   PasswordRecoveryToken[]
 }
 
 model PasswordRecoveryToken {
@@ -108,6 +110,20 @@ model PasswordRecoveryToken {
 
   @@index([id_usuario])
   @@index([token_hash])
+}
+
+model RegistrationTemporaryKey {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email], map: "registration_temporary_key_email_idx")
+  @@index([tokenHash], map: "registration_temporary_key_token_hash_idx")
+  @@map("RegistrationTemporaryKey")
 }
 
 model Roles {
@@ -277,6 +293,37 @@ model SesionPonente {
 
   @@unique([id_sesion, id_usuario])
 }
+
+model Conversacion {
+  id_conversacion Int                        @id @default(autoincrement())
+  asunto          String                     @default("")
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+  mensajes        Mensaje[]
+  participantes   ConversacionParticipante[]
+}
+
+model ConversacionParticipante {
+  id_conversacion Int
+  id_usuario      Int
+  unido_en        DateTime     @default(now())
+  conversacion    Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
+  usuario         Usuario      @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@id([id_conversacion, id_usuario])
+}
+
+model Mensaje {
+  id_mensaje      Int          @id @default(autoincrement())
+  id_conversacion Int
+  id_remitente    Int
+  cuerpo          String
+  adjunto_url     String?
+  adjunto_nombre  String?
+  createdAt       DateTime     @default(now())
+  conversacion    Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
+  remitente       Usuario      @relation("MensajesEnviados", fields: [id_remitente], references: [id_usuario])
+}
 `
 const schemaDatasourceURL = ""
 const schemaEnvVarName = "DATABASE_URL"
@@ -350,6 +397,7 @@ func newClient() *PrismaClient {
 	c := &PrismaClient{}
 	c.Usuario = usuarioActions{client: c}
 	c.PasswordRecoveryToken = passwordRecoveryTokenActions{client: c}
+	c.RegistrationTemporaryKey = registrationTemporaryKeyActions{client: c}
 	c.Roles = rolesActions{client: c}
 	c.Permisos = permisosActions{client: c}
 	c.RolePermisos = rolePermisosActions{client: c}
@@ -365,6 +413,9 @@ func newClient() *PrismaClient {
 	c.Ciudad = ciudadActions{client: c}
 	c.Sesion = sesionActions{client: c}
 	c.SesionPonente = sesionPonenteActions{client: c}
+	c.Conversacion = conversacionActions{client: c}
+	c.ConversacionParticipante = conversacionParticipanteActions{client: c}
+	c.Mensaje = mensajeActions{client: c}
 
 	c.Prisma = &PrismaActions{
 		Raw: &raw.Raw{Engine: c},
@@ -393,6 +444,8 @@ type PrismaClient struct {
 	Usuario usuarioActions
 	// PasswordRecoveryToken provides access to CRUD methods.
 	PasswordRecoveryToken passwordRecoveryTokenActions
+	// RegistrationTemporaryKey provides access to CRUD methods.
+	RegistrationTemporaryKey registrationTemporaryKeyActions
 	// Roles provides access to CRUD methods.
 	Roles rolesActions
 	// Permisos provides access to CRUD methods.
@@ -423,6 +476,12 @@ type PrismaClient struct {
 	Sesion sesionActions
 	// SesionPonente provides access to CRUD methods.
 	SesionPonente sesionPonenteActions
+	// Conversacion provides access to CRUD methods.
+	Conversacion conversacionActions
+	// ConversacionParticipante provides access to CRUD methods.
+	ConversacionParticipante conversacionParticipanteActions
+	// Mensaje provides access to CRUD methods.
+	Mensaje mensajeActions
 }
 
 // --- template enums.gotpl ---
@@ -455,6 +514,18 @@ const (
 	PasswordRecoveryTokenScalarFieldEnumExpiresAt PasswordRecoveryTokenScalarFieldEnum = "expires_at"
 	PasswordRecoveryTokenScalarFieldEnumUsedAt    PasswordRecoveryTokenScalarFieldEnum = "used_at"
 	PasswordRecoveryTokenScalarFieldEnumCreatedAt PasswordRecoveryTokenScalarFieldEnum = "created_at"
+)
+
+type RegistrationTemporaryKeyScalarFieldEnum string
+
+const (
+	RegistrationTemporaryKeyScalarFieldEnumID        RegistrationTemporaryKeyScalarFieldEnum = "id"
+	RegistrationTemporaryKeyScalarFieldEnumName      RegistrationTemporaryKeyScalarFieldEnum = "name"
+	RegistrationTemporaryKeyScalarFieldEnumEmail     RegistrationTemporaryKeyScalarFieldEnum = "email"
+	RegistrationTemporaryKeyScalarFieldEnumTokenHash RegistrationTemporaryKeyScalarFieldEnum = "tokenHash"
+	RegistrationTemporaryKeyScalarFieldEnumExpiresAt RegistrationTemporaryKeyScalarFieldEnum = "expiresAt"
+	RegistrationTemporaryKeyScalarFieldEnumUsedAt    RegistrationTemporaryKeyScalarFieldEnum = "usedAt"
+	RegistrationTemporaryKeyScalarFieldEnumCreatedAt RegistrationTemporaryKeyScalarFieldEnum = "createdAt"
 )
 
 type RolesScalarFieldEnum string
@@ -619,6 +690,35 @@ const (
 	SesionPonenteScalarFieldEnumIDUsuario       SesionPonenteScalarFieldEnum = "id_usuario"
 )
 
+type ConversacionScalarFieldEnum string
+
+const (
+	ConversacionScalarFieldEnumIDConversacion ConversacionScalarFieldEnum = "id_conversacion"
+	ConversacionScalarFieldEnumAsunto         ConversacionScalarFieldEnum = "asunto"
+	ConversacionScalarFieldEnumCreatedAt      ConversacionScalarFieldEnum = "createdAt"
+	ConversacionScalarFieldEnumUpdatedAt      ConversacionScalarFieldEnum = "updatedAt"
+)
+
+type ConversacionParticipanteScalarFieldEnum string
+
+const (
+	ConversacionParticipanteScalarFieldEnumIDConversacion ConversacionParticipanteScalarFieldEnum = "id_conversacion"
+	ConversacionParticipanteScalarFieldEnumIDUsuario      ConversacionParticipanteScalarFieldEnum = "id_usuario"
+	ConversacionParticipanteScalarFieldEnumUnidoEn        ConversacionParticipanteScalarFieldEnum = "unido_en"
+)
+
+type MensajeScalarFieldEnum string
+
+const (
+	MensajeScalarFieldEnumIDMensaje      MensajeScalarFieldEnum = "id_mensaje"
+	MensajeScalarFieldEnumIDConversacion MensajeScalarFieldEnum = "id_conversacion"
+	MensajeScalarFieldEnumIDRemitente    MensajeScalarFieldEnum = "id_remitente"
+	MensajeScalarFieldEnumCuerpo         MensajeScalarFieldEnum = "cuerpo"
+	MensajeScalarFieldEnumAdjuntoURL     MensajeScalarFieldEnum = "adjunto_url"
+	MensajeScalarFieldEnumAdjuntoNombre  MensajeScalarFieldEnum = "adjunto_nombre"
+	MensajeScalarFieldEnumCreatedAt      MensajeScalarFieldEnum = "createdAt"
+)
+
 type SortOrder string
 
 const (
@@ -689,6 +789,10 @@ const usuarioFieldNotificaciones usuarioPrismaFields = "notificaciones"
 
 const usuarioFieldSesionesPonente usuarioPrismaFields = "sesionesPonente"
 
+const usuarioFieldConversaciones usuarioPrismaFields = "conversaciones"
+
+const usuarioFieldMensajesEnviados usuarioPrismaFields = "mensajesEnviados"
+
 const usuarioFieldUsuarioRoles usuarioPrismaFields = "UsuarioRoles"
 
 const usuarioFieldPreferencias usuarioPrismaFields = "preferencias"
@@ -710,6 +814,22 @@ const passwordRecoveryTokenFieldUsedAt passwordRecoveryTokenPrismaFields = "used
 const passwordRecoveryTokenFieldCreatedAt passwordRecoveryTokenPrismaFields = "created_at"
 
 const passwordRecoveryTokenFieldUsuario passwordRecoveryTokenPrismaFields = "usuario"
+
+type registrationTemporaryKeyPrismaFields = prismaFields
+
+const registrationTemporaryKeyFieldID registrationTemporaryKeyPrismaFields = "id"
+
+const registrationTemporaryKeyFieldName registrationTemporaryKeyPrismaFields = "name"
+
+const registrationTemporaryKeyFieldEmail registrationTemporaryKeyPrismaFields = "email"
+
+const registrationTemporaryKeyFieldTokenHash registrationTemporaryKeyPrismaFields = "tokenHash"
+
+const registrationTemporaryKeyFieldExpiresAt registrationTemporaryKeyPrismaFields = "expiresAt"
+
+const registrationTemporaryKeyFieldUsedAt registrationTemporaryKeyPrismaFields = "usedAt"
+
+const registrationTemporaryKeyFieldCreatedAt registrationTemporaryKeyPrismaFields = "createdAt"
 
 type rolesPrismaFields = prismaFields
 
@@ -965,6 +1085,52 @@ const sesionPonenteFieldSesion sesionPonentePrismaFields = "sesion"
 
 const sesionPonenteFieldUsuario sesionPonentePrismaFields = "usuario"
 
+type conversacionPrismaFields = prismaFields
+
+const conversacionFieldIDConversacion conversacionPrismaFields = "id_conversacion"
+
+const conversacionFieldAsunto conversacionPrismaFields = "asunto"
+
+const conversacionFieldCreatedAt conversacionPrismaFields = "createdAt"
+
+const conversacionFieldUpdatedAt conversacionPrismaFields = "updatedAt"
+
+const conversacionFieldMensajes conversacionPrismaFields = "mensajes"
+
+const conversacionFieldParticipantes conversacionPrismaFields = "participantes"
+
+type conversacionParticipantePrismaFields = prismaFields
+
+const conversacionParticipanteFieldIDConversacion conversacionParticipantePrismaFields = "id_conversacion"
+
+const conversacionParticipanteFieldIDUsuario conversacionParticipantePrismaFields = "id_usuario"
+
+const conversacionParticipanteFieldUnidoEn conversacionParticipantePrismaFields = "unido_en"
+
+const conversacionParticipanteFieldConversacion conversacionParticipantePrismaFields = "conversacion"
+
+const conversacionParticipanteFieldUsuario conversacionParticipantePrismaFields = "usuario"
+
+type mensajePrismaFields = prismaFields
+
+const mensajeFieldIDMensaje mensajePrismaFields = "id_mensaje"
+
+const mensajeFieldIDConversacion mensajePrismaFields = "id_conversacion"
+
+const mensajeFieldIDRemitente mensajePrismaFields = "id_remitente"
+
+const mensajeFieldCuerpo mensajePrismaFields = "cuerpo"
+
+const mensajeFieldAdjuntoURL mensajePrismaFields = "adjunto_url"
+
+const mensajeFieldAdjuntoNombre mensajePrismaFields = "adjunto_nombre"
+
+const mensajeFieldCreatedAt mensajePrismaFields = "createdAt"
+
+const mensajeFieldConversacion mensajePrismaFields = "conversacion"
+
+const mensajeFieldRemitente mensajePrismaFields = "remitente"
+
 // --- template mock.gotpl ---
 func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 	expectations := new([]mock.Expectation)
@@ -980,6 +1146,10 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 	}
 
 	m.PasswordRecoveryToken = passwordRecoveryTokenMock{
+		mock: m,
+	}
+
+	m.RegistrationTemporaryKey = registrationTemporaryKeyMock{
 		mock: m,
 	}
 
@@ -1043,6 +1213,18 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.Conversacion = conversacionMock{
+		mock: m,
+	}
+
+	m.ConversacionParticipante = conversacionParticipanteMock{
+		mock: m,
+	}
+
+	m.Mensaje = mensajeMock{
+		mock: m,
+	}
+
 	return pc, m, m.Ensure
 }
 
@@ -1052,6 +1234,8 @@ type Mock struct {
 	Usuario usuarioMock
 
 	PasswordRecoveryToken passwordRecoveryTokenMock
+
+	RegistrationTemporaryKey registrationTemporaryKeyMock
 
 	Roles rolesMock
 
@@ -1082,6 +1266,12 @@ type Mock struct {
 	Sesion sesionMock
 
 	SesionPonente sesionPonenteMock
+
+	Conversacion conversacionMock
+
+	ConversacionParticipante conversacionParticipanteMock
+
+	Mensaje mensajeMock
 }
 
 type usuarioMock struct {
@@ -1162,6 +1352,48 @@ func (m *passwordRecoveryTokenMockExec) ReturnsMany(v []PasswordRecoveryTokenMod
 }
 
 func (m *passwordRecoveryTokenMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type registrationTemporaryKeyMock struct {
+	mock *Mock
+}
+
+type RegistrationTemporaryKeyMockExpectParam interface {
+	ExtractQuery() builder.Query
+	registrationTemporaryKeyModel()
+}
+
+func (m *registrationTemporaryKeyMock) Expect(query RegistrationTemporaryKeyMockExpectParam) *registrationTemporaryKeyMockExec {
+	return &registrationTemporaryKeyMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type registrationTemporaryKeyMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *registrationTemporaryKeyMockExec) Returns(v RegistrationTemporaryKeyModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *registrationTemporaryKeyMockExec) ReturnsMany(v []RegistrationTemporaryKeyModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *registrationTemporaryKeyMockExec) Errors(err error) {
 	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
 		Query:   m.query,
 		WantErr: err,
@@ -1798,6 +2030,132 @@ func (m *sesionPonenteMockExec) Errors(err error) {
 	})
 }
 
+type conversacionMock struct {
+	mock *Mock
+}
+
+type ConversacionMockExpectParam interface {
+	ExtractQuery() builder.Query
+	conversacionModel()
+}
+
+func (m *conversacionMock) Expect(query ConversacionMockExpectParam) *conversacionMockExec {
+	return &conversacionMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type conversacionMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *conversacionMockExec) Returns(v ConversacionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *conversacionMockExec) ReturnsMany(v []ConversacionModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *conversacionMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type conversacionParticipanteMock struct {
+	mock *Mock
+}
+
+type ConversacionParticipanteMockExpectParam interface {
+	ExtractQuery() builder.Query
+	conversacionParticipanteModel()
+}
+
+func (m *conversacionParticipanteMock) Expect(query ConversacionParticipanteMockExpectParam) *conversacionParticipanteMockExec {
+	return &conversacionParticipanteMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type conversacionParticipanteMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *conversacionParticipanteMockExec) Returns(v ConversacionParticipanteModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *conversacionParticipanteMockExec) ReturnsMany(v []ConversacionParticipanteModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *conversacionParticipanteMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type mensajeMock struct {
+	mock *Mock
+}
+
+type MensajeMockExpectParam interface {
+	ExtractQuery() builder.Query
+	mensajeModel()
+}
+
+func (m *mensajeMock) Expect(query MensajeMockExpectParam) *mensajeMockExec {
+	return &mensajeMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type mensajeMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *mensajeMockExec) Returns(v MensajeModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *mensajeMockExec) ReturnsMany(v []MensajeModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *mensajeMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
 // --- template models.gotpl ---
 
 // UsuarioModel represents the Usuario model and is a wrapper for accessing fields and methods
@@ -1826,12 +2184,14 @@ type RawUsuarioModel struct {
 
 // RelationsUsuario holds the relation data separately
 type RelationsUsuario struct {
-	Inscripciones   []InscripcionModel            `json:"inscripciones,omitempty"`
-	Notificaciones  []NotificacionModel           `json:"notificaciones,omitempty"`
-	SesionesPonente []SesionPonenteModel          `json:"sesionesPonente,omitempty"`
-	UsuarioRoles    []UsuarioRolesModel           `json:"UsuarioRoles,omitempty"`
-	Preferencias    *NotificacionPreferenciaModel `json:"preferencias,omitempty"`
-	RecoveryTokens  []PasswordRecoveryTokenModel  `json:"recoveryTokens,omitempty"`
+	Inscripciones    []InscripcionModel              `json:"inscripciones,omitempty"`
+	Notificaciones   []NotificacionModel             `json:"notificaciones,omitempty"`
+	SesionesPonente  []SesionPonenteModel            `json:"sesionesPonente,omitempty"`
+	Conversaciones   []ConversacionParticipanteModel `json:"conversaciones,omitempty"`
+	MensajesEnviados []MensajeModel                  `json:"mensajesEnviados,omitempty"`
+	UsuarioRoles     []UsuarioRolesModel             `json:"UsuarioRoles,omitempty"`
+	Preferencias     *NotificacionPreferenciaModel   `json:"preferencias,omitempty"`
+	RecoveryTokens   []PasswordRecoveryTokenModel    `json:"recoveryTokens,omitempty"`
 }
 
 func (r UsuarioModel) Inscripciones() (value []InscripcionModel) {
@@ -1853,6 +2213,20 @@ func (r UsuarioModel) SesionesPonente() (value []SesionPonenteModel) {
 		panic("attempted to access sesionesPonente but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsUsuario.SesionesPonente
+}
+
+func (r UsuarioModel) Conversaciones() (value []ConversacionParticipanteModel) {
+	if r.RelationsUsuario.Conversaciones == nil {
+		panic("attempted to access conversaciones but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.Conversaciones
+}
+
+func (r UsuarioModel) MensajesEnviados() (value []MensajeModel) {
+	if r.RelationsUsuario.MensajesEnviados == nil {
+		panic("attempted to access mensajesEnviados but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsUsuario.MensajesEnviados
 }
 
 func (r UsuarioModel) UsuarioRoles() (value []UsuarioRolesModel) {
@@ -1919,6 +2293,45 @@ func (r PasswordRecoveryTokenModel) Usuario() (value *UsuarioModel) {
 		panic("attempted to access usuario but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsPasswordRecoveryToken.Usuario
+}
+
+// RegistrationTemporaryKeyModel represents the RegistrationTemporaryKey model and is a wrapper for accessing fields and methods
+type RegistrationTemporaryKeyModel struct {
+	InnerRegistrationTemporaryKey
+	RelationsRegistrationTemporaryKey
+}
+
+// InnerRegistrationTemporaryKey holds the actual data
+type InnerRegistrationTemporaryKey struct {
+	ID        int       `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	TokenHash string    `json:"tokenHash"`
+	ExpiresAt DateTime  `json:"expiresAt"`
+	UsedAt    *DateTime `json:"usedAt,omitempty"`
+	CreatedAt DateTime  `json:"createdAt"`
+}
+
+// RawRegistrationTemporaryKeyModel is a struct for RegistrationTemporaryKey when used in raw queries
+type RawRegistrationTemporaryKeyModel struct {
+	ID        RawInt       `json:"id"`
+	Name      RawString    `json:"name"`
+	Email     RawString    `json:"email"`
+	TokenHash RawString    `json:"tokenHash"`
+	ExpiresAt RawDateTime  `json:"expiresAt"`
+	UsedAt    *RawDateTime `json:"usedAt,omitempty"`
+	CreatedAt RawDateTime  `json:"createdAt"`
+}
+
+// RelationsRegistrationTemporaryKey holds the relation data separately
+type RelationsRegistrationTemporaryKey struct {
+}
+
+func (r RegistrationTemporaryKeyModel) UsedAt() (value DateTime, ok bool) {
+	if r.InnerRegistrationTemporaryKey.UsedAt == nil {
+		return value, false
+	}
+	return *r.InnerRegistrationTemporaryKey.UsedAt, true
 }
 
 // RolesModel represents the Roles model and is a wrapper for accessing fields and methods
@@ -2635,6 +3048,150 @@ func (r SesionPonenteModel) Usuario() (value *UsuarioModel) {
 	return r.RelationsSesionPonente.Usuario
 }
 
+// ConversacionModel represents the Conversacion model and is a wrapper for accessing fields and methods
+type ConversacionModel struct {
+	InnerConversacion
+	RelationsConversacion
+}
+
+// InnerConversacion holds the actual data
+type InnerConversacion struct {
+	IDConversacion int      `json:"id_conversacion"`
+	Asunto         string   `json:"asunto"`
+	CreatedAt      DateTime `json:"createdAt"`
+	UpdatedAt      DateTime `json:"updatedAt"`
+}
+
+// RawConversacionModel is a struct for Conversacion when used in raw queries
+type RawConversacionModel struct {
+	IDConversacion RawInt      `json:"id_conversacion"`
+	Asunto         RawString   `json:"asunto"`
+	CreatedAt      RawDateTime `json:"createdAt"`
+	UpdatedAt      RawDateTime `json:"updatedAt"`
+}
+
+// RelationsConversacion holds the relation data separately
+type RelationsConversacion struct {
+	Mensajes      []MensajeModel                  `json:"mensajes,omitempty"`
+	Participantes []ConversacionParticipanteModel `json:"participantes,omitempty"`
+}
+
+func (r ConversacionModel) Mensajes() (value []MensajeModel) {
+	if r.RelationsConversacion.Mensajes == nil {
+		panic("attempted to access mensajes but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsConversacion.Mensajes
+}
+
+func (r ConversacionModel) Participantes() (value []ConversacionParticipanteModel) {
+	if r.RelationsConversacion.Participantes == nil {
+		panic("attempted to access participantes but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsConversacion.Participantes
+}
+
+// ConversacionParticipanteModel represents the ConversacionParticipante model and is a wrapper for accessing fields and methods
+type ConversacionParticipanteModel struct {
+	InnerConversacionParticipante
+	RelationsConversacionParticipante
+}
+
+// InnerConversacionParticipante holds the actual data
+type InnerConversacionParticipante struct {
+	IDConversacion int      `json:"id_conversacion"`
+	IDUsuario      int      `json:"id_usuario"`
+	UnidoEn        DateTime `json:"unido_en"`
+}
+
+// RawConversacionParticipanteModel is a struct for ConversacionParticipante when used in raw queries
+type RawConversacionParticipanteModel struct {
+	IDConversacion RawInt      `json:"id_conversacion"`
+	IDUsuario      RawInt      `json:"id_usuario"`
+	UnidoEn        RawDateTime `json:"unido_en"`
+}
+
+// RelationsConversacionParticipante holds the relation data separately
+type RelationsConversacionParticipante struct {
+	Conversacion *ConversacionModel `json:"conversacion,omitempty"`
+	Usuario      *UsuarioModel      `json:"usuario,omitempty"`
+}
+
+func (r ConversacionParticipanteModel) Conversacion() (value *ConversacionModel) {
+	if r.RelationsConversacionParticipante.Conversacion == nil {
+		panic("attempted to access conversacion but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsConversacionParticipante.Conversacion
+}
+
+func (r ConversacionParticipanteModel) Usuario() (value *UsuarioModel) {
+	if r.RelationsConversacionParticipante.Usuario == nil {
+		panic("attempted to access usuario but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsConversacionParticipante.Usuario
+}
+
+// MensajeModel represents the Mensaje model and is a wrapper for accessing fields and methods
+type MensajeModel struct {
+	InnerMensaje
+	RelationsMensaje
+}
+
+// InnerMensaje holds the actual data
+type InnerMensaje struct {
+	IDMensaje      int      `json:"id_mensaje"`
+	IDConversacion int      `json:"id_conversacion"`
+	IDRemitente    int      `json:"id_remitente"`
+	Cuerpo         string   `json:"cuerpo"`
+	AdjuntoURL     *string  `json:"adjunto_url,omitempty"`
+	AdjuntoNombre  *string  `json:"adjunto_nombre,omitempty"`
+	CreatedAt      DateTime `json:"createdAt"`
+}
+
+// RawMensajeModel is a struct for Mensaje when used in raw queries
+type RawMensajeModel struct {
+	IDMensaje      RawInt      `json:"id_mensaje"`
+	IDConversacion RawInt      `json:"id_conversacion"`
+	IDRemitente    RawInt      `json:"id_remitente"`
+	Cuerpo         RawString   `json:"cuerpo"`
+	AdjuntoURL     *RawString  `json:"adjunto_url,omitempty"`
+	AdjuntoNombre  *RawString  `json:"adjunto_nombre,omitempty"`
+	CreatedAt      RawDateTime `json:"createdAt"`
+}
+
+// RelationsMensaje holds the relation data separately
+type RelationsMensaje struct {
+	Conversacion *ConversacionModel `json:"conversacion,omitempty"`
+	Remitente    *UsuarioModel      `json:"remitente,omitempty"`
+}
+
+func (r MensajeModel) AdjuntoURL() (value String, ok bool) {
+	if r.InnerMensaje.AdjuntoURL == nil {
+		return value, false
+	}
+	return *r.InnerMensaje.AdjuntoURL, true
+}
+
+func (r MensajeModel) AdjuntoNombre() (value String, ok bool) {
+	if r.InnerMensaje.AdjuntoNombre == nil {
+		return value, false
+	}
+	return *r.InnerMensaje.AdjuntoNombre, true
+}
+
+func (r MensajeModel) Conversacion() (value *ConversacionModel) {
+	if r.RelationsMensaje.Conversacion == nil {
+		panic("attempted to access conversacion but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsMensaje.Conversacion
+}
+
+func (r MensajeModel) Remitente() (value *UsuarioModel) {
+	if r.RelationsMensaje.Remitente == nil {
+		panic("attempted to access remitente but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsMensaje.Remitente
+}
+
 // --- template query.gotpl ---
 
 // Usuario acts as a namespaces to access query methods for the Usuario model
@@ -2675,6 +3232,10 @@ type usuarioQuery struct {
 	Notificaciones usuarioQueryNotificacionesRelations
 
 	SesionesPonente usuarioQuerySesionesPonenteRelations
+
+	Conversaciones usuarioQueryConversacionesRelations
+
+	MensajesEnviados usuarioQueryMensajesEnviadosRelations
 
 	UsuarioRoles usuarioQueryUsuarioRolesRelations
 
@@ -4999,6 +5560,350 @@ func (r usuarioQuerySesionesPonenteRelations) Unlink(
 
 func (r usuarioQuerySesionesPonenteSesionPonente) Field() usuarioPrismaFields {
 	return usuarioFieldSesionesPonente
+}
+
+// base struct
+type usuarioQueryConversacionesConversacionParticipante struct{}
+
+type usuarioQueryConversacionesRelations struct{}
+
+// Usuario -> Conversaciones
+//
+// @relation
+// @required
+func (usuarioQueryConversacionesRelations) Some(
+	params ...ConversacionParticipanteWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "conversaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> Conversaciones
+//
+// @relation
+// @required
+func (usuarioQueryConversacionesRelations) Every(
+	params ...ConversacionParticipanteWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "conversaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> Conversaciones
+//
+// @relation
+// @required
+func (usuarioQueryConversacionesRelations) None(
+	params ...ConversacionParticipanteWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "conversaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQueryConversacionesRelations) Fetch(
+
+	params ...ConversacionParticipanteWhereParam,
+
+) usuarioToConversacionesFindMany {
+	var v usuarioToConversacionesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "conversaciones"
+	v.query.Outputs = conversacionParticipanteOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQueryConversacionesRelations) Link(
+	params ...ConversacionParticipanteWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "conversaciones",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQueryConversacionesRelations) Unlink(
+	params ...ConversacionParticipanteWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "conversaciones",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQueryConversacionesConversacionParticipante) Field() usuarioPrismaFields {
+	return usuarioFieldConversaciones
+}
+
+// base struct
+type usuarioQueryMensajesEnviadosMensaje struct{}
+
+type usuarioQueryMensajesEnviadosRelations struct{}
+
+// Usuario -> MensajesEnviados
+//
+// @relation
+// @required
+func (usuarioQueryMensajesEnviadosRelations) Some(
+	params ...MensajeWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "mensajesEnviados",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> MensajesEnviados
+//
+// @relation
+// @required
+func (usuarioQueryMensajesEnviadosRelations) Every(
+	params ...MensajeWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "mensajesEnviados",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Usuario -> MensajesEnviados
+//
+// @relation
+// @required
+func (usuarioQueryMensajesEnviadosRelations) None(
+	params ...MensajeWhereParam,
+) usuarioDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioDefaultParam{
+		data: builder.Field{
+			Name: "mensajesEnviados",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (usuarioQueryMensajesEnviadosRelations) Fetch(
+
+	params ...MensajeWhereParam,
+
+) usuarioToMensajesEnviadosFindMany {
+	var v usuarioToMensajesEnviadosFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "mensajesEnviados"
+	v.query.Outputs = mensajeOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r usuarioQueryMensajesEnviadosRelations) Link(
+	params ...MensajeWhereParam,
+) usuarioSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return usuarioSetParam{
+		data: builder.Field{
+			Name: "mensajesEnviados",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r usuarioQueryMensajesEnviadosRelations) Unlink(
+	params ...MensajeWhereParam,
+) usuarioSetParam {
+	var v usuarioSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = usuarioSetParam{
+		data: builder.Field{
+			Name: "mensajesEnviados",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r usuarioQueryMensajesEnviadosMensaje) Field() usuarioPrismaFields {
+	return usuarioFieldMensajesEnviados
 }
 
 // base struct
@@ -7732,6 +8637,2517 @@ func (r passwordRecoveryTokenQueryUsuarioRelations) Unlink() passwordRecoveryTok
 
 func (r passwordRecoveryTokenQueryUsuarioUsuario) Field() passwordRecoveryTokenPrismaFields {
 	return passwordRecoveryTokenFieldUsuario
+}
+
+// RegistrationTemporaryKey acts as a namespaces to access query methods for the RegistrationTemporaryKey model
+var RegistrationTemporaryKey = registrationTemporaryKeyQuery{}
+
+// registrationTemporaryKeyQuery exposes query functions for the registrationTemporaryKey model
+type registrationTemporaryKeyQuery struct {
+
+	// ID
+	//
+	// @required
+	ID registrationTemporaryKeyQueryIDInt
+
+	// Name
+	//
+	// @required
+	Name registrationTemporaryKeyQueryNameString
+
+	// Email
+	//
+	// @required
+	Email registrationTemporaryKeyQueryEmailString
+
+	// TokenHash
+	//
+	// @required
+	TokenHash registrationTemporaryKeyQueryTokenHashString
+
+	// ExpiresAt
+	//
+	// @required
+	ExpiresAt registrationTemporaryKeyQueryExpiresAtDateTime
+
+	// UsedAt
+	//
+	// @optional
+	UsedAt registrationTemporaryKeyQueryUsedAtDateTime
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt registrationTemporaryKeyQueryCreatedAtDateTime
+}
+
+func (registrationTemporaryKeyQuery) Not(params ...RegistrationTemporaryKeyWhereParam) registrationTemporaryKeyDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (registrationTemporaryKeyQuery) Or(params ...RegistrationTemporaryKeyWhereParam) registrationTemporaryKeyDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (registrationTemporaryKeyQuery) And(params ...RegistrationTemporaryKeyWhereParam) registrationTemporaryKeyDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type registrationTemporaryKeyQueryIDInt struct{}
+
+// Set the required value of ID
+func (r registrationTemporaryKeyQueryIDInt) Set(value int) registrationTemporaryKeySetParam {
+
+	return registrationTemporaryKeySetParam{
+		data: builder.Field{
+			Name:  "id",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of ID dynamically
+func (r registrationTemporaryKeyQueryIDInt) SetIfPresent(value *Int) registrationTemporaryKeySetParam {
+	if value == nil {
+		return registrationTemporaryKeySetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of ID
+func (r registrationTemporaryKeyQueryIDInt) Increment(value int) registrationTemporaryKeySetParam {
+	return registrationTemporaryKeySetParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) IncrementIfPresent(value *int) registrationTemporaryKeySetParam {
+	if value == nil {
+		return registrationTemporaryKeySetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of ID
+func (r registrationTemporaryKeyQueryIDInt) Decrement(value int) registrationTemporaryKeySetParam {
+	return registrationTemporaryKeySetParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) DecrementIfPresent(value *int) registrationTemporaryKeySetParam {
+	if value == nil {
+		return registrationTemporaryKeySetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of ID
+func (r registrationTemporaryKeyQueryIDInt) Multiply(value int) registrationTemporaryKeySetParam {
+	return registrationTemporaryKeySetParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) MultiplyIfPresent(value *int) registrationTemporaryKeySetParam {
+	if value == nil {
+		return registrationTemporaryKeySetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of ID
+func (r registrationTemporaryKeyQueryIDInt) Divide(value int) registrationTemporaryKeySetParam {
+	return registrationTemporaryKeySetParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) DivideIfPresent(value *int) registrationTemporaryKeySetParam {
+	if value == nil {
+		return registrationTemporaryKeySetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Equals(value int) registrationTemporaryKeyWithPrismaIDEqualsUniqueParam {
+
+	return registrationTemporaryKeyWithPrismaIDEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) EqualsIfPresent(value *int) registrationTemporaryKeyWithPrismaIDEqualsUniqueParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaIDEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Order(direction SortOrder) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:  "id",
+			Value: direction,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Cursor(cursor int) registrationTemporaryKeyCursorParam {
+	return registrationTemporaryKeyCursorParam{
+		data: builder.Field{
+			Name:  "id",
+			Value: cursor,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) In(value []int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) InIfPresent(value []int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) NotIn(value []int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) NotInIfPresent(value []int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Lt(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) LtIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Lte(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) LteIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Gt(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) GtIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Gte(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) GteIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Not(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryIDInt) NotIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r registrationTemporaryKeyQueryIDInt) LT(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r registrationTemporaryKeyQueryIDInt) LTIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r registrationTemporaryKeyQueryIDInt) LTE(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r registrationTemporaryKeyQueryIDInt) LTEIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r registrationTemporaryKeyQueryIDInt) GT(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r registrationTemporaryKeyQueryIDInt) GTIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r registrationTemporaryKeyQueryIDInt) GTE(value int) registrationTemporaryKeyParamUnique {
+	return registrationTemporaryKeyParamUnique{
+		data: builder.Field{
+			Name: "id",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r registrationTemporaryKeyQueryIDInt) GTEIfPresent(value *int) registrationTemporaryKeyParamUnique {
+	if value == nil {
+		return registrationTemporaryKeyParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r registrationTemporaryKeyQueryIDInt) Field() registrationTemporaryKeyPrismaFields {
+	return registrationTemporaryKeyFieldID
+}
+
+// base struct
+type registrationTemporaryKeyQueryNameString struct{}
+
+// Set the required value of Name
+func (r registrationTemporaryKeyQueryNameString) Set(value string) registrationTemporaryKeyWithPrismaNameSetParam {
+
+	return registrationTemporaryKeyWithPrismaNameSetParam{
+		data: builder.Field{
+			Name:  "name",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Name dynamically
+func (r registrationTemporaryKeyQueryNameString) SetIfPresent(value *String) registrationTemporaryKeyWithPrismaNameSetParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaNameSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Equals(value string) registrationTemporaryKeyWithPrismaNameEqualsParam {
+
+	return registrationTemporaryKeyWithPrismaNameEqualsParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) EqualsIfPresent(value *string) registrationTemporaryKeyWithPrismaNameEqualsParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaNameEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Order(direction SortOrder) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:  "name",
+			Value: direction,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) Cursor(cursor string) registrationTemporaryKeyCursorParam {
+	return registrationTemporaryKeyCursorParam{
+		data: builder.Field{
+			Name:  "name",
+			Value: cursor,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) In(value []string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) InIfPresent(value []string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) NotIn(value []string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) NotInIfPresent(value []string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Lt(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) LtIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Lte(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) LteIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Gt(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) GtIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Gte(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) GteIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Contains(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) ContainsIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) StartsWith(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) StartsWithIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) EndsWith(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) EndsWithIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Mode(value QueryMode) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) ModeIfPresent(value *QueryMode) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Not(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryNameString) NotIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r registrationTemporaryKeyQueryNameString) HasPrefix(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r registrationTemporaryKeyQueryNameString) HasPrefixIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r registrationTemporaryKeyQueryNameString) HasSuffix(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "name",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r registrationTemporaryKeyQueryNameString) HasSuffixIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r registrationTemporaryKeyQueryNameString) Field() registrationTemporaryKeyPrismaFields {
+	return registrationTemporaryKeyFieldName
+}
+
+// base struct
+type registrationTemporaryKeyQueryEmailString struct{}
+
+// Set the required value of Email
+func (r registrationTemporaryKeyQueryEmailString) Set(value string) registrationTemporaryKeyWithPrismaEmailSetParam {
+
+	return registrationTemporaryKeyWithPrismaEmailSetParam{
+		data: builder.Field{
+			Name:  "email",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Email dynamically
+func (r registrationTemporaryKeyQueryEmailString) SetIfPresent(value *String) registrationTemporaryKeyWithPrismaEmailSetParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaEmailSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Equals(value string) registrationTemporaryKeyWithPrismaEmailEqualsParam {
+
+	return registrationTemporaryKeyWithPrismaEmailEqualsParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) EqualsIfPresent(value *string) registrationTemporaryKeyWithPrismaEmailEqualsParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaEmailEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Order(direction SortOrder) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:  "email",
+			Value: direction,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Cursor(cursor string) registrationTemporaryKeyCursorParam {
+	return registrationTemporaryKeyCursorParam{
+		data: builder.Field{
+			Name:  "email",
+			Value: cursor,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) In(value []string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) InIfPresent(value []string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) NotIn(value []string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) NotInIfPresent(value []string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Lt(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) LtIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Lte(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) LteIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Gt(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) GtIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Gte(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) GteIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Contains(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) ContainsIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) StartsWith(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) StartsWithIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) EndsWith(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) EndsWithIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Mode(value QueryMode) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) ModeIfPresent(value *QueryMode) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Not(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryEmailString) NotIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r registrationTemporaryKeyQueryEmailString) HasPrefix(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r registrationTemporaryKeyQueryEmailString) HasPrefixIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r registrationTemporaryKeyQueryEmailString) HasSuffix(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "email",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r registrationTemporaryKeyQueryEmailString) HasSuffixIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r registrationTemporaryKeyQueryEmailString) Field() registrationTemporaryKeyPrismaFields {
+	return registrationTemporaryKeyFieldEmail
+}
+
+// base struct
+type registrationTemporaryKeyQueryTokenHashString struct{}
+
+// Set the required value of TokenHash
+func (r registrationTemporaryKeyQueryTokenHashString) Set(value string) registrationTemporaryKeyWithPrismaTokenHashSetParam {
+
+	return registrationTemporaryKeyWithPrismaTokenHashSetParam{
+		data: builder.Field{
+			Name:  "tokenHash",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of TokenHash dynamically
+func (r registrationTemporaryKeyQueryTokenHashString) SetIfPresent(value *String) registrationTemporaryKeyWithPrismaTokenHashSetParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaTokenHashSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Equals(value string) registrationTemporaryKeyWithPrismaTokenHashEqualsParam {
+
+	return registrationTemporaryKeyWithPrismaTokenHashEqualsParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) EqualsIfPresent(value *string) registrationTemporaryKeyWithPrismaTokenHashEqualsParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaTokenHashEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Order(direction SortOrder) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:  "tokenHash",
+			Value: direction,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Cursor(cursor string) registrationTemporaryKeyCursorParam {
+	return registrationTemporaryKeyCursorParam{
+		data: builder.Field{
+			Name:  "tokenHash",
+			Value: cursor,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) In(value []string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) InIfPresent(value []string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) NotIn(value []string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) NotInIfPresent(value []string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Lt(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) LtIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Lte(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) LteIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Gt(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) GtIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Gte(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) GteIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Contains(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) ContainsIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) StartsWith(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) StartsWithIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) EndsWith(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) EndsWithIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Mode(value QueryMode) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) ModeIfPresent(value *QueryMode) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Not(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) NotIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r registrationTemporaryKeyQueryTokenHashString) HasPrefix(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r registrationTemporaryKeyQueryTokenHashString) HasPrefixIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r registrationTemporaryKeyQueryTokenHashString) HasSuffix(value string) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "tokenHash",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r registrationTemporaryKeyQueryTokenHashString) HasSuffixIfPresent(value *string) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r registrationTemporaryKeyQueryTokenHashString) Field() registrationTemporaryKeyPrismaFields {
+	return registrationTemporaryKeyFieldTokenHash
+}
+
+// base struct
+type registrationTemporaryKeyQueryExpiresAtDateTime struct{}
+
+// Set the required value of ExpiresAt
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Set(value DateTime) registrationTemporaryKeyWithPrismaExpiresAtSetParam {
+
+	return registrationTemporaryKeyWithPrismaExpiresAtSetParam{
+		data: builder.Field{
+			Name:  "expiresAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of ExpiresAt dynamically
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) SetIfPresent(value *DateTime) registrationTemporaryKeyWithPrismaExpiresAtSetParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaExpiresAtSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Equals(value DateTime) registrationTemporaryKeyWithPrismaExpiresAtEqualsParam {
+
+	return registrationTemporaryKeyWithPrismaExpiresAtEqualsParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) EqualsIfPresent(value *DateTime) registrationTemporaryKeyWithPrismaExpiresAtEqualsParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaExpiresAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Order(direction SortOrder) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:  "expiresAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Cursor(cursor DateTime) registrationTemporaryKeyCursorParam {
+	return registrationTemporaryKeyCursorParam{
+		data: builder.Field{
+			Name:  "expiresAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) In(value []DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) InIfPresent(value []DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) NotIn(value []DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) NotInIfPresent(value []DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Lt(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) LtIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Lte(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) LteIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Gt(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) GtIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Gte(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) GteIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Not(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) NotIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Before(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) BeforeIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) After(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) AfterIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) BeforeEquals(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) BeforeEqualsIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) AfterEquals(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "expiresAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) AfterEqualsIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r registrationTemporaryKeyQueryExpiresAtDateTime) Field() registrationTemporaryKeyPrismaFields {
+	return registrationTemporaryKeyFieldExpiresAt
+}
+
+// base struct
+type registrationTemporaryKeyQueryUsedAtDateTime struct{}
+
+// Set the optional value of UsedAt
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Set(value DateTime) registrationTemporaryKeySetParam {
+
+	return registrationTemporaryKeySetParam{
+		data: builder.Field{
+			Name:  "usedAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of UsedAt dynamically
+func (r registrationTemporaryKeyQueryUsedAtDateTime) SetIfPresent(value *DateTime) registrationTemporaryKeySetParam {
+	if value == nil {
+		return registrationTemporaryKeySetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of UsedAt dynamically
+func (r registrationTemporaryKeyQueryUsedAtDateTime) SetOptional(value *DateTime) registrationTemporaryKeySetParam {
+	if value == nil {
+
+		var v *DateTime
+		return registrationTemporaryKeySetParam{
+			data: builder.Field{
+				Name:  "usedAt",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Equals(value DateTime) registrationTemporaryKeyWithPrismaUsedAtEqualsParam {
+
+	return registrationTemporaryKeyWithPrismaUsedAtEqualsParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) EqualsIfPresent(value *DateTime) registrationTemporaryKeyWithPrismaUsedAtEqualsParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaUsedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) EqualsOptional(value *DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) IsNull() registrationTemporaryKeyDefaultParam {
+	var str *string = nil
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Order(direction SortOrder) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:  "usedAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Cursor(cursor DateTime) registrationTemporaryKeyCursorParam {
+	return registrationTemporaryKeyCursorParam{
+		data: builder.Field{
+			Name:  "usedAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) In(value []DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) InIfPresent(value []DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) NotIn(value []DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) NotInIfPresent(value []DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Lt(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) LtIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Lte(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) LteIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Gt(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) GtIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Gte(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) GteIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Not(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) NotIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Before(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r registrationTemporaryKeyQueryUsedAtDateTime) BeforeIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) After(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r registrationTemporaryKeyQueryUsedAtDateTime) AfterIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) BeforeEquals(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r registrationTemporaryKeyQueryUsedAtDateTime) BeforeEqualsIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) AfterEquals(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "usedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r registrationTemporaryKeyQueryUsedAtDateTime) AfterEqualsIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r registrationTemporaryKeyQueryUsedAtDateTime) Field() registrationTemporaryKeyPrismaFields {
+	return registrationTemporaryKeyFieldUsedAt
+}
+
+// base struct
+type registrationTemporaryKeyQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Set(value DateTime) registrationTemporaryKeySetParam {
+
+	return registrationTemporaryKeySetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) SetIfPresent(value *DateTime) registrationTemporaryKeySetParam {
+	if value == nil {
+		return registrationTemporaryKeySetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Equals(value DateTime) registrationTemporaryKeyWithPrismaCreatedAtEqualsParam {
+
+	return registrationTemporaryKeyWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) registrationTemporaryKeyWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return registrationTemporaryKeyWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Order(direction SortOrder) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Cursor(cursor DateTime) registrationTemporaryKeyCursorParam {
+	return registrationTemporaryKeyCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) In(value []DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) InIfPresent(value []DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) NotIn(value []DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Lt(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) LtIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Lte(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) LteIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Gt(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) GtIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Gte(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) GteIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Not(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) NotIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Before(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) After(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) BeforeEquals(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) AfterEquals(value DateTime) registrationTemporaryKeyDefaultParam {
+	return registrationTemporaryKeyDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) registrationTemporaryKeyDefaultParam {
+	if value == nil {
+		return registrationTemporaryKeyDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r registrationTemporaryKeyQueryCreatedAtDateTime) Field() registrationTemporaryKeyPrismaFields {
+	return registrationTemporaryKeyFieldCreatedAt
 }
 
 // Roles acts as a namespaces to access query methods for the Roles model
@@ -41977,6 +45393,6092 @@ func (r sesionPonenteQueryUsuarioUsuario) Field() sesionPonentePrismaFields {
 	return sesionPonenteFieldUsuario
 }
 
+// Conversacion acts as a namespaces to access query methods for the Conversacion model
+var Conversacion = conversacionQuery{}
+
+// conversacionQuery exposes query functions for the conversacion model
+type conversacionQuery struct {
+
+	// IDConversacion
+	//
+	// @required
+	IDConversacion conversacionQueryIDConversacionInt
+
+	// Asunto
+	//
+	// @required
+	Asunto conversacionQueryAsuntoString
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt conversacionQueryCreatedAtDateTime
+
+	// UpdatedAt
+	//
+	// @required
+	UpdatedAt conversacionQueryUpdatedAtDateTime
+
+	Mensajes conversacionQueryMensajesRelations
+
+	Participantes conversacionQueryParticipantesRelations
+}
+
+func (conversacionQuery) Not(params ...ConversacionWhereParam) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (conversacionQuery) Or(params ...ConversacionWhereParam) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (conversacionQuery) And(params ...ConversacionWhereParam) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type conversacionQueryIDConversacionInt struct{}
+
+// Set the required value of IDConversacion
+func (r conversacionQueryIDConversacionInt) Set(value int) conversacionSetParam {
+
+	return conversacionSetParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDConversacion dynamically
+func (r conversacionQueryIDConversacionInt) SetIfPresent(value *Int) conversacionSetParam {
+	if value == nil {
+		return conversacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDConversacion
+func (r conversacionQueryIDConversacionInt) Increment(value int) conversacionSetParam {
+	return conversacionSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) IncrementIfPresent(value *int) conversacionSetParam {
+	if value == nil {
+		return conversacionSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDConversacion
+func (r conversacionQueryIDConversacionInt) Decrement(value int) conversacionSetParam {
+	return conversacionSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) DecrementIfPresent(value *int) conversacionSetParam {
+	if value == nil {
+		return conversacionSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDConversacion
+func (r conversacionQueryIDConversacionInt) Multiply(value int) conversacionSetParam {
+	return conversacionSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) MultiplyIfPresent(value *int) conversacionSetParam {
+	if value == nil {
+		return conversacionSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDConversacion
+func (r conversacionQueryIDConversacionInt) Divide(value int) conversacionSetParam {
+	return conversacionSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) DivideIfPresent(value *int) conversacionSetParam {
+	if value == nil {
+		return conversacionSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r conversacionQueryIDConversacionInt) Equals(value int) conversacionWithPrismaIDConversacionEqualsUniqueParam {
+
+	return conversacionWithPrismaIDConversacionEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) EqualsIfPresent(value *int) conversacionWithPrismaIDConversacionEqualsUniqueParam {
+	if value == nil {
+		return conversacionWithPrismaIDConversacionEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r conversacionQueryIDConversacionInt) Order(direction SortOrder) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: direction,
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) Cursor(cursor int) conversacionCursorParam {
+	return conversacionCursorParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) In(value []int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) InIfPresent(value []int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r conversacionQueryIDConversacionInt) NotIn(value []int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) NotInIfPresent(value []int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r conversacionQueryIDConversacionInt) Lt(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) LtIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r conversacionQueryIDConversacionInt) Lte(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) LteIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r conversacionQueryIDConversacionInt) Gt(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) GtIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r conversacionQueryIDConversacionInt) Gte(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) GteIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r conversacionQueryIDConversacionInt) Not(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryIDConversacionInt) NotIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r conversacionQueryIDConversacionInt) LT(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r conversacionQueryIDConversacionInt) LTIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r conversacionQueryIDConversacionInt) LTE(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r conversacionQueryIDConversacionInt) LTEIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r conversacionQueryIDConversacionInt) GT(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r conversacionQueryIDConversacionInt) GTIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r conversacionQueryIDConversacionInt) GTE(value int) conversacionParamUnique {
+	return conversacionParamUnique{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r conversacionQueryIDConversacionInt) GTEIfPresent(value *int) conversacionParamUnique {
+	if value == nil {
+		return conversacionParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r conversacionQueryIDConversacionInt) Field() conversacionPrismaFields {
+	return conversacionFieldIDConversacion
+}
+
+// base struct
+type conversacionQueryAsuntoString struct{}
+
+// Set the required value of Asunto
+func (r conversacionQueryAsuntoString) Set(value string) conversacionSetParam {
+
+	return conversacionSetParam{
+		data: builder.Field{
+			Name:  "asunto",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Asunto dynamically
+func (r conversacionQueryAsuntoString) SetIfPresent(value *String) conversacionSetParam {
+	if value == nil {
+		return conversacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r conversacionQueryAsuntoString) Equals(value string) conversacionWithPrismaAsuntoEqualsParam {
+
+	return conversacionWithPrismaAsuntoEqualsParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) EqualsIfPresent(value *string) conversacionWithPrismaAsuntoEqualsParam {
+	if value == nil {
+		return conversacionWithPrismaAsuntoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r conversacionQueryAsuntoString) Order(direction SortOrder) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name:  "asunto",
+			Value: direction,
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) Cursor(cursor string) conversacionCursorParam {
+	return conversacionCursorParam{
+		data: builder.Field{
+			Name:  "asunto",
+			Value: cursor,
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) In(value []string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) InIfPresent(value []string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r conversacionQueryAsuntoString) NotIn(value []string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) NotInIfPresent(value []string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r conversacionQueryAsuntoString) Lt(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) LtIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r conversacionQueryAsuntoString) Lte(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) LteIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r conversacionQueryAsuntoString) Gt(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) GtIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r conversacionQueryAsuntoString) Gte(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) GteIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r conversacionQueryAsuntoString) Contains(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) ContainsIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r conversacionQueryAsuntoString) StartsWith(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) StartsWithIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r conversacionQueryAsuntoString) EndsWith(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) EndsWithIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r conversacionQueryAsuntoString) Mode(value QueryMode) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) ModeIfPresent(value *QueryMode) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r conversacionQueryAsuntoString) Not(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryAsuntoString) NotIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r conversacionQueryAsuntoString) HasPrefix(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r conversacionQueryAsuntoString) HasPrefixIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r conversacionQueryAsuntoString) HasSuffix(value string) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "asunto",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r conversacionQueryAsuntoString) HasSuffixIfPresent(value *string) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r conversacionQueryAsuntoString) Field() conversacionPrismaFields {
+	return conversacionFieldAsunto
+}
+
+// base struct
+type conversacionQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r conversacionQueryCreatedAtDateTime) Set(value DateTime) conversacionSetParam {
+
+	return conversacionSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r conversacionQueryCreatedAtDateTime) SetIfPresent(value *DateTime) conversacionSetParam {
+	if value == nil {
+		return conversacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) Equals(value DateTime) conversacionWithPrismaCreatedAtEqualsParam {
+
+	return conversacionWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) conversacionWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return conversacionWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) Order(direction SortOrder) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) Cursor(cursor DateTime) conversacionCursorParam {
+	return conversacionCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) In(value []DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) InIfPresent(value []DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) NotIn(value []DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) Lt(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) LtIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) Lte(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) LteIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) Gt(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) GtIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) Gte(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) GteIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) Not(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryCreatedAtDateTime) NotIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r conversacionQueryCreatedAtDateTime) Before(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r conversacionQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r conversacionQueryCreatedAtDateTime) After(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r conversacionQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r conversacionQueryCreatedAtDateTime) BeforeEquals(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r conversacionQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r conversacionQueryCreatedAtDateTime) AfterEquals(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r conversacionQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r conversacionQueryCreatedAtDateTime) Field() conversacionPrismaFields {
+	return conversacionFieldCreatedAt
+}
+
+// base struct
+type conversacionQueryUpdatedAtDateTime struct{}
+
+// Set the required value of UpdatedAt
+func (r conversacionQueryUpdatedAtDateTime) Set(value DateTime) conversacionSetParam {
+
+	return conversacionSetParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of UpdatedAt dynamically
+func (r conversacionQueryUpdatedAtDateTime) SetIfPresent(value *DateTime) conversacionSetParam {
+	if value == nil {
+		return conversacionSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Equals(value DateTime) conversacionWithPrismaUpdatedAtEqualsParam {
+
+	return conversacionWithPrismaUpdatedAtEqualsParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) EqualsIfPresent(value *DateTime) conversacionWithPrismaUpdatedAtEqualsParam {
+	if value == nil {
+		return conversacionWithPrismaUpdatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Order(direction SortOrder) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Cursor(cursor DateTime) conversacionCursorParam {
+	return conversacionCursorParam{
+		data: builder.Field{
+			Name:  "updatedAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) In(value []DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) InIfPresent(value []DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) NotIn(value []DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) NotInIfPresent(value []DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Lt(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) LtIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Lte(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) LteIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Gt(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) GtIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Gte(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) GteIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Not(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryUpdatedAtDateTime) NotIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r conversacionQueryUpdatedAtDateTime) Before(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r conversacionQueryUpdatedAtDateTime) BeforeIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r conversacionQueryUpdatedAtDateTime) After(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r conversacionQueryUpdatedAtDateTime) AfterIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r conversacionQueryUpdatedAtDateTime) BeforeEquals(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r conversacionQueryUpdatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r conversacionQueryUpdatedAtDateTime) AfterEquals(value DateTime) conversacionDefaultParam {
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "updatedAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r conversacionQueryUpdatedAtDateTime) AfterEqualsIfPresent(value *DateTime) conversacionDefaultParam {
+	if value == nil {
+		return conversacionDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r conversacionQueryUpdatedAtDateTime) Field() conversacionPrismaFields {
+	return conversacionFieldUpdatedAt
+}
+
+// base struct
+type conversacionQueryMensajesMensaje struct{}
+
+type conversacionQueryMensajesRelations struct{}
+
+// Conversacion -> Mensajes
+//
+// @relation
+// @required
+func (conversacionQueryMensajesRelations) Some(
+	params ...MensajeWhereParam,
+) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "mensajes",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Conversacion -> Mensajes
+//
+// @relation
+// @required
+func (conversacionQueryMensajesRelations) Every(
+	params ...MensajeWhereParam,
+) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "mensajes",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Conversacion -> Mensajes
+//
+// @relation
+// @required
+func (conversacionQueryMensajesRelations) None(
+	params ...MensajeWhereParam,
+) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "mensajes",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (conversacionQueryMensajesRelations) Fetch(
+
+	params ...MensajeWhereParam,
+
+) conversacionToMensajesFindMany {
+	var v conversacionToMensajesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "mensajes"
+	v.query.Outputs = mensajeOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r conversacionQueryMensajesRelations) Link(
+	params ...MensajeWhereParam,
+) conversacionSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionSetParam{
+		data: builder.Field{
+			Name: "mensajes",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryMensajesRelations) Unlink(
+	params ...MensajeWhereParam,
+) conversacionSetParam {
+	var v conversacionSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = conversacionSetParam{
+		data: builder.Field{
+			Name: "mensajes",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r conversacionQueryMensajesMensaje) Field() conversacionPrismaFields {
+	return conversacionFieldMensajes
+}
+
+// base struct
+type conversacionQueryParticipantesConversacionParticipante struct{}
+
+type conversacionQueryParticipantesRelations struct{}
+
+// Conversacion -> Participantes
+//
+// @relation
+// @required
+func (conversacionQueryParticipantesRelations) Some(
+	params ...ConversacionParticipanteWhereParam,
+) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "participantes",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Conversacion -> Participantes
+//
+// @relation
+// @required
+func (conversacionQueryParticipantesRelations) Every(
+	params ...ConversacionParticipanteWhereParam,
+) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "participantes",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// Conversacion -> Participantes
+//
+// @relation
+// @required
+func (conversacionQueryParticipantesRelations) None(
+	params ...ConversacionParticipanteWhereParam,
+) conversacionDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionDefaultParam{
+		data: builder.Field{
+			Name: "participantes",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (conversacionQueryParticipantesRelations) Fetch(
+
+	params ...ConversacionParticipanteWhereParam,
+
+) conversacionToParticipantesFindMany {
+	var v conversacionToParticipantesFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "participantes"
+	v.query.Outputs = conversacionParticipanteOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r conversacionQueryParticipantesRelations) Link(
+	params ...ConversacionParticipanteWhereParam,
+) conversacionSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionSetParam{
+		data: builder.Field{
+			Name: "participantes",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionQueryParticipantesRelations) Unlink(
+	params ...ConversacionParticipanteWhereParam,
+) conversacionSetParam {
+	var v conversacionSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = conversacionSetParam{
+		data: builder.Field{
+			Name: "participantes",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r conversacionQueryParticipantesConversacionParticipante) Field() conversacionPrismaFields {
+	return conversacionFieldParticipantes
+}
+
+// ConversacionParticipante acts as a namespaces to access query methods for the ConversacionParticipante model
+var ConversacionParticipante = conversacionParticipanteQuery{}
+
+// conversacionParticipanteQuery exposes query functions for the conversacionParticipante model
+type conversacionParticipanteQuery struct {
+
+	// IDConversacion
+	//
+	// @required
+	IDConversacion conversacionParticipanteQueryIDConversacionInt
+
+	// IDUsuario
+	//
+	// @required
+	IDUsuario conversacionParticipanteQueryIDUsuarioInt
+
+	// UnidoEn
+	//
+	// @required
+	UnidoEn conversacionParticipanteQueryUnidoEnDateTime
+
+	Conversacion conversacionParticipanteQueryConversacionRelations
+
+	Usuario conversacionParticipanteQueryUsuarioRelations
+}
+
+func (conversacionParticipanteQuery) Not(params ...ConversacionParticipanteWhereParam) conversacionParticipanteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (conversacionParticipanteQuery) Or(params ...ConversacionParticipanteWhereParam) conversacionParticipanteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (conversacionParticipanteQuery) And(params ...ConversacionParticipanteWhereParam) conversacionParticipanteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (conversacionParticipanteQuery) IDConversacionIDUsuario(
+	_idConversacion ConversacionParticipanteWithPrismaIDConversacionWhereParam,
+
+	_idUsuario ConversacionParticipanteWithPrismaIDUsuarioWhereParam,
+) ConversacionParticipanteEqualsUniqueWhereParam {
+	var fields []builder.Field
+
+	fields = append(fields, _idConversacion.field())
+	fields = append(fields, _idUsuario.field())
+
+	return conversacionParticipanteEqualsUniqueParam{
+		data: builder.Field{
+			Name:   "id_conversacion_id_usuario",
+			Fields: builder.TransformEquals(fields),
+		},
+	}
+}
+
+// base struct
+type conversacionParticipanteQueryIDConversacionInt struct{}
+
+// Set the required value of IDConversacion
+func (r conversacionParticipanteQueryIDConversacionInt) Set(value int) conversacionParticipanteSetParam {
+
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDConversacion dynamically
+func (r conversacionParticipanteQueryIDConversacionInt) SetIfPresent(value *Int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDConversacion
+func (r conversacionParticipanteQueryIDConversacionInt) Increment(value int) conversacionParticipanteSetParam {
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) IncrementIfPresent(value *int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDConversacion
+func (r conversacionParticipanteQueryIDConversacionInt) Decrement(value int) conversacionParticipanteSetParam {
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) DecrementIfPresent(value *int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDConversacion
+func (r conversacionParticipanteQueryIDConversacionInt) Multiply(value int) conversacionParticipanteSetParam {
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) MultiplyIfPresent(value *int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDConversacion
+func (r conversacionParticipanteQueryIDConversacionInt) Divide(value int) conversacionParticipanteSetParam {
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) DivideIfPresent(value *int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Equals(value int) conversacionParticipanteWithPrismaIDConversacionEqualsParam {
+
+	return conversacionParticipanteWithPrismaIDConversacionEqualsParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) EqualsIfPresent(value *int) conversacionParticipanteWithPrismaIDConversacionEqualsParam {
+	if value == nil {
+		return conversacionParticipanteWithPrismaIDConversacionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Order(direction SortOrder) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: direction,
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Cursor(cursor int) conversacionParticipanteCursorParam {
+	return conversacionParticipanteCursorParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) In(value []int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) InIfPresent(value []int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) NotIn(value []int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) NotInIfPresent(value []int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Lt(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) LtIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Lte(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) LteIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Gt(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) GtIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Gte(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) GteIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Not(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) NotIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r conversacionParticipanteQueryIDConversacionInt) LT(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r conversacionParticipanteQueryIDConversacionInt) LTIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r conversacionParticipanteQueryIDConversacionInt) LTE(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r conversacionParticipanteQueryIDConversacionInt) LTEIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r conversacionParticipanteQueryIDConversacionInt) GT(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r conversacionParticipanteQueryIDConversacionInt) GTIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r conversacionParticipanteQueryIDConversacionInt) GTE(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r conversacionParticipanteQueryIDConversacionInt) GTEIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r conversacionParticipanteQueryIDConversacionInt) Field() conversacionParticipantePrismaFields {
+	return conversacionParticipanteFieldIDConversacion
+}
+
+// base struct
+type conversacionParticipanteQueryIDUsuarioInt struct{}
+
+// Set the required value of IDUsuario
+func (r conversacionParticipanteQueryIDUsuarioInt) Set(value int) conversacionParticipanteSetParam {
+
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDUsuario dynamically
+func (r conversacionParticipanteQueryIDUsuarioInt) SetIfPresent(value *Int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDUsuario
+func (r conversacionParticipanteQueryIDUsuarioInt) Increment(value int) conversacionParticipanteSetParam {
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) IncrementIfPresent(value *int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDUsuario
+func (r conversacionParticipanteQueryIDUsuarioInt) Decrement(value int) conversacionParticipanteSetParam {
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) DecrementIfPresent(value *int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDUsuario
+func (r conversacionParticipanteQueryIDUsuarioInt) Multiply(value int) conversacionParticipanteSetParam {
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) MultiplyIfPresent(value *int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDUsuario
+func (r conversacionParticipanteQueryIDUsuarioInt) Divide(value int) conversacionParticipanteSetParam {
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) DivideIfPresent(value *int) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Equals(value int) conversacionParticipanteWithPrismaIDUsuarioEqualsParam {
+
+	return conversacionParticipanteWithPrismaIDUsuarioEqualsParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) EqualsIfPresent(value *int) conversacionParticipanteWithPrismaIDUsuarioEqualsParam {
+	if value == nil {
+		return conversacionParticipanteWithPrismaIDUsuarioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Order(direction SortOrder) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: direction,
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Cursor(cursor int) conversacionParticipanteCursorParam {
+	return conversacionParticipanteCursorParam{
+		data: builder.Field{
+			Name:  "id_usuario",
+			Value: cursor,
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) In(value []int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) InIfPresent(value []int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) NotIn(value []int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) NotInIfPresent(value []int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Lt(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) LtIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Lte(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) LteIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Gt(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) GtIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Gte(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) GteIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Not(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) NotIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r conversacionParticipanteQueryIDUsuarioInt) LT(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r conversacionParticipanteQueryIDUsuarioInt) LTIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r conversacionParticipanteQueryIDUsuarioInt) LTE(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r conversacionParticipanteQueryIDUsuarioInt) LTEIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r conversacionParticipanteQueryIDUsuarioInt) GT(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r conversacionParticipanteQueryIDUsuarioInt) GTIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r conversacionParticipanteQueryIDUsuarioInt) GTE(value int) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "id_usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r conversacionParticipanteQueryIDUsuarioInt) GTEIfPresent(value *int) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r conversacionParticipanteQueryIDUsuarioInt) Field() conversacionParticipantePrismaFields {
+	return conversacionParticipanteFieldIDUsuario
+}
+
+// base struct
+type conversacionParticipanteQueryUnidoEnDateTime struct{}
+
+// Set the required value of UnidoEn
+func (r conversacionParticipanteQueryUnidoEnDateTime) Set(value DateTime) conversacionParticipanteSetParam {
+
+	return conversacionParticipanteSetParam{
+		data: builder.Field{
+			Name:  "unido_en",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of UnidoEn dynamically
+func (r conversacionParticipanteQueryUnidoEnDateTime) SetIfPresent(value *DateTime) conversacionParticipanteSetParam {
+	if value == nil {
+		return conversacionParticipanteSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Equals(value DateTime) conversacionParticipanteWithPrismaUnidoEnEqualsParam {
+
+	return conversacionParticipanteWithPrismaUnidoEnEqualsParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) EqualsIfPresent(value *DateTime) conversacionParticipanteWithPrismaUnidoEnEqualsParam {
+	if value == nil {
+		return conversacionParticipanteWithPrismaUnidoEnEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Order(direction SortOrder) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name:  "unido_en",
+			Value: direction,
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Cursor(cursor DateTime) conversacionParticipanteCursorParam {
+	return conversacionParticipanteCursorParam{
+		data: builder.Field{
+			Name:  "unido_en",
+			Value: cursor,
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) In(value []DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) InIfPresent(value []DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) NotIn(value []DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) NotInIfPresent(value []DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Lt(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) LtIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Lte(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) LteIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Gt(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) GtIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Gte(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) GteIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Not(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) NotIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Before(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r conversacionParticipanteQueryUnidoEnDateTime) BeforeIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) After(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r conversacionParticipanteQueryUnidoEnDateTime) AfterIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) BeforeEquals(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r conversacionParticipanteQueryUnidoEnDateTime) BeforeEqualsIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) AfterEquals(value DateTime) conversacionParticipanteDefaultParam {
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "unido_en",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r conversacionParticipanteQueryUnidoEnDateTime) AfterEqualsIfPresent(value *DateTime) conversacionParticipanteDefaultParam {
+	if value == nil {
+		return conversacionParticipanteDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r conversacionParticipanteQueryUnidoEnDateTime) Field() conversacionParticipantePrismaFields {
+	return conversacionParticipanteFieldUnidoEn
+}
+
+// base struct
+type conversacionParticipanteQueryConversacionConversacion struct{}
+
+type conversacionParticipanteQueryConversacionRelations struct{}
+
+// ConversacionParticipante -> Conversacion
+//
+// @relation
+// @required
+func (conversacionParticipanteQueryConversacionRelations) Where(
+	params ...ConversacionWhereParam,
+) conversacionParticipanteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "conversacion",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (conversacionParticipanteQueryConversacionRelations) Fetch() conversacionParticipanteToConversacionFindUnique {
+	var v conversacionParticipanteToConversacionFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "conversacion"
+	v.query.Outputs = conversacionOutput
+
+	return v
+}
+
+func (r conversacionParticipanteQueryConversacionRelations) Link(
+	params ConversacionWhereParam,
+) conversacionParticipanteWithPrismaConversacionSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return conversacionParticipanteWithPrismaConversacionSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return conversacionParticipanteWithPrismaConversacionSetParam{
+		data: builder.Field{
+			Name: "conversacion",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryConversacionRelations) Unlink() conversacionParticipanteWithPrismaConversacionSetParam {
+	var v conversacionParticipanteWithPrismaConversacionSetParam
+
+	v = conversacionParticipanteWithPrismaConversacionSetParam{
+		data: builder.Field{
+			Name: "conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r conversacionParticipanteQueryConversacionConversacion) Field() conversacionParticipantePrismaFields {
+	return conversacionParticipanteFieldConversacion
+}
+
+// base struct
+type conversacionParticipanteQueryUsuarioUsuario struct{}
+
+type conversacionParticipanteQueryUsuarioRelations struct{}
+
+// ConversacionParticipante -> Usuario
+//
+// @relation
+// @required
+func (conversacionParticipanteQueryUsuarioRelations) Where(
+	params ...UsuarioWhereParam,
+) conversacionParticipanteDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return conversacionParticipanteDefaultParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (conversacionParticipanteQueryUsuarioRelations) Fetch() conversacionParticipanteToUsuarioFindUnique {
+	var v conversacionParticipanteToUsuarioFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "usuario"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r conversacionParticipanteQueryUsuarioRelations) Link(
+	params UsuarioWhereParam,
+) conversacionParticipanteWithPrismaUsuarioSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return conversacionParticipanteWithPrismaUsuarioSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return conversacionParticipanteWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r conversacionParticipanteQueryUsuarioRelations) Unlink() conversacionParticipanteWithPrismaUsuarioSetParam {
+	var v conversacionParticipanteWithPrismaUsuarioSetParam
+
+	v = conversacionParticipanteWithPrismaUsuarioSetParam{
+		data: builder.Field{
+			Name: "usuario",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r conversacionParticipanteQueryUsuarioUsuario) Field() conversacionParticipantePrismaFields {
+	return conversacionParticipanteFieldUsuario
+}
+
+// Mensaje acts as a namespaces to access query methods for the Mensaje model
+var Mensaje = mensajeQuery{}
+
+// mensajeQuery exposes query functions for the mensaje model
+type mensajeQuery struct {
+
+	// IDMensaje
+	//
+	// @required
+	IDMensaje mensajeQueryIDMensajeInt
+
+	// IDConversacion
+	//
+	// @required
+	IDConversacion mensajeQueryIDConversacionInt
+
+	// IDRemitente
+	//
+	// @required
+	IDRemitente mensajeQueryIDRemitenteInt
+
+	// Cuerpo
+	//
+	// @required
+	Cuerpo mensajeQueryCuerpoString
+
+	// AdjuntoURL
+	//
+	// @optional
+	AdjuntoURL mensajeQueryAdjuntoURLString
+
+	// AdjuntoNombre
+	//
+	// @optional
+	AdjuntoNombre mensajeQueryAdjuntoNombreString
+
+	// CreatedAt
+	//
+	// @required
+	CreatedAt mensajeQueryCreatedAtDateTime
+
+	Conversacion mensajeQueryConversacionRelations
+
+	Remitente mensajeQueryRemitenteRelations
+}
+
+func (mensajeQuery) Not(params ...MensajeWhereParam) mensajeDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (mensajeQuery) Or(params ...MensajeWhereParam) mensajeDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (mensajeQuery) And(params ...MensajeWhereParam) mensajeDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type mensajeQueryIDMensajeInt struct{}
+
+// Set the required value of IDMensaje
+func (r mensajeQueryIDMensajeInt) Set(value int) mensajeSetParam {
+
+	return mensajeSetParam{
+		data: builder.Field{
+			Name:  "id_mensaje",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDMensaje dynamically
+func (r mensajeQueryIDMensajeInt) SetIfPresent(value *Int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDMensaje
+func (r mensajeQueryIDMensajeInt) Increment(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) IncrementIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDMensaje
+func (r mensajeQueryIDMensajeInt) Decrement(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) DecrementIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDMensaje
+func (r mensajeQueryIDMensajeInt) Multiply(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) MultiplyIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDMensaje
+func (r mensajeQueryIDMensajeInt) Divide(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) DivideIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r mensajeQueryIDMensajeInt) Equals(value int) mensajeWithPrismaIDMensajeEqualsUniqueParam {
+
+	return mensajeWithPrismaIDMensajeEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) EqualsIfPresent(value *int) mensajeWithPrismaIDMensajeEqualsUniqueParam {
+	if value == nil {
+		return mensajeWithPrismaIDMensajeEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r mensajeQueryIDMensajeInt) Order(direction SortOrder) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:  "id_mensaje",
+			Value: direction,
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) Cursor(cursor int) mensajeCursorParam {
+	return mensajeCursorParam{
+		data: builder.Field{
+			Name:  "id_mensaje",
+			Value: cursor,
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) In(value []int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) InIfPresent(value []int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r mensajeQueryIDMensajeInt) NotIn(value []int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) NotInIfPresent(value []int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r mensajeQueryIDMensajeInt) Lt(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) LtIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r mensajeQueryIDMensajeInt) Lte(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) LteIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r mensajeQueryIDMensajeInt) Gt(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) GtIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r mensajeQueryIDMensajeInt) Gte(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) GteIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r mensajeQueryIDMensajeInt) Not(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDMensajeInt) NotIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r mensajeQueryIDMensajeInt) LT(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r mensajeQueryIDMensajeInt) LTIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r mensajeQueryIDMensajeInt) LTE(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r mensajeQueryIDMensajeInt) LTEIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r mensajeQueryIDMensajeInt) GT(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r mensajeQueryIDMensajeInt) GTIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r mensajeQueryIDMensajeInt) GTE(value int) mensajeParamUnique {
+	return mensajeParamUnique{
+		data: builder.Field{
+			Name: "id_mensaje",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r mensajeQueryIDMensajeInt) GTEIfPresent(value *int) mensajeParamUnique {
+	if value == nil {
+		return mensajeParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r mensajeQueryIDMensajeInt) Field() mensajePrismaFields {
+	return mensajeFieldIDMensaje
+}
+
+// base struct
+type mensajeQueryIDConversacionInt struct{}
+
+// Set the required value of IDConversacion
+func (r mensajeQueryIDConversacionInt) Set(value int) mensajeSetParam {
+
+	return mensajeSetParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDConversacion dynamically
+func (r mensajeQueryIDConversacionInt) SetIfPresent(value *Int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDConversacion
+func (r mensajeQueryIDConversacionInt) Increment(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) IncrementIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDConversacion
+func (r mensajeQueryIDConversacionInt) Decrement(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) DecrementIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDConversacion
+func (r mensajeQueryIDConversacionInt) Multiply(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) MultiplyIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDConversacion
+func (r mensajeQueryIDConversacionInt) Divide(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) DivideIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r mensajeQueryIDConversacionInt) Equals(value int) mensajeWithPrismaIDConversacionEqualsParam {
+
+	return mensajeWithPrismaIDConversacionEqualsParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) EqualsIfPresent(value *int) mensajeWithPrismaIDConversacionEqualsParam {
+	if value == nil {
+		return mensajeWithPrismaIDConversacionEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r mensajeQueryIDConversacionInt) Order(direction SortOrder) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: direction,
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) Cursor(cursor int) mensajeCursorParam {
+	return mensajeCursorParam{
+		data: builder.Field{
+			Name:  "id_conversacion",
+			Value: cursor,
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) In(value []int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) InIfPresent(value []int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r mensajeQueryIDConversacionInt) NotIn(value []int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) NotInIfPresent(value []int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r mensajeQueryIDConversacionInt) Lt(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) LtIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r mensajeQueryIDConversacionInt) Lte(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) LteIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r mensajeQueryIDConversacionInt) Gt(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) GtIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r mensajeQueryIDConversacionInt) Gte(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) GteIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r mensajeQueryIDConversacionInt) Not(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDConversacionInt) NotIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r mensajeQueryIDConversacionInt) LT(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r mensajeQueryIDConversacionInt) LTIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r mensajeQueryIDConversacionInt) LTE(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r mensajeQueryIDConversacionInt) LTEIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r mensajeQueryIDConversacionInt) GT(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r mensajeQueryIDConversacionInt) GTIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r mensajeQueryIDConversacionInt) GTE(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r mensajeQueryIDConversacionInt) GTEIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r mensajeQueryIDConversacionInt) Field() mensajePrismaFields {
+	return mensajeFieldIDConversacion
+}
+
+// base struct
+type mensajeQueryIDRemitenteInt struct{}
+
+// Set the required value of IDRemitente
+func (r mensajeQueryIDRemitenteInt) Set(value int) mensajeSetParam {
+
+	return mensajeSetParam{
+		data: builder.Field{
+			Name:  "id_remitente",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDRemitente dynamically
+func (r mensajeQueryIDRemitenteInt) SetIfPresent(value *Int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDRemitente
+func (r mensajeQueryIDRemitenteInt) Increment(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) IncrementIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDRemitente
+func (r mensajeQueryIDRemitenteInt) Decrement(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) DecrementIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDRemitente
+func (r mensajeQueryIDRemitenteInt) Multiply(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) MultiplyIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDRemitente
+func (r mensajeQueryIDRemitenteInt) Divide(value int) mensajeSetParam {
+	return mensajeSetParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) DivideIfPresent(value *int) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r mensajeQueryIDRemitenteInt) Equals(value int) mensajeWithPrismaIDRemitenteEqualsParam {
+
+	return mensajeWithPrismaIDRemitenteEqualsParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) EqualsIfPresent(value *int) mensajeWithPrismaIDRemitenteEqualsParam {
+	if value == nil {
+		return mensajeWithPrismaIDRemitenteEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r mensajeQueryIDRemitenteInt) Order(direction SortOrder) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:  "id_remitente",
+			Value: direction,
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) Cursor(cursor int) mensajeCursorParam {
+	return mensajeCursorParam{
+		data: builder.Field{
+			Name:  "id_remitente",
+			Value: cursor,
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) In(value []int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) InIfPresent(value []int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r mensajeQueryIDRemitenteInt) NotIn(value []int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) NotInIfPresent(value []int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r mensajeQueryIDRemitenteInt) Lt(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) LtIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r mensajeQueryIDRemitenteInt) Lte(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) LteIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r mensajeQueryIDRemitenteInt) Gt(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) GtIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r mensajeQueryIDRemitenteInt) Gte(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) GteIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r mensajeQueryIDRemitenteInt) Not(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryIDRemitenteInt) NotIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r mensajeQueryIDRemitenteInt) LT(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r mensajeQueryIDRemitenteInt) LTIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r mensajeQueryIDRemitenteInt) LTE(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r mensajeQueryIDRemitenteInt) LTEIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r mensajeQueryIDRemitenteInt) GT(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r mensajeQueryIDRemitenteInt) GTIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r mensajeQueryIDRemitenteInt) GTE(value int) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "id_remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r mensajeQueryIDRemitenteInt) GTEIfPresent(value *int) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r mensajeQueryIDRemitenteInt) Field() mensajePrismaFields {
+	return mensajeFieldIDRemitente
+}
+
+// base struct
+type mensajeQueryCuerpoString struct{}
+
+// Set the required value of Cuerpo
+func (r mensajeQueryCuerpoString) Set(value string) mensajeWithPrismaCuerpoSetParam {
+
+	return mensajeWithPrismaCuerpoSetParam{
+		data: builder.Field{
+			Name:  "cuerpo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Cuerpo dynamically
+func (r mensajeQueryCuerpoString) SetIfPresent(value *String) mensajeWithPrismaCuerpoSetParam {
+	if value == nil {
+		return mensajeWithPrismaCuerpoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r mensajeQueryCuerpoString) Equals(value string) mensajeWithPrismaCuerpoEqualsParam {
+
+	return mensajeWithPrismaCuerpoEqualsParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) EqualsIfPresent(value *string) mensajeWithPrismaCuerpoEqualsParam {
+	if value == nil {
+		return mensajeWithPrismaCuerpoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r mensajeQueryCuerpoString) Order(direction SortOrder) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:  "cuerpo",
+			Value: direction,
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) Cursor(cursor string) mensajeCursorParam {
+	return mensajeCursorParam{
+		data: builder.Field{
+			Name:  "cuerpo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) In(value []string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) InIfPresent(value []string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r mensajeQueryCuerpoString) NotIn(value []string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) NotInIfPresent(value []string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r mensajeQueryCuerpoString) Lt(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) LtIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r mensajeQueryCuerpoString) Lte(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) LteIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r mensajeQueryCuerpoString) Gt(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) GtIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r mensajeQueryCuerpoString) Gte(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) GteIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r mensajeQueryCuerpoString) Contains(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) ContainsIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r mensajeQueryCuerpoString) StartsWith(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) StartsWithIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r mensajeQueryCuerpoString) EndsWith(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) EndsWithIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r mensajeQueryCuerpoString) Mode(value QueryMode) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) ModeIfPresent(value *QueryMode) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r mensajeQueryCuerpoString) Not(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCuerpoString) NotIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r mensajeQueryCuerpoString) HasPrefix(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r mensajeQueryCuerpoString) HasPrefixIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r mensajeQueryCuerpoString) HasSuffix(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "cuerpo",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r mensajeQueryCuerpoString) HasSuffixIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r mensajeQueryCuerpoString) Field() mensajePrismaFields {
+	return mensajeFieldCuerpo
+}
+
+// base struct
+type mensajeQueryAdjuntoURLString struct{}
+
+// Set the optional value of AdjuntoURL
+func (r mensajeQueryAdjuntoURLString) Set(value string) mensajeSetParam {
+
+	return mensajeSetParam{
+		data: builder.Field{
+			Name:  "adjunto_url",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of AdjuntoURL dynamically
+func (r mensajeQueryAdjuntoURLString) SetIfPresent(value *String) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of AdjuntoURL dynamically
+func (r mensajeQueryAdjuntoURLString) SetOptional(value *String) mensajeSetParam {
+	if value == nil {
+
+		var v *string
+		return mensajeSetParam{
+			data: builder.Field{
+				Name:  "adjunto_url",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Equals(value string) mensajeWithPrismaAdjuntoURLEqualsParam {
+
+	return mensajeWithPrismaAdjuntoURLEqualsParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) EqualsIfPresent(value *string) mensajeWithPrismaAdjuntoURLEqualsParam {
+	if value == nil {
+		return mensajeWithPrismaAdjuntoURLEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) EqualsOptional(value *String) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) IsNull() mensajeDefaultParam {
+	var str *string = nil
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) Order(direction SortOrder) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:  "adjunto_url",
+			Value: direction,
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) Cursor(cursor string) mensajeCursorParam {
+	return mensajeCursorParam{
+		data: builder.Field{
+			Name:  "adjunto_url",
+			Value: cursor,
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) In(value []string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) InIfPresent(value []string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r mensajeQueryAdjuntoURLString) NotIn(value []string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) NotInIfPresent(value []string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Lt(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) LtIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Lte(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) LteIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Gt(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) GtIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Gte(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) GteIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Contains(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) ContainsIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) StartsWith(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) StartsWithIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) EndsWith(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) EndsWithIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Mode(value QueryMode) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) ModeIfPresent(value *QueryMode) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Not(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoURLString) NotIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r mensajeQueryAdjuntoURLString) HasPrefix(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r mensajeQueryAdjuntoURLString) HasPrefixIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r mensajeQueryAdjuntoURLString) HasSuffix(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_url",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r mensajeQueryAdjuntoURLString) HasSuffixIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r mensajeQueryAdjuntoURLString) Field() mensajePrismaFields {
+	return mensajeFieldAdjuntoURL
+}
+
+// base struct
+type mensajeQueryAdjuntoNombreString struct{}
+
+// Set the optional value of AdjuntoNombre
+func (r mensajeQueryAdjuntoNombreString) Set(value string) mensajeSetParam {
+
+	return mensajeSetParam{
+		data: builder.Field{
+			Name:  "adjunto_nombre",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of AdjuntoNombre dynamically
+func (r mensajeQueryAdjuntoNombreString) SetIfPresent(value *String) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of AdjuntoNombre dynamically
+func (r mensajeQueryAdjuntoNombreString) SetOptional(value *String) mensajeSetParam {
+	if value == nil {
+
+		var v *string
+		return mensajeSetParam{
+			data: builder.Field{
+				Name:  "adjunto_nombre",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Equals(value string) mensajeWithPrismaAdjuntoNombreEqualsParam {
+
+	return mensajeWithPrismaAdjuntoNombreEqualsParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) EqualsIfPresent(value *string) mensajeWithPrismaAdjuntoNombreEqualsParam {
+	if value == nil {
+		return mensajeWithPrismaAdjuntoNombreEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) EqualsOptional(value *String) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) IsNull() mensajeDefaultParam {
+	var str *string = nil
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) Order(direction SortOrder) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:  "adjunto_nombre",
+			Value: direction,
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) Cursor(cursor string) mensajeCursorParam {
+	return mensajeCursorParam{
+		data: builder.Field{
+			Name:  "adjunto_nombre",
+			Value: cursor,
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) In(value []string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) InIfPresent(value []string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) NotIn(value []string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) NotInIfPresent(value []string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Lt(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) LtIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Lte(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) LteIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Gt(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) GtIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Gte(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) GteIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Contains(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) ContainsIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) StartsWith(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) StartsWithIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) EndsWith(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) EndsWithIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Mode(value QueryMode) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) ModeIfPresent(value *QueryMode) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Not(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryAdjuntoNombreString) NotIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r mensajeQueryAdjuntoNombreString) HasPrefix(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r mensajeQueryAdjuntoNombreString) HasPrefixIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r mensajeQueryAdjuntoNombreString) HasSuffix(value string) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "adjunto_nombre",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r mensajeQueryAdjuntoNombreString) HasSuffixIfPresent(value *string) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r mensajeQueryAdjuntoNombreString) Field() mensajePrismaFields {
+	return mensajeFieldAdjuntoNombre
+}
+
+// base struct
+type mensajeQueryCreatedAtDateTime struct{}
+
+// Set the required value of CreatedAt
+func (r mensajeQueryCreatedAtDateTime) Set(value DateTime) mensajeSetParam {
+
+	return mensajeSetParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of CreatedAt dynamically
+func (r mensajeQueryCreatedAtDateTime) SetIfPresent(value *DateTime) mensajeSetParam {
+	if value == nil {
+		return mensajeSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) Equals(value DateTime) mensajeWithPrismaCreatedAtEqualsParam {
+
+	return mensajeWithPrismaCreatedAtEqualsParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) EqualsIfPresent(value *DateTime) mensajeWithPrismaCreatedAtEqualsParam {
+	if value == nil {
+		return mensajeWithPrismaCreatedAtEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) Order(direction SortOrder) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: direction,
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) Cursor(cursor DateTime) mensajeCursorParam {
+	return mensajeCursorParam{
+		data: builder.Field{
+			Name:  "createdAt",
+			Value: cursor,
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) In(value []DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) InIfPresent(value []DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) NotIn(value []DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) NotInIfPresent(value []DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) Lt(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) LtIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) Lte(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) LteIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) Gt(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) GtIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) Gte(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) GteIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) Not(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryCreatedAtDateTime) NotIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r mensajeQueryCreatedAtDateTime) Before(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r mensajeQueryCreatedAtDateTime) BeforeIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r mensajeQueryCreatedAtDateTime) After(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r mensajeQueryCreatedAtDateTime) AfterIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r mensajeQueryCreatedAtDateTime) BeforeEquals(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r mensajeQueryCreatedAtDateTime) BeforeEqualsIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r mensajeQueryCreatedAtDateTime) AfterEquals(value DateTime) mensajeDefaultParam {
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "createdAt",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r mensajeQueryCreatedAtDateTime) AfterEqualsIfPresent(value *DateTime) mensajeDefaultParam {
+	if value == nil {
+		return mensajeDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r mensajeQueryCreatedAtDateTime) Field() mensajePrismaFields {
+	return mensajeFieldCreatedAt
+}
+
+// base struct
+type mensajeQueryConversacionConversacion struct{}
+
+type mensajeQueryConversacionRelations struct{}
+
+// Mensaje -> Conversacion
+//
+// @relation
+// @required
+func (mensajeQueryConversacionRelations) Where(
+	params ...ConversacionWhereParam,
+) mensajeDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "conversacion",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (mensajeQueryConversacionRelations) Fetch() mensajeToConversacionFindUnique {
+	var v mensajeToConversacionFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "conversacion"
+	v.query.Outputs = conversacionOutput
+
+	return v
+}
+
+func (r mensajeQueryConversacionRelations) Link(
+	params ConversacionWhereParam,
+) mensajeWithPrismaConversacionSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return mensajeWithPrismaConversacionSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return mensajeWithPrismaConversacionSetParam{
+		data: builder.Field{
+			Name: "conversacion",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryConversacionRelations) Unlink() mensajeWithPrismaConversacionSetParam {
+	var v mensajeWithPrismaConversacionSetParam
+
+	v = mensajeWithPrismaConversacionSetParam{
+		data: builder.Field{
+			Name: "conversacion",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r mensajeQueryConversacionConversacion) Field() mensajePrismaFields {
+	return mensajeFieldConversacion
+}
+
+// base struct
+type mensajeQueryRemitenteUsuario struct{}
+
+type mensajeQueryRemitenteRelations struct{}
+
+// Mensaje -> Remitente
+//
+// @relation
+// @required
+func (mensajeQueryRemitenteRelations) Where(
+	params ...UsuarioWhereParam,
+) mensajeDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return mensajeDefaultParam{
+		data: builder.Field{
+			Name: "remitente",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (mensajeQueryRemitenteRelations) Fetch() mensajeToRemitenteFindUnique {
+	var v mensajeToRemitenteFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "remitente"
+	v.query.Outputs = usuarioOutput
+
+	return v
+}
+
+func (r mensajeQueryRemitenteRelations) Link(
+	params UsuarioWhereParam,
+) mensajeWithPrismaRemitenteSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return mensajeWithPrismaRemitenteSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return mensajeWithPrismaRemitenteSetParam{
+		data: builder.Field{
+			Name: "remitente",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r mensajeQueryRemitenteRelations) Unlink() mensajeWithPrismaRemitenteSetParam {
+	var v mensajeWithPrismaRemitenteSetParam
+
+	v = mensajeWithPrismaRemitenteSetParam{
+		data: builder.Field{
+			Name: "remitente",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r mensajeQueryRemitenteUsuario) Field() mensajePrismaFields {
+	return mensajeFieldRemitente
+}
+
 // --- template actions.gotpl ---
 var countOutput = []builder.Output{
 	{Name: "count"},
@@ -42782,6 +52284,162 @@ func (p usuarioWithPrismaSesionesPonenteEqualsUniqueParam) sesionesPonenteField(
 
 func (usuarioWithPrismaSesionesPonenteEqualsUniqueParam) unique() {}
 func (usuarioWithPrismaSesionesPonenteEqualsUniqueParam) equals() {}
+
+type UsuarioWithPrismaConversacionesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	conversacionesField()
+}
+
+type UsuarioWithPrismaConversacionesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	conversacionesField()
+}
+
+type usuarioWithPrismaConversacionesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaConversacionesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaConversacionesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaConversacionesSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaConversacionesSetParam) conversacionesField() {}
+
+type UsuarioWithPrismaConversacionesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	conversacionesField()
+}
+
+type usuarioWithPrismaConversacionesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaConversacionesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaConversacionesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaConversacionesEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaConversacionesEqualsParam) conversacionesField() {}
+
+func (usuarioWithPrismaConversacionesSetParam) settable()  {}
+func (usuarioWithPrismaConversacionesEqualsParam) equals() {}
+
+type usuarioWithPrismaConversacionesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaConversacionesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaConversacionesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaConversacionesEqualsUniqueParam) usuarioModel()        {}
+func (p usuarioWithPrismaConversacionesEqualsUniqueParam) conversacionesField() {}
+
+func (usuarioWithPrismaConversacionesEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaConversacionesEqualsUniqueParam) equals() {}
+
+type UsuarioWithPrismaMensajesEnviadosEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	usuarioModel()
+	mensajesEnviadosField()
+}
+
+type UsuarioWithPrismaMensajesEnviadosSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	mensajesEnviadosField()
+}
+
+type usuarioWithPrismaMensajesEnviadosSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaMensajesEnviadosSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaMensajesEnviadosSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaMensajesEnviadosSetParam) usuarioModel() {}
+
+func (p usuarioWithPrismaMensajesEnviadosSetParam) mensajesEnviadosField() {}
+
+type UsuarioWithPrismaMensajesEnviadosWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	usuarioModel()
+	mensajesEnviadosField()
+}
+
+type usuarioWithPrismaMensajesEnviadosEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaMensajesEnviadosEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaMensajesEnviadosEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaMensajesEnviadosEqualsParam) usuarioModel() {}
+
+func (p usuarioWithPrismaMensajesEnviadosEqualsParam) mensajesEnviadosField() {}
+
+func (usuarioWithPrismaMensajesEnviadosSetParam) settable()  {}
+func (usuarioWithPrismaMensajesEnviadosEqualsParam) equals() {}
+
+type usuarioWithPrismaMensajesEnviadosEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p usuarioWithPrismaMensajesEnviadosEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p usuarioWithPrismaMensajesEnviadosEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p usuarioWithPrismaMensajesEnviadosEqualsUniqueParam) usuarioModel()          {}
+func (p usuarioWithPrismaMensajesEnviadosEqualsUniqueParam) mensajesEnviadosField() {}
+
+func (usuarioWithPrismaMensajesEnviadosEqualsUniqueParam) unique() {}
+func (usuarioWithPrismaMensajesEnviadosEqualsUniqueParam) equals() {}
 
 type UsuarioWithPrismaUsuarioRolesEqualsSetParam interface {
 	field() builder.Field
@@ -43740,6 +53398,734 @@ func (p passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) usuarioField() 
 
 func (passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) unique() {}
 func (passwordRecoveryTokenWithPrismaUsuarioEqualsUniqueParam) equals() {}
+
+type registrationTemporaryKeyActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var registrationTemporaryKeyOutput = []builder.Output{
+	{Name: "id"},
+	{Name: "name"},
+	{Name: "email"},
+	{Name: "tokenHash"},
+	{Name: "expiresAt"},
+	{Name: "usedAt"},
+	{Name: "createdAt"},
+}
+
+type RegistrationTemporaryKeyRelationWith interface {
+	getQuery() builder.Query
+	with()
+	registrationTemporaryKeyRelation()
+}
+
+type RegistrationTemporaryKeyWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+}
+
+type registrationTemporaryKeyDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyDefaultParam) registrationTemporaryKeyModel() {}
+
+type RegistrationTemporaryKeyOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+}
+
+type registrationTemporaryKeyOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyOrderByParam) registrationTemporaryKeyModel() {}
+
+type RegistrationTemporaryKeyCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	isCursor()
+}
+
+type registrationTemporaryKeyCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyCursorParam) isCursor() {}
+
+func (p registrationTemporaryKeyCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyCursorParam) registrationTemporaryKeyModel() {}
+
+type RegistrationTemporaryKeyParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	registrationTemporaryKeyModel()
+}
+
+type registrationTemporaryKeyParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyParamUnique) registrationTemporaryKeyModel() {}
+
+func (registrationTemporaryKeyParamUnique) unique() {}
+
+func (p registrationTemporaryKeyParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type RegistrationTemporaryKeyEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	registrationTemporaryKeyModel()
+}
+
+type registrationTemporaryKeyEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyEqualsParam) registrationTemporaryKeyModel() {}
+
+func (registrationTemporaryKeyEqualsParam) equals() {}
+
+func (p registrationTemporaryKeyEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type RegistrationTemporaryKeyEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	registrationTemporaryKeyModel()
+}
+
+type registrationTemporaryKeyEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyEqualsUniqueParam) registrationTemporaryKeyModel() {}
+
+func (registrationTemporaryKeyEqualsUniqueParam) unique() {}
+func (registrationTemporaryKeyEqualsUniqueParam) equals() {}
+
+func (p registrationTemporaryKeyEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type RegistrationTemporaryKeySetParam interface {
+	field() builder.Field
+	settable()
+	registrationTemporaryKeyModel()
+}
+
+type registrationTemporaryKeySetParam struct {
+	data builder.Field
+}
+
+func (registrationTemporaryKeySetParam) settable() {}
+
+func (p registrationTemporaryKeySetParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeySetParam) registrationTemporaryKeyModel() {}
+
+type RegistrationTemporaryKeyWithPrismaIDEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	registrationTemporaryKeyModel()
+	idField()
+}
+
+type RegistrationTemporaryKeyWithPrismaIDSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	idField()
+}
+
+type registrationTemporaryKeyWithPrismaIDSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaIDSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaIDSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaIDSetParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaIDSetParam) idField() {}
+
+type RegistrationTemporaryKeyWithPrismaIDWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	idField()
+}
+
+type registrationTemporaryKeyWithPrismaIDEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaIDEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaIDEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaIDEqualsParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaIDEqualsParam) idField() {}
+
+func (registrationTemporaryKeyWithPrismaIDSetParam) settable()  {}
+func (registrationTemporaryKeyWithPrismaIDEqualsParam) equals() {}
+
+type registrationTemporaryKeyWithPrismaIDEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaIDEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaIDEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaIDEqualsUniqueParam) registrationTemporaryKeyModel() {}
+func (p registrationTemporaryKeyWithPrismaIDEqualsUniqueParam) idField()                       {}
+
+func (registrationTemporaryKeyWithPrismaIDEqualsUniqueParam) unique() {}
+func (registrationTemporaryKeyWithPrismaIDEqualsUniqueParam) equals() {}
+
+type RegistrationTemporaryKeyWithPrismaNameEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	registrationTemporaryKeyModel()
+	nameField()
+}
+
+type RegistrationTemporaryKeyWithPrismaNameSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	nameField()
+}
+
+type registrationTemporaryKeyWithPrismaNameSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaNameSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaNameSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaNameSetParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaNameSetParam) nameField() {}
+
+type RegistrationTemporaryKeyWithPrismaNameWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	nameField()
+}
+
+type registrationTemporaryKeyWithPrismaNameEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaNameEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaNameEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaNameEqualsParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaNameEqualsParam) nameField() {}
+
+func (registrationTemporaryKeyWithPrismaNameSetParam) settable()  {}
+func (registrationTemporaryKeyWithPrismaNameEqualsParam) equals() {}
+
+type registrationTemporaryKeyWithPrismaNameEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaNameEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaNameEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaNameEqualsUniqueParam) registrationTemporaryKeyModel() {}
+func (p registrationTemporaryKeyWithPrismaNameEqualsUniqueParam) nameField()                     {}
+
+func (registrationTemporaryKeyWithPrismaNameEqualsUniqueParam) unique() {}
+func (registrationTemporaryKeyWithPrismaNameEqualsUniqueParam) equals() {}
+
+type RegistrationTemporaryKeyWithPrismaEmailEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	registrationTemporaryKeyModel()
+	emailField()
+}
+
+type RegistrationTemporaryKeyWithPrismaEmailSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	emailField()
+}
+
+type registrationTemporaryKeyWithPrismaEmailSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailSetParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaEmailSetParam) emailField() {}
+
+type RegistrationTemporaryKeyWithPrismaEmailWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	emailField()
+}
+
+type registrationTemporaryKeyWithPrismaEmailEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailEqualsParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaEmailEqualsParam) emailField() {}
+
+func (registrationTemporaryKeyWithPrismaEmailSetParam) settable()  {}
+func (registrationTemporaryKeyWithPrismaEmailEqualsParam) equals() {}
+
+type registrationTemporaryKeyWithPrismaEmailEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaEmailEqualsUniqueParam) registrationTemporaryKeyModel() {}
+func (p registrationTemporaryKeyWithPrismaEmailEqualsUniqueParam) emailField()                    {}
+
+func (registrationTemporaryKeyWithPrismaEmailEqualsUniqueParam) unique() {}
+func (registrationTemporaryKeyWithPrismaEmailEqualsUniqueParam) equals() {}
+
+type RegistrationTemporaryKeyWithPrismaTokenHashEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	registrationTemporaryKeyModel()
+	tokenHashField()
+}
+
+type RegistrationTemporaryKeyWithPrismaTokenHashSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	tokenHashField()
+}
+
+type registrationTemporaryKeyWithPrismaTokenHashSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashSetParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashSetParam) tokenHashField() {}
+
+type RegistrationTemporaryKeyWithPrismaTokenHashWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	tokenHashField()
+}
+
+type registrationTemporaryKeyWithPrismaTokenHashEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashEqualsParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashEqualsParam) tokenHashField() {}
+
+func (registrationTemporaryKeyWithPrismaTokenHashSetParam) settable()  {}
+func (registrationTemporaryKeyWithPrismaTokenHashEqualsParam) equals() {}
+
+type registrationTemporaryKeyWithPrismaTokenHashEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaTokenHashEqualsUniqueParam) registrationTemporaryKeyModel() {
+}
+func (p registrationTemporaryKeyWithPrismaTokenHashEqualsUniqueParam) tokenHashField() {}
+
+func (registrationTemporaryKeyWithPrismaTokenHashEqualsUniqueParam) unique() {}
+func (registrationTemporaryKeyWithPrismaTokenHashEqualsUniqueParam) equals() {}
+
+type RegistrationTemporaryKeyWithPrismaExpiresAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	registrationTemporaryKeyModel()
+	expiresAtField()
+}
+
+type RegistrationTemporaryKeyWithPrismaExpiresAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	expiresAtField()
+}
+
+type registrationTemporaryKeyWithPrismaExpiresAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtSetParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtSetParam) expiresAtField() {}
+
+type RegistrationTemporaryKeyWithPrismaExpiresAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	expiresAtField()
+}
+
+type registrationTemporaryKeyWithPrismaExpiresAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtEqualsParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtEqualsParam) expiresAtField() {}
+
+func (registrationTemporaryKeyWithPrismaExpiresAtSetParam) settable()  {}
+func (registrationTemporaryKeyWithPrismaExpiresAtEqualsParam) equals() {}
+
+type registrationTemporaryKeyWithPrismaExpiresAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaExpiresAtEqualsUniqueParam) registrationTemporaryKeyModel() {
+}
+func (p registrationTemporaryKeyWithPrismaExpiresAtEqualsUniqueParam) expiresAtField() {}
+
+func (registrationTemporaryKeyWithPrismaExpiresAtEqualsUniqueParam) unique() {}
+func (registrationTemporaryKeyWithPrismaExpiresAtEqualsUniqueParam) equals() {}
+
+type RegistrationTemporaryKeyWithPrismaUsedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	registrationTemporaryKeyModel()
+	usedAtField()
+}
+
+type RegistrationTemporaryKeyWithPrismaUsedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	usedAtField()
+}
+
+type registrationTemporaryKeyWithPrismaUsedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtSetParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtSetParam) usedAtField() {}
+
+type RegistrationTemporaryKeyWithPrismaUsedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	usedAtField()
+}
+
+type registrationTemporaryKeyWithPrismaUsedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtEqualsParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtEqualsParam) usedAtField() {}
+
+func (registrationTemporaryKeyWithPrismaUsedAtSetParam) settable()  {}
+func (registrationTemporaryKeyWithPrismaUsedAtEqualsParam) equals() {}
+
+type registrationTemporaryKeyWithPrismaUsedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaUsedAtEqualsUniqueParam) registrationTemporaryKeyModel() {}
+func (p registrationTemporaryKeyWithPrismaUsedAtEqualsUniqueParam) usedAtField()                   {}
+
+func (registrationTemporaryKeyWithPrismaUsedAtEqualsUniqueParam) unique() {}
+func (registrationTemporaryKeyWithPrismaUsedAtEqualsUniqueParam) equals() {}
+
+type RegistrationTemporaryKeyWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	registrationTemporaryKeyModel()
+	createdAtField()
+}
+
+type RegistrationTemporaryKeyWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	createdAtField()
+}
+
+type registrationTemporaryKeyWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtSetParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type RegistrationTemporaryKeyWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	registrationTemporaryKeyModel()
+	createdAtField()
+}
+
+type registrationTemporaryKeyWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtEqualsParam) registrationTemporaryKeyModel() {}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (registrationTemporaryKeyWithPrismaCreatedAtSetParam) settable()  {}
+func (registrationTemporaryKeyWithPrismaCreatedAtEqualsParam) equals() {}
+
+type registrationTemporaryKeyWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyWithPrismaCreatedAtEqualsUniqueParam) registrationTemporaryKeyModel() {
+}
+func (p registrationTemporaryKeyWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
+
+func (registrationTemporaryKeyWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (registrationTemporaryKeyWithPrismaCreatedAtEqualsUniqueParam) equals() {}
 
 type rolesActions struct {
 	// client holds the prisma client
@@ -55148,6 +65534,2100 @@ func (p sesionPonenteWithPrismaUsuarioEqualsUniqueParam) usuarioField()       {}
 func (sesionPonenteWithPrismaUsuarioEqualsUniqueParam) unique() {}
 func (sesionPonenteWithPrismaUsuarioEqualsUniqueParam) equals() {}
 
+type conversacionActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var conversacionOutput = []builder.Output{
+	{Name: "id_conversacion"},
+	{Name: "asunto"},
+	{Name: "createdAt"},
+	{Name: "updatedAt"},
+}
+
+type ConversacionRelationWith interface {
+	getQuery() builder.Query
+	with()
+	conversacionRelation()
+}
+
+type ConversacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+}
+
+type conversacionDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionDefaultParam) conversacionModel() {}
+
+type ConversacionOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+}
+
+type conversacionOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionOrderByParam) conversacionModel() {}
+
+type ConversacionCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	isCursor()
+}
+
+type conversacionCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionCursorParam) isCursor() {}
+
+func (p conversacionCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionCursorParam) conversacionModel() {}
+
+type ConversacionParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	conversacionModel()
+}
+
+type conversacionParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParamUnique) conversacionModel() {}
+
+func (conversacionParamUnique) unique() {}
+
+func (p conversacionParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type ConversacionEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionModel()
+}
+
+type conversacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionEqualsParam) conversacionModel() {}
+
+func (conversacionEqualsParam) equals() {}
+
+func (p conversacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type ConversacionEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	conversacionModel()
+}
+
+type conversacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionEqualsUniqueParam) conversacionModel() {}
+
+func (conversacionEqualsUniqueParam) unique() {}
+func (conversacionEqualsUniqueParam) equals() {}
+
+func (p conversacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type ConversacionSetParam interface {
+	field() builder.Field
+	settable()
+	conversacionModel()
+}
+
+type conversacionSetParam struct {
+	data builder.Field
+}
+
+func (conversacionSetParam) settable() {}
+
+func (p conversacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionSetParam) conversacionModel() {}
+
+type ConversacionWithPrismaIDConversacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionModel()
+	idConversacionField()
+}
+
+type ConversacionWithPrismaIDConversacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	idConversacionField()
+}
+
+type conversacionWithPrismaIDConversacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaIDConversacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaIDConversacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaIDConversacionSetParam) conversacionModel() {}
+
+func (p conversacionWithPrismaIDConversacionSetParam) idConversacionField() {}
+
+type ConversacionWithPrismaIDConversacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	idConversacionField()
+}
+
+type conversacionWithPrismaIDConversacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaIDConversacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaIDConversacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaIDConversacionEqualsParam) conversacionModel() {}
+
+func (p conversacionWithPrismaIDConversacionEqualsParam) idConversacionField() {}
+
+func (conversacionWithPrismaIDConversacionSetParam) settable()  {}
+func (conversacionWithPrismaIDConversacionEqualsParam) equals() {}
+
+type conversacionWithPrismaIDConversacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaIDConversacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaIDConversacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaIDConversacionEqualsUniqueParam) conversacionModel()   {}
+func (p conversacionWithPrismaIDConversacionEqualsUniqueParam) idConversacionField() {}
+
+func (conversacionWithPrismaIDConversacionEqualsUniqueParam) unique() {}
+func (conversacionWithPrismaIDConversacionEqualsUniqueParam) equals() {}
+
+type ConversacionWithPrismaAsuntoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionModel()
+	asuntoField()
+}
+
+type ConversacionWithPrismaAsuntoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	asuntoField()
+}
+
+type conversacionWithPrismaAsuntoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaAsuntoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaAsuntoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaAsuntoSetParam) conversacionModel() {}
+
+func (p conversacionWithPrismaAsuntoSetParam) asuntoField() {}
+
+type ConversacionWithPrismaAsuntoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	asuntoField()
+}
+
+type conversacionWithPrismaAsuntoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaAsuntoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaAsuntoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaAsuntoEqualsParam) conversacionModel() {}
+
+func (p conversacionWithPrismaAsuntoEqualsParam) asuntoField() {}
+
+func (conversacionWithPrismaAsuntoSetParam) settable()  {}
+func (conversacionWithPrismaAsuntoEqualsParam) equals() {}
+
+type conversacionWithPrismaAsuntoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaAsuntoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaAsuntoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaAsuntoEqualsUniqueParam) conversacionModel() {}
+func (p conversacionWithPrismaAsuntoEqualsUniqueParam) asuntoField()       {}
+
+func (conversacionWithPrismaAsuntoEqualsUniqueParam) unique() {}
+func (conversacionWithPrismaAsuntoEqualsUniqueParam) equals() {}
+
+type ConversacionWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionModel()
+	createdAtField()
+}
+
+type ConversacionWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	createdAtField()
+}
+
+type conversacionWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaCreatedAtSetParam) conversacionModel() {}
+
+func (p conversacionWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type ConversacionWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	createdAtField()
+}
+
+type conversacionWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaCreatedAtEqualsParam) conversacionModel() {}
+
+func (p conversacionWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (conversacionWithPrismaCreatedAtSetParam) settable()  {}
+func (conversacionWithPrismaCreatedAtEqualsParam) equals() {}
+
+type conversacionWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaCreatedAtEqualsUniqueParam) conversacionModel() {}
+func (p conversacionWithPrismaCreatedAtEqualsUniqueParam) createdAtField()    {}
+
+func (conversacionWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (conversacionWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type ConversacionWithPrismaUpdatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionModel()
+	updatedAtField()
+}
+
+type ConversacionWithPrismaUpdatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	updatedAtField()
+}
+
+type conversacionWithPrismaUpdatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaUpdatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaUpdatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaUpdatedAtSetParam) conversacionModel() {}
+
+func (p conversacionWithPrismaUpdatedAtSetParam) updatedAtField() {}
+
+type ConversacionWithPrismaUpdatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	updatedAtField()
+}
+
+type conversacionWithPrismaUpdatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaUpdatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaUpdatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaUpdatedAtEqualsParam) conversacionModel() {}
+
+func (p conversacionWithPrismaUpdatedAtEqualsParam) updatedAtField() {}
+
+func (conversacionWithPrismaUpdatedAtSetParam) settable()  {}
+func (conversacionWithPrismaUpdatedAtEqualsParam) equals() {}
+
+type conversacionWithPrismaUpdatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaUpdatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaUpdatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaUpdatedAtEqualsUniqueParam) conversacionModel() {}
+func (p conversacionWithPrismaUpdatedAtEqualsUniqueParam) updatedAtField()    {}
+
+func (conversacionWithPrismaUpdatedAtEqualsUniqueParam) unique() {}
+func (conversacionWithPrismaUpdatedAtEqualsUniqueParam) equals() {}
+
+type ConversacionWithPrismaMensajesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionModel()
+	mensajesField()
+}
+
+type ConversacionWithPrismaMensajesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	mensajesField()
+}
+
+type conversacionWithPrismaMensajesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaMensajesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaMensajesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaMensajesSetParam) conversacionModel() {}
+
+func (p conversacionWithPrismaMensajesSetParam) mensajesField() {}
+
+type ConversacionWithPrismaMensajesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	mensajesField()
+}
+
+type conversacionWithPrismaMensajesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaMensajesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaMensajesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaMensajesEqualsParam) conversacionModel() {}
+
+func (p conversacionWithPrismaMensajesEqualsParam) mensajesField() {}
+
+func (conversacionWithPrismaMensajesSetParam) settable()  {}
+func (conversacionWithPrismaMensajesEqualsParam) equals() {}
+
+type conversacionWithPrismaMensajesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaMensajesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaMensajesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaMensajesEqualsUniqueParam) conversacionModel() {}
+func (p conversacionWithPrismaMensajesEqualsUniqueParam) mensajesField()     {}
+
+func (conversacionWithPrismaMensajesEqualsUniqueParam) unique() {}
+func (conversacionWithPrismaMensajesEqualsUniqueParam) equals() {}
+
+type ConversacionWithPrismaParticipantesEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionModel()
+	participantesField()
+}
+
+type ConversacionWithPrismaParticipantesSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	participantesField()
+}
+
+type conversacionWithPrismaParticipantesSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaParticipantesSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaParticipantesSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaParticipantesSetParam) conversacionModel() {}
+
+func (p conversacionWithPrismaParticipantesSetParam) participantesField() {}
+
+type ConversacionWithPrismaParticipantesWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionModel()
+	participantesField()
+}
+
+type conversacionWithPrismaParticipantesEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaParticipantesEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaParticipantesEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaParticipantesEqualsParam) conversacionModel() {}
+
+func (p conversacionWithPrismaParticipantesEqualsParam) participantesField() {}
+
+func (conversacionWithPrismaParticipantesSetParam) settable()  {}
+func (conversacionWithPrismaParticipantesEqualsParam) equals() {}
+
+type conversacionWithPrismaParticipantesEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionWithPrismaParticipantesEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionWithPrismaParticipantesEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionWithPrismaParticipantesEqualsUniqueParam) conversacionModel()  {}
+func (p conversacionWithPrismaParticipantesEqualsUniqueParam) participantesField() {}
+
+func (conversacionWithPrismaParticipantesEqualsUniqueParam) unique() {}
+func (conversacionWithPrismaParticipantesEqualsUniqueParam) equals() {}
+
+type conversacionParticipanteActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var conversacionParticipanteOutput = []builder.Output{
+	{Name: "id_conversacion"},
+	{Name: "id_usuario"},
+	{Name: "unido_en"},
+}
+
+type ConversacionParticipanteRelationWith interface {
+	getQuery() builder.Query
+	with()
+	conversacionParticipanteRelation()
+}
+
+type ConversacionParticipanteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+}
+
+type conversacionParticipanteDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteDefaultParam) conversacionParticipanteModel() {}
+
+type ConversacionParticipanteOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+}
+
+type conversacionParticipanteOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteOrderByParam) conversacionParticipanteModel() {}
+
+type ConversacionParticipanteCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	isCursor()
+}
+
+type conversacionParticipanteCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteCursorParam) isCursor() {}
+
+func (p conversacionParticipanteCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteCursorParam) conversacionParticipanteModel() {}
+
+type ConversacionParticipanteParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	conversacionParticipanteModel()
+}
+
+type conversacionParticipanteParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteParamUnique) conversacionParticipanteModel() {}
+
+func (conversacionParticipanteParamUnique) unique() {}
+
+func (p conversacionParticipanteParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type ConversacionParticipanteEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionParticipanteModel()
+}
+
+type conversacionParticipanteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteEqualsParam) conversacionParticipanteModel() {}
+
+func (conversacionParticipanteEqualsParam) equals() {}
+
+func (p conversacionParticipanteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type ConversacionParticipanteEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	conversacionParticipanteModel()
+}
+
+type conversacionParticipanteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteEqualsUniqueParam) conversacionParticipanteModel() {}
+
+func (conversacionParticipanteEqualsUniqueParam) unique() {}
+func (conversacionParticipanteEqualsUniqueParam) equals() {}
+
+func (p conversacionParticipanteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type ConversacionParticipanteSetParam interface {
+	field() builder.Field
+	settable()
+	conversacionParticipanteModel()
+}
+
+type conversacionParticipanteSetParam struct {
+	data builder.Field
+}
+
+func (conversacionParticipanteSetParam) settable() {}
+
+func (p conversacionParticipanteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteSetParam) conversacionParticipanteModel() {}
+
+type ConversacionParticipanteWithPrismaIDConversacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionParticipanteModel()
+	idConversacionField()
+}
+
+type ConversacionParticipanteWithPrismaIDConversacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	idConversacionField()
+}
+
+type conversacionParticipanteWithPrismaIDConversacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionSetParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaIDConversacionSetParam) idConversacionField() {}
+
+type ConversacionParticipanteWithPrismaIDConversacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	idConversacionField()
+}
+
+type conversacionParticipanteWithPrismaIDConversacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionEqualsParam) conversacionParticipanteModel() {
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionEqualsParam) idConversacionField() {}
+
+func (conversacionParticipanteWithPrismaIDConversacionSetParam) settable()  {}
+func (conversacionParticipanteWithPrismaIDConversacionEqualsParam) equals() {}
+
+type conversacionParticipanteWithPrismaIDConversacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaIDConversacionEqualsUniqueParam) conversacionParticipanteModel() {
+}
+func (p conversacionParticipanteWithPrismaIDConversacionEqualsUniqueParam) idConversacionField() {}
+
+func (conversacionParticipanteWithPrismaIDConversacionEqualsUniqueParam) unique() {}
+func (conversacionParticipanteWithPrismaIDConversacionEqualsUniqueParam) equals() {}
+
+type ConversacionParticipanteWithPrismaIDUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionParticipanteModel()
+	idUsuarioField()
+}
+
+type ConversacionParticipanteWithPrismaIDUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	idUsuarioField()
+}
+
+type conversacionParticipanteWithPrismaIDUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioSetParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioSetParam) idUsuarioField() {}
+
+type ConversacionParticipanteWithPrismaIDUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	idUsuarioField()
+}
+
+type conversacionParticipanteWithPrismaIDUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioEqualsParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioEqualsParam) idUsuarioField() {}
+
+func (conversacionParticipanteWithPrismaIDUsuarioSetParam) settable()  {}
+func (conversacionParticipanteWithPrismaIDUsuarioEqualsParam) equals() {}
+
+type conversacionParticipanteWithPrismaIDUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaIDUsuarioEqualsUniqueParam) conversacionParticipanteModel() {
+}
+func (p conversacionParticipanteWithPrismaIDUsuarioEqualsUniqueParam) idUsuarioField() {}
+
+func (conversacionParticipanteWithPrismaIDUsuarioEqualsUniqueParam) unique() {}
+func (conversacionParticipanteWithPrismaIDUsuarioEqualsUniqueParam) equals() {}
+
+type ConversacionParticipanteWithPrismaUnidoEnEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionParticipanteModel()
+	unidoEnField()
+}
+
+type ConversacionParticipanteWithPrismaUnidoEnSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	unidoEnField()
+}
+
+type conversacionParticipanteWithPrismaUnidoEnSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnSetParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaUnidoEnSetParam) unidoEnField() {}
+
+type ConversacionParticipanteWithPrismaUnidoEnWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	unidoEnField()
+}
+
+type conversacionParticipanteWithPrismaUnidoEnEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnEqualsParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaUnidoEnEqualsParam) unidoEnField() {}
+
+func (conversacionParticipanteWithPrismaUnidoEnSetParam) settable()  {}
+func (conversacionParticipanteWithPrismaUnidoEnEqualsParam) equals() {}
+
+type conversacionParticipanteWithPrismaUnidoEnEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaUnidoEnEqualsUniqueParam) conversacionParticipanteModel() {}
+func (p conversacionParticipanteWithPrismaUnidoEnEqualsUniqueParam) unidoEnField()                  {}
+
+func (conversacionParticipanteWithPrismaUnidoEnEqualsUniqueParam) unique() {}
+func (conversacionParticipanteWithPrismaUnidoEnEqualsUniqueParam) equals() {}
+
+type ConversacionParticipanteWithPrismaConversacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionParticipanteModel()
+	conversacionField()
+}
+
+type ConversacionParticipanteWithPrismaConversacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	conversacionField()
+}
+
+type conversacionParticipanteWithPrismaConversacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaConversacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaConversacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaConversacionSetParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaConversacionSetParam) conversacionField() {}
+
+type ConversacionParticipanteWithPrismaConversacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	conversacionField()
+}
+
+type conversacionParticipanteWithPrismaConversacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaConversacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaConversacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaConversacionEqualsParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaConversacionEqualsParam) conversacionField() {}
+
+func (conversacionParticipanteWithPrismaConversacionSetParam) settable()  {}
+func (conversacionParticipanteWithPrismaConversacionEqualsParam) equals() {}
+
+type conversacionParticipanteWithPrismaConversacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaConversacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaConversacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaConversacionEqualsUniqueParam) conversacionParticipanteModel() {
+}
+func (p conversacionParticipanteWithPrismaConversacionEqualsUniqueParam) conversacionField() {}
+
+func (conversacionParticipanteWithPrismaConversacionEqualsUniqueParam) unique() {}
+func (conversacionParticipanteWithPrismaConversacionEqualsUniqueParam) equals() {}
+
+type ConversacionParticipanteWithPrismaUsuarioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	conversacionParticipanteModel()
+	usuarioField()
+}
+
+type ConversacionParticipanteWithPrismaUsuarioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	usuarioField()
+}
+
+type conversacionParticipanteWithPrismaUsuarioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioSetParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaUsuarioSetParam) usuarioField() {}
+
+type ConversacionParticipanteWithPrismaUsuarioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	conversacionParticipanteModel()
+	usuarioField()
+}
+
+type conversacionParticipanteWithPrismaUsuarioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioEqualsParam) conversacionParticipanteModel() {}
+
+func (p conversacionParticipanteWithPrismaUsuarioEqualsParam) usuarioField() {}
+
+func (conversacionParticipanteWithPrismaUsuarioSetParam) settable()  {}
+func (conversacionParticipanteWithPrismaUsuarioEqualsParam) equals() {}
+
+type conversacionParticipanteWithPrismaUsuarioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteWithPrismaUsuarioEqualsUniqueParam) conversacionParticipanteModel() {}
+func (p conversacionParticipanteWithPrismaUsuarioEqualsUniqueParam) usuarioField()                  {}
+
+func (conversacionParticipanteWithPrismaUsuarioEqualsUniqueParam) unique() {}
+func (conversacionParticipanteWithPrismaUsuarioEqualsUniqueParam) equals() {}
+
+type mensajeActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var mensajeOutput = []builder.Output{
+	{Name: "id_mensaje"},
+	{Name: "id_conversacion"},
+	{Name: "id_remitente"},
+	{Name: "cuerpo"},
+	{Name: "adjunto_url"},
+	{Name: "adjunto_nombre"},
+	{Name: "createdAt"},
+}
+
+type MensajeRelationWith interface {
+	getQuery() builder.Query
+	with()
+	mensajeRelation()
+}
+
+type MensajeWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+}
+
+type mensajeDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeDefaultParam) mensajeModel() {}
+
+type MensajeOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+}
+
+type mensajeOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeOrderByParam) mensajeModel() {}
+
+type MensajeCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	isCursor()
+}
+
+type mensajeCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeCursorParam) isCursor() {}
+
+func (p mensajeCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeCursorParam) mensajeModel() {}
+
+type MensajeParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	mensajeModel()
+}
+
+type mensajeParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeParamUnique) mensajeModel() {}
+
+func (mensajeParamUnique) unique() {}
+
+func (p mensajeParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type MensajeEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+}
+
+type mensajeEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeEqualsParam) mensajeModel() {}
+
+func (mensajeEqualsParam) equals() {}
+
+func (p mensajeEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type MensajeEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	mensajeModel()
+}
+
+type mensajeEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeEqualsUniqueParam) mensajeModel() {}
+
+func (mensajeEqualsUniqueParam) unique() {}
+func (mensajeEqualsUniqueParam) equals() {}
+
+func (p mensajeEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type MensajeSetParam interface {
+	field() builder.Field
+	settable()
+	mensajeModel()
+}
+
+type mensajeSetParam struct {
+	data builder.Field
+}
+
+func (mensajeSetParam) settable() {}
+
+func (p mensajeSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeSetParam) mensajeModel() {}
+
+type MensajeWithPrismaIDMensajeEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	idMensajeField()
+}
+
+type MensajeWithPrismaIDMensajeSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	idMensajeField()
+}
+
+type mensajeWithPrismaIDMensajeSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDMensajeSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDMensajeSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDMensajeSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaIDMensajeSetParam) idMensajeField() {}
+
+type MensajeWithPrismaIDMensajeWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	idMensajeField()
+}
+
+type mensajeWithPrismaIDMensajeEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDMensajeEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDMensajeEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDMensajeEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaIDMensajeEqualsParam) idMensajeField() {}
+
+func (mensajeWithPrismaIDMensajeSetParam) settable()  {}
+func (mensajeWithPrismaIDMensajeEqualsParam) equals() {}
+
+type mensajeWithPrismaIDMensajeEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDMensajeEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDMensajeEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDMensajeEqualsUniqueParam) mensajeModel()   {}
+func (p mensajeWithPrismaIDMensajeEqualsUniqueParam) idMensajeField() {}
+
+func (mensajeWithPrismaIDMensajeEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaIDMensajeEqualsUniqueParam) equals() {}
+
+type MensajeWithPrismaIDConversacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	idConversacionField()
+}
+
+type MensajeWithPrismaIDConversacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	idConversacionField()
+}
+
+type mensajeWithPrismaIDConversacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDConversacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDConversacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDConversacionSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaIDConversacionSetParam) idConversacionField() {}
+
+type MensajeWithPrismaIDConversacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	idConversacionField()
+}
+
+type mensajeWithPrismaIDConversacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDConversacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDConversacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDConversacionEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaIDConversacionEqualsParam) idConversacionField() {}
+
+func (mensajeWithPrismaIDConversacionSetParam) settable()  {}
+func (mensajeWithPrismaIDConversacionEqualsParam) equals() {}
+
+type mensajeWithPrismaIDConversacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDConversacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDConversacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDConversacionEqualsUniqueParam) mensajeModel()        {}
+func (p mensajeWithPrismaIDConversacionEqualsUniqueParam) idConversacionField() {}
+
+func (mensajeWithPrismaIDConversacionEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaIDConversacionEqualsUniqueParam) equals() {}
+
+type MensajeWithPrismaIDRemitenteEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	idRemitenteField()
+}
+
+type MensajeWithPrismaIDRemitenteSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	idRemitenteField()
+}
+
+type mensajeWithPrismaIDRemitenteSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDRemitenteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDRemitenteSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDRemitenteSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaIDRemitenteSetParam) idRemitenteField() {}
+
+type MensajeWithPrismaIDRemitenteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	idRemitenteField()
+}
+
+type mensajeWithPrismaIDRemitenteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDRemitenteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDRemitenteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDRemitenteEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaIDRemitenteEqualsParam) idRemitenteField() {}
+
+func (mensajeWithPrismaIDRemitenteSetParam) settable()  {}
+func (mensajeWithPrismaIDRemitenteEqualsParam) equals() {}
+
+type mensajeWithPrismaIDRemitenteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaIDRemitenteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaIDRemitenteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaIDRemitenteEqualsUniqueParam) mensajeModel()     {}
+func (p mensajeWithPrismaIDRemitenteEqualsUniqueParam) idRemitenteField() {}
+
+func (mensajeWithPrismaIDRemitenteEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaIDRemitenteEqualsUniqueParam) equals() {}
+
+type MensajeWithPrismaCuerpoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	cuerpoField()
+}
+
+type MensajeWithPrismaCuerpoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	cuerpoField()
+}
+
+type mensajeWithPrismaCuerpoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaCuerpoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaCuerpoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaCuerpoSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaCuerpoSetParam) cuerpoField() {}
+
+type MensajeWithPrismaCuerpoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	cuerpoField()
+}
+
+type mensajeWithPrismaCuerpoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaCuerpoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaCuerpoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaCuerpoEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaCuerpoEqualsParam) cuerpoField() {}
+
+func (mensajeWithPrismaCuerpoSetParam) settable()  {}
+func (mensajeWithPrismaCuerpoEqualsParam) equals() {}
+
+type mensajeWithPrismaCuerpoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaCuerpoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaCuerpoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaCuerpoEqualsUniqueParam) mensajeModel() {}
+func (p mensajeWithPrismaCuerpoEqualsUniqueParam) cuerpoField()  {}
+
+func (mensajeWithPrismaCuerpoEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaCuerpoEqualsUniqueParam) equals() {}
+
+type MensajeWithPrismaAdjuntoURLEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	adjuntoURLField()
+}
+
+type MensajeWithPrismaAdjuntoURLSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	adjuntoURLField()
+}
+
+type mensajeWithPrismaAdjuntoURLSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaAdjuntoURLSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaAdjuntoURLSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaAdjuntoURLSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaAdjuntoURLSetParam) adjuntoURLField() {}
+
+type MensajeWithPrismaAdjuntoURLWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	adjuntoURLField()
+}
+
+type mensajeWithPrismaAdjuntoURLEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaAdjuntoURLEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaAdjuntoURLEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaAdjuntoURLEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaAdjuntoURLEqualsParam) adjuntoURLField() {}
+
+func (mensajeWithPrismaAdjuntoURLSetParam) settable()  {}
+func (mensajeWithPrismaAdjuntoURLEqualsParam) equals() {}
+
+type mensajeWithPrismaAdjuntoURLEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaAdjuntoURLEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaAdjuntoURLEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaAdjuntoURLEqualsUniqueParam) mensajeModel()    {}
+func (p mensajeWithPrismaAdjuntoURLEqualsUniqueParam) adjuntoURLField() {}
+
+func (mensajeWithPrismaAdjuntoURLEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaAdjuntoURLEqualsUniqueParam) equals() {}
+
+type MensajeWithPrismaAdjuntoNombreEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	adjuntoNombreField()
+}
+
+type MensajeWithPrismaAdjuntoNombreSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	adjuntoNombreField()
+}
+
+type mensajeWithPrismaAdjuntoNombreSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaAdjuntoNombreSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaAdjuntoNombreSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaAdjuntoNombreSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaAdjuntoNombreSetParam) adjuntoNombreField() {}
+
+type MensajeWithPrismaAdjuntoNombreWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	adjuntoNombreField()
+}
+
+type mensajeWithPrismaAdjuntoNombreEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaAdjuntoNombreEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaAdjuntoNombreEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaAdjuntoNombreEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaAdjuntoNombreEqualsParam) adjuntoNombreField() {}
+
+func (mensajeWithPrismaAdjuntoNombreSetParam) settable()  {}
+func (mensajeWithPrismaAdjuntoNombreEqualsParam) equals() {}
+
+type mensajeWithPrismaAdjuntoNombreEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaAdjuntoNombreEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaAdjuntoNombreEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaAdjuntoNombreEqualsUniqueParam) mensajeModel()       {}
+func (p mensajeWithPrismaAdjuntoNombreEqualsUniqueParam) adjuntoNombreField() {}
+
+func (mensajeWithPrismaAdjuntoNombreEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaAdjuntoNombreEqualsUniqueParam) equals() {}
+
+type MensajeWithPrismaCreatedAtEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	createdAtField()
+}
+
+type MensajeWithPrismaCreatedAtSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	createdAtField()
+}
+
+type mensajeWithPrismaCreatedAtSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaCreatedAtSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaCreatedAtSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaCreatedAtSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaCreatedAtSetParam) createdAtField() {}
+
+type MensajeWithPrismaCreatedAtWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	createdAtField()
+}
+
+type mensajeWithPrismaCreatedAtEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaCreatedAtEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaCreatedAtEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaCreatedAtEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaCreatedAtEqualsParam) createdAtField() {}
+
+func (mensajeWithPrismaCreatedAtSetParam) settable()  {}
+func (mensajeWithPrismaCreatedAtEqualsParam) equals() {}
+
+type mensajeWithPrismaCreatedAtEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaCreatedAtEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaCreatedAtEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaCreatedAtEqualsUniqueParam) mensajeModel()   {}
+func (p mensajeWithPrismaCreatedAtEqualsUniqueParam) createdAtField() {}
+
+func (mensajeWithPrismaCreatedAtEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaCreatedAtEqualsUniqueParam) equals() {}
+
+type MensajeWithPrismaConversacionEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	conversacionField()
+}
+
+type MensajeWithPrismaConversacionSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	conversacionField()
+}
+
+type mensajeWithPrismaConversacionSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaConversacionSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaConversacionSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaConversacionSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaConversacionSetParam) conversacionField() {}
+
+type MensajeWithPrismaConversacionWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	conversacionField()
+}
+
+type mensajeWithPrismaConversacionEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaConversacionEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaConversacionEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaConversacionEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaConversacionEqualsParam) conversacionField() {}
+
+func (mensajeWithPrismaConversacionSetParam) settable()  {}
+func (mensajeWithPrismaConversacionEqualsParam) equals() {}
+
+type mensajeWithPrismaConversacionEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaConversacionEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaConversacionEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaConversacionEqualsUniqueParam) mensajeModel()      {}
+func (p mensajeWithPrismaConversacionEqualsUniqueParam) conversacionField() {}
+
+func (mensajeWithPrismaConversacionEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaConversacionEqualsUniqueParam) equals() {}
+
+type MensajeWithPrismaRemitenteEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	mensajeModel()
+	remitenteField()
+}
+
+type MensajeWithPrismaRemitenteSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	remitenteField()
+}
+
+type mensajeWithPrismaRemitenteSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaRemitenteSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaRemitenteSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaRemitenteSetParam) mensajeModel() {}
+
+func (p mensajeWithPrismaRemitenteSetParam) remitenteField() {}
+
+type MensajeWithPrismaRemitenteWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	mensajeModel()
+	remitenteField()
+}
+
+type mensajeWithPrismaRemitenteEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaRemitenteEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaRemitenteEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaRemitenteEqualsParam) mensajeModel() {}
+
+func (p mensajeWithPrismaRemitenteEqualsParam) remitenteField() {}
+
+func (mensajeWithPrismaRemitenteSetParam) settable()  {}
+func (mensajeWithPrismaRemitenteEqualsParam) equals() {}
+
+type mensajeWithPrismaRemitenteEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p mensajeWithPrismaRemitenteEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p mensajeWithPrismaRemitenteEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeWithPrismaRemitenteEqualsUniqueParam) mensajeModel()   {}
+func (p mensajeWithPrismaRemitenteEqualsUniqueParam) remitenteField() {}
+
+func (mensajeWithPrismaRemitenteEqualsUniqueParam) unique() {}
+func (mensajeWithPrismaRemitenteEqualsUniqueParam) equals() {}
+
 // --- template create.gotpl ---
 
 // Creates a single usuario.
@@ -55289,6 +67769,80 @@ func (r passwordRecoveryTokenCreateOne) Exec(ctx context.Context) (*PasswordReco
 
 func (r passwordRecoveryTokenCreateOne) Tx() PasswordRecoveryTokenUniqueTxResult {
 	v := newPasswordRecoveryTokenUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single registrationTemporaryKey.
+func (r registrationTemporaryKeyActions) CreateOne(
+	_name RegistrationTemporaryKeyWithPrismaNameSetParam,
+	_email RegistrationTemporaryKeyWithPrismaEmailSetParam,
+	_tokenHash RegistrationTemporaryKeyWithPrismaTokenHashSetParam,
+	_expiresAt RegistrationTemporaryKeyWithPrismaExpiresAtSetParam,
+
+	optional ...RegistrationTemporaryKeySetParam,
+) registrationTemporaryKeyCreateOne {
+	var v registrationTemporaryKeyCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "RegistrationTemporaryKey"
+	v.query.Outputs = registrationTemporaryKeyOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _name.field())
+	fields = append(fields, _email.field())
+	fields = append(fields, _tokenHash.field())
+	fields = append(fields, _expiresAt.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r registrationTemporaryKeyCreateOne) With(params ...RegistrationTemporaryKeyRelationWith) registrationTemporaryKeyCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type registrationTemporaryKeyCreateOne struct {
+	query builder.Query
+}
+
+func (p registrationTemporaryKeyCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p registrationTemporaryKeyCreateOne) registrationTemporaryKeyModel() {}
+
+func (r registrationTemporaryKeyCreateOne) Exec(ctx context.Context) (*RegistrationTemporaryKeyModel, error) {
+	var v RegistrationTemporaryKeyModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r registrationTemporaryKeyCreateOne) Tx() RegistrationTemporaryKeyUniqueTxResult {
+	v := newRegistrationTemporaryKeyUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -56349,6 +68903,213 @@ func (r sesionPonenteCreateOne) Exec(ctx context.Context) (*SesionPonenteModel, 
 
 func (r sesionPonenteCreateOne) Tx() SesionPonenteUniqueTxResult {
 	v := newSesionPonenteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single conversacion.
+func (r conversacionActions) CreateOne(
+
+	optional ...ConversacionSetParam,
+) conversacionCreateOne {
+	var v conversacionCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "Conversacion"
+	v.query.Outputs = conversacionOutput
+
+	var fields []builder.Field
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r conversacionCreateOne) With(params ...ConversacionRelationWith) conversacionCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type conversacionCreateOne struct {
+	query builder.Query
+}
+
+func (p conversacionCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionCreateOne) conversacionModel() {}
+
+func (r conversacionCreateOne) Exec(ctx context.Context) (*ConversacionModel, error) {
+	var v ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionCreateOne) Tx() ConversacionUniqueTxResult {
+	v := newConversacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single conversacionParticipante.
+func (r conversacionParticipanteActions) CreateOne(
+	_conversacion ConversacionParticipanteWithPrismaConversacionSetParam,
+	_usuario ConversacionParticipanteWithPrismaUsuarioSetParam,
+
+	optional ...ConversacionParticipanteSetParam,
+) conversacionParticipanteCreateOne {
+	var v conversacionParticipanteCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "ConversacionParticipante"
+	v.query.Outputs = conversacionParticipanteOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _conversacion.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r conversacionParticipanteCreateOne) With(params ...ConversacionParticipanteRelationWith) conversacionParticipanteCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type conversacionParticipanteCreateOne struct {
+	query builder.Query
+}
+
+func (p conversacionParticipanteCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p conversacionParticipanteCreateOne) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteCreateOne) Exec(ctx context.Context) (*ConversacionParticipanteModel, error) {
+	var v ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteCreateOne) Tx() ConversacionParticipanteUniqueTxResult {
+	v := newConversacionParticipanteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single mensaje.
+func (r mensajeActions) CreateOne(
+	_cuerpo MensajeWithPrismaCuerpoSetParam,
+	_conversacion MensajeWithPrismaConversacionSetParam,
+	_remitente MensajeWithPrismaRemitenteSetParam,
+
+	optional ...MensajeSetParam,
+) mensajeCreateOne {
+	var v mensajeCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "Mensaje"
+	v.query.Outputs = mensajeOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _cuerpo.field())
+	fields = append(fields, _conversacion.field())
+	fields = append(fields, _remitente.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r mensajeCreateOne) With(params ...MensajeRelationWith) mensajeCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type mensajeCreateOne struct {
+	query builder.Query
+}
+
+func (p mensajeCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p mensajeCreateOne) mensajeModel() {}
+
+func (r mensajeCreateOne) Exec(ctx context.Context) (*MensajeModel, error) {
+	var v MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeCreateOne) Tx() MensajeUniqueTxResult {
+	v := newMensajeUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -58012,6 +70773,1114 @@ func (r usuarioToSesionesPonenteDeleteMany) Exec(ctx context.Context) (*BatchRes
 }
 
 func (r usuarioToSesionesPonenteDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToConversacionesFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToConversacionesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToConversacionesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToConversacionesFindUnique) with()            {}
+func (r usuarioToConversacionesFindUnique) usuarioModel()    {}
+func (r usuarioToConversacionesFindUnique) usuarioRelation() {}
+
+func (r usuarioToConversacionesFindUnique) With(params ...ConversacionParticipanteRelationWith) usuarioToConversacionesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToConversacionesFindUnique) Select(params ...usuarioPrismaFields) usuarioToConversacionesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToConversacionesFindUnique) Omit(params ...usuarioPrismaFields) usuarioToConversacionesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToConversacionesFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToConversacionesFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToConversacionesFindUnique) Update(params ...UsuarioSetParam) usuarioToConversacionesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToConversacionesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToConversacionesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToConversacionesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToConversacionesUpdateUnique) usuarioModel() {}
+
+func (r usuarioToConversacionesUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToConversacionesUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToConversacionesFindUnique) Delete() usuarioToConversacionesDeleteUnique {
+	var v usuarioToConversacionesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToConversacionesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToConversacionesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToConversacionesDeleteUnique) usuarioModel() {}
+
+func (r usuarioToConversacionesDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToConversacionesDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToConversacionesFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToConversacionesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToConversacionesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToConversacionesFindFirst) with()            {}
+func (r usuarioToConversacionesFindFirst) usuarioModel()    {}
+func (r usuarioToConversacionesFindFirst) usuarioRelation() {}
+
+func (r usuarioToConversacionesFindFirst) With(params ...ConversacionParticipanteRelationWith) usuarioToConversacionesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToConversacionesFindFirst) Select(params ...usuarioPrismaFields) usuarioToConversacionesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToConversacionesFindFirst) Omit(params ...usuarioPrismaFields) usuarioToConversacionesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToConversacionesFindFirst) OrderBy(params ...ConversacionParticipanteOrderByParam) usuarioToConversacionesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToConversacionesFindFirst) Skip(count int) usuarioToConversacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToConversacionesFindFirst) Take(count int) usuarioToConversacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToConversacionesFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToConversacionesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToConversacionesFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToConversacionesFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToConversacionesFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToConversacionesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToConversacionesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToConversacionesFindMany) with()            {}
+func (r usuarioToConversacionesFindMany) usuarioModel()    {}
+func (r usuarioToConversacionesFindMany) usuarioRelation() {}
+
+func (r usuarioToConversacionesFindMany) With(params ...ConversacionParticipanteRelationWith) usuarioToConversacionesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToConversacionesFindMany) Select(params ...usuarioPrismaFields) usuarioToConversacionesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToConversacionesFindMany) Omit(params ...usuarioPrismaFields) usuarioToConversacionesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToConversacionesFindMany) OrderBy(params ...ConversacionParticipanteOrderByParam) usuarioToConversacionesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToConversacionesFindMany) Skip(count int) usuarioToConversacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToConversacionesFindMany) Take(count int) usuarioToConversacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToConversacionesFindMany) Cursor(cursor UsuarioCursorParam) usuarioToConversacionesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToConversacionesFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToConversacionesFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToConversacionesFindMany) Update(params ...UsuarioSetParam) usuarioToConversacionesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToConversacionesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToConversacionesUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToConversacionesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToConversacionesUpdateMany) usuarioModel() {}
+
+func (r usuarioToConversacionesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToConversacionesUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToConversacionesFindMany) Delete() usuarioToConversacionesDeleteMany {
+	var v usuarioToConversacionesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToConversacionesDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToConversacionesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToConversacionesDeleteMany) usuarioModel() {}
+
+func (r usuarioToConversacionesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToConversacionesDeleteMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToMensajesEnviadosFindUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) with()            {}
+func (r usuarioToMensajesEnviadosFindUnique) usuarioModel()    {}
+func (r usuarioToMensajesEnviadosFindUnique) usuarioRelation() {}
+
+func (r usuarioToMensajesEnviadosFindUnique) With(params ...MensajeRelationWith) usuarioToMensajesEnviadosFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) Select(params ...usuarioPrismaFields) usuarioToMensajesEnviadosFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) Omit(params ...usuarioPrismaFields) usuarioToMensajesEnviadosFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) Update(params ...UsuarioSetParam) usuarioToMensajesEnviadosUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Usuario"
+
+	var v usuarioToMensajesEnviadosUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToMensajesEnviadosUpdateUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToMensajesEnviadosUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToMensajesEnviadosUpdateUnique) usuarioModel() {}
+
+func (r usuarioToMensajesEnviadosUpdateUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToMensajesEnviadosUpdateUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToMensajesEnviadosFindUnique) Delete() usuarioToMensajesEnviadosDeleteUnique {
+	var v usuarioToMensajesEnviadosDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Usuario"
+
+	return v
+}
+
+type usuarioToMensajesEnviadosDeleteUnique struct {
+	query builder.Query
+}
+
+func (r usuarioToMensajesEnviadosDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToMensajesEnviadosDeleteUnique) usuarioModel() {}
+
+func (r usuarioToMensajesEnviadosDeleteUnique) Exec(ctx context.Context) (*UsuarioModel, error) {
+	var v UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToMensajesEnviadosDeleteUnique) Tx() UsuarioUniqueTxResult {
+	v := newUsuarioUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type usuarioToMensajesEnviadosFindFirst struct {
+	query builder.Query
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) with()            {}
+func (r usuarioToMensajesEnviadosFindFirst) usuarioModel()    {}
+func (r usuarioToMensajesEnviadosFindFirst) usuarioRelation() {}
+
+func (r usuarioToMensajesEnviadosFindFirst) With(params ...MensajeRelationWith) usuarioToMensajesEnviadosFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) Select(params ...usuarioPrismaFields) usuarioToMensajesEnviadosFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) Omit(params ...usuarioPrismaFields) usuarioToMensajesEnviadosFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) OrderBy(params ...MensajeOrderByParam) usuarioToMensajesEnviadosFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) Skip(count int) usuarioToMensajesEnviadosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) Take(count int) usuarioToMensajesEnviadosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) Cursor(cursor UsuarioCursorParam) usuarioToMensajesEnviadosFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) Exec(ctx context.Context) (
+	*UsuarioModel,
+	error,
+) {
+	var v *UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r usuarioToMensajesEnviadosFindFirst) ExecInner(ctx context.Context) (
+	*InnerUsuario,
+	error,
+) {
+	var v *InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type usuarioToMensajesEnviadosFindMany struct {
+	query builder.Query
+}
+
+func (r usuarioToMensajesEnviadosFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToMensajesEnviadosFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToMensajesEnviadosFindMany) with()            {}
+func (r usuarioToMensajesEnviadosFindMany) usuarioModel()    {}
+func (r usuarioToMensajesEnviadosFindMany) usuarioRelation() {}
+
+func (r usuarioToMensajesEnviadosFindMany) With(params ...MensajeRelationWith) usuarioToMensajesEnviadosFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindMany) Select(params ...usuarioPrismaFields) usuarioToMensajesEnviadosFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindMany) Omit(params ...usuarioPrismaFields) usuarioToMensajesEnviadosFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range usuarioOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindMany) OrderBy(params ...MensajeOrderByParam) usuarioToMensajesEnviadosFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindMany) Skip(count int) usuarioToMensajesEnviadosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindMany) Take(count int) usuarioToMensajesEnviadosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindMany) Cursor(cursor UsuarioCursorParam) usuarioToMensajesEnviadosFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r usuarioToMensajesEnviadosFindMany) Exec(ctx context.Context) (
+	[]UsuarioModel,
+	error,
+) {
+	var v []UsuarioModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToMensajesEnviadosFindMany) ExecInner(ctx context.Context) (
+	[]InnerUsuario,
+	error,
+) {
+	var v []InnerUsuario
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r usuarioToMensajesEnviadosFindMany) Update(params ...UsuarioSetParam) usuarioToMensajesEnviadosUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Usuario"
+
+	r.query.Outputs = countOutput
+
+	var v usuarioToMensajesEnviadosUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type usuarioToMensajesEnviadosUpdateMany struct {
+	query builder.Query
+}
+
+func (r usuarioToMensajesEnviadosUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r usuarioToMensajesEnviadosUpdateMany) usuarioModel() {}
+
+func (r usuarioToMensajesEnviadosUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToMensajesEnviadosUpdateMany) Tx() UsuarioManyTxResult {
+	v := newUsuarioManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r usuarioToMensajesEnviadosFindMany) Delete() usuarioToMensajesEnviadosDeleteMany {
+	var v usuarioToMensajesEnviadosDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Usuario"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type usuarioToMensajesEnviadosDeleteMany struct {
+	query builder.Query
+}
+
+func (r usuarioToMensajesEnviadosDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p usuarioToMensajesEnviadosDeleteMany) usuarioModel() {}
+
+func (r usuarioToMensajesEnviadosDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r usuarioToMensajesEnviadosDeleteMany) Tx() UsuarioManyTxResult {
 	v := newUsuarioManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
@@ -61529,6 +75398,656 @@ func (r passwordRecoveryTokenDeleteMany) Exec(ctx context.Context) (*BatchResult
 
 func (r passwordRecoveryTokenDeleteMany) Tx() PasswordRecoveryTokenManyTxResult {
 	v := newPasswordRecoveryTokenManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type registrationTemporaryKeyFindUnique struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyFindUnique) with()                             {}
+func (r registrationTemporaryKeyFindUnique) registrationTemporaryKeyModel()    {}
+func (r registrationTemporaryKeyFindUnique) registrationTemporaryKeyRelation() {}
+
+func (r registrationTemporaryKeyActions) FindUnique(
+	params RegistrationTemporaryKeyEqualsUniqueWhereParam,
+) registrationTemporaryKeyFindUnique {
+	var v registrationTemporaryKeyFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "RegistrationTemporaryKey"
+	v.query.Outputs = registrationTemporaryKeyOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r registrationTemporaryKeyFindUnique) With(params ...RegistrationTemporaryKeyRelationWith) registrationTemporaryKeyFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindUnique) Select(params ...registrationTemporaryKeyPrismaFields) registrationTemporaryKeyFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindUnique) Omit(params ...registrationTemporaryKeyPrismaFields) registrationTemporaryKeyFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range registrationTemporaryKeyOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindUnique) Exec(ctx context.Context) (
+	*RegistrationTemporaryKeyModel,
+	error,
+) {
+	var v *RegistrationTemporaryKeyModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r registrationTemporaryKeyFindUnique) ExecInner(ctx context.Context) (
+	*InnerRegistrationTemporaryKey,
+	error,
+) {
+	var v *InnerRegistrationTemporaryKey
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r registrationTemporaryKeyFindUnique) Update(params ...RegistrationTemporaryKeySetParam) registrationTemporaryKeyUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "RegistrationTemporaryKey"
+
+	var v registrationTemporaryKeyUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type registrationTemporaryKeyUpdateUnique struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyUpdateUnique) registrationTemporaryKeyModel() {}
+
+func (r registrationTemporaryKeyUpdateUnique) Exec(ctx context.Context) (*RegistrationTemporaryKeyModel, error) {
+	var v RegistrationTemporaryKeyModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r registrationTemporaryKeyUpdateUnique) Tx() RegistrationTemporaryKeyUniqueTxResult {
+	v := newRegistrationTemporaryKeyUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r registrationTemporaryKeyFindUnique) Delete() registrationTemporaryKeyDeleteUnique {
+	var v registrationTemporaryKeyDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "RegistrationTemporaryKey"
+
+	return v
+}
+
+type registrationTemporaryKeyDeleteUnique struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p registrationTemporaryKeyDeleteUnique) registrationTemporaryKeyModel() {}
+
+func (r registrationTemporaryKeyDeleteUnique) Exec(ctx context.Context) (*RegistrationTemporaryKeyModel, error) {
+	var v RegistrationTemporaryKeyModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r registrationTemporaryKeyDeleteUnique) Tx() RegistrationTemporaryKeyUniqueTxResult {
+	v := newRegistrationTemporaryKeyUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type registrationTemporaryKeyFindFirst struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyFindFirst) with()                             {}
+func (r registrationTemporaryKeyFindFirst) registrationTemporaryKeyModel()    {}
+func (r registrationTemporaryKeyFindFirst) registrationTemporaryKeyRelation() {}
+
+func (r registrationTemporaryKeyActions) FindFirst(
+	params ...RegistrationTemporaryKeyWhereParam,
+) registrationTemporaryKeyFindFirst {
+	var v registrationTemporaryKeyFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "RegistrationTemporaryKey"
+	v.query.Outputs = registrationTemporaryKeyOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r registrationTemporaryKeyFindFirst) With(params ...RegistrationTemporaryKeyRelationWith) registrationTemporaryKeyFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindFirst) Select(params ...registrationTemporaryKeyPrismaFields) registrationTemporaryKeyFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindFirst) Omit(params ...registrationTemporaryKeyPrismaFields) registrationTemporaryKeyFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range registrationTemporaryKeyOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindFirst) OrderBy(params ...RegistrationTemporaryKeyOrderByParam) registrationTemporaryKeyFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindFirst) Skip(count int) registrationTemporaryKeyFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r registrationTemporaryKeyFindFirst) Take(count int) registrationTemporaryKeyFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r registrationTemporaryKeyFindFirst) Cursor(cursor RegistrationTemporaryKeyCursorParam) registrationTemporaryKeyFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r registrationTemporaryKeyFindFirst) Exec(ctx context.Context) (
+	*RegistrationTemporaryKeyModel,
+	error,
+) {
+	var v *RegistrationTemporaryKeyModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r registrationTemporaryKeyFindFirst) ExecInner(ctx context.Context) (
+	*InnerRegistrationTemporaryKey,
+	error,
+) {
+	var v *InnerRegistrationTemporaryKey
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type registrationTemporaryKeyFindMany struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyFindMany) with()                             {}
+func (r registrationTemporaryKeyFindMany) registrationTemporaryKeyModel()    {}
+func (r registrationTemporaryKeyFindMany) registrationTemporaryKeyRelation() {}
+
+func (r registrationTemporaryKeyActions) FindMany(
+	params ...RegistrationTemporaryKeyWhereParam,
+) registrationTemporaryKeyFindMany {
+	var v registrationTemporaryKeyFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "RegistrationTemporaryKey"
+	v.query.Outputs = registrationTemporaryKeyOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r registrationTemporaryKeyFindMany) With(params ...RegistrationTemporaryKeyRelationWith) registrationTemporaryKeyFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindMany) Select(params ...registrationTemporaryKeyPrismaFields) registrationTemporaryKeyFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindMany) Omit(params ...registrationTemporaryKeyPrismaFields) registrationTemporaryKeyFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range registrationTemporaryKeyOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindMany) OrderBy(params ...RegistrationTemporaryKeyOrderByParam) registrationTemporaryKeyFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r registrationTemporaryKeyFindMany) Skip(count int) registrationTemporaryKeyFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r registrationTemporaryKeyFindMany) Take(count int) registrationTemporaryKeyFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r registrationTemporaryKeyFindMany) Cursor(cursor RegistrationTemporaryKeyCursorParam) registrationTemporaryKeyFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r registrationTemporaryKeyFindMany) Exec(ctx context.Context) (
+	[]RegistrationTemporaryKeyModel,
+	error,
+) {
+	var v []RegistrationTemporaryKeyModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r registrationTemporaryKeyFindMany) ExecInner(ctx context.Context) (
+	[]InnerRegistrationTemporaryKey,
+	error,
+) {
+	var v []InnerRegistrationTemporaryKey
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r registrationTemporaryKeyFindMany) Update(params ...RegistrationTemporaryKeySetParam) registrationTemporaryKeyUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "RegistrationTemporaryKey"
+
+	r.query.Outputs = countOutput
+
+	var v registrationTemporaryKeyUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type registrationTemporaryKeyUpdateMany struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyUpdateMany) registrationTemporaryKeyModel() {}
+
+func (r registrationTemporaryKeyUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r registrationTemporaryKeyUpdateMany) Tx() RegistrationTemporaryKeyManyTxResult {
+	v := newRegistrationTemporaryKeyManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r registrationTemporaryKeyFindMany) Delete() registrationTemporaryKeyDeleteMany {
+	var v registrationTemporaryKeyDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "RegistrationTemporaryKey"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type registrationTemporaryKeyDeleteMany struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p registrationTemporaryKeyDeleteMany) registrationTemporaryKeyModel() {}
+
+func (r registrationTemporaryKeyDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r registrationTemporaryKeyDeleteMany) Tx() RegistrationTemporaryKeyManyTxResult {
+	v := newRegistrationTemporaryKeyManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -85134,6 +99653,5280 @@ func (r sesionPonenteDeleteMany) Tx() SesionPonenteManyTxResult {
 	return v
 }
 
+type conversacionToMensajesFindUnique struct {
+	query builder.Query
+}
+
+func (r conversacionToMensajesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToMensajesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToMensajesFindUnique) with()                 {}
+func (r conversacionToMensajesFindUnique) conversacionModel()    {}
+func (r conversacionToMensajesFindUnique) conversacionRelation() {}
+
+func (r conversacionToMensajesFindUnique) With(params ...MensajeRelationWith) conversacionToMensajesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionToMensajesFindUnique) Select(params ...conversacionPrismaFields) conversacionToMensajesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToMensajesFindUnique) Omit(params ...conversacionPrismaFields) conversacionToMensajesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToMensajesFindUnique) Exec(ctx context.Context) (
+	*ConversacionModel,
+	error,
+) {
+	var v *ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionToMensajesFindUnique) ExecInner(ctx context.Context) (
+	*InnerConversacion,
+	error,
+) {
+	var v *InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionToMensajesFindUnique) Update(params ...ConversacionSetParam) conversacionToMensajesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Conversacion"
+
+	var v conversacionToMensajesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionToMensajesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r conversacionToMensajesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToMensajesUpdateUnique) conversacionModel() {}
+
+func (r conversacionToMensajesUpdateUnique) Exec(ctx context.Context) (*ConversacionModel, error) {
+	var v ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionToMensajesUpdateUnique) Tx() ConversacionUniqueTxResult {
+	v := newConversacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionToMensajesFindUnique) Delete() conversacionToMensajesDeleteUnique {
+	var v conversacionToMensajesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Conversacion"
+
+	return v
+}
+
+type conversacionToMensajesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r conversacionToMensajesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionToMensajesDeleteUnique) conversacionModel() {}
+
+func (r conversacionToMensajesDeleteUnique) Exec(ctx context.Context) (*ConversacionModel, error) {
+	var v ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionToMensajesDeleteUnique) Tx() ConversacionUniqueTxResult {
+	v := newConversacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionToMensajesFindFirst struct {
+	query builder.Query
+}
+
+func (r conversacionToMensajesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToMensajesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToMensajesFindFirst) with()                 {}
+func (r conversacionToMensajesFindFirst) conversacionModel()    {}
+func (r conversacionToMensajesFindFirst) conversacionRelation() {}
+
+func (r conversacionToMensajesFindFirst) With(params ...MensajeRelationWith) conversacionToMensajesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionToMensajesFindFirst) Select(params ...conversacionPrismaFields) conversacionToMensajesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToMensajesFindFirst) Omit(params ...conversacionPrismaFields) conversacionToMensajesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToMensajesFindFirst) OrderBy(params ...MensajeOrderByParam) conversacionToMensajesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionToMensajesFindFirst) Skip(count int) conversacionToMensajesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionToMensajesFindFirst) Take(count int) conversacionToMensajesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionToMensajesFindFirst) Cursor(cursor ConversacionCursorParam) conversacionToMensajesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionToMensajesFindFirst) Exec(ctx context.Context) (
+	*ConversacionModel,
+	error,
+) {
+	var v *ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionToMensajesFindFirst) ExecInner(ctx context.Context) (
+	*InnerConversacion,
+	error,
+) {
+	var v *InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type conversacionToMensajesFindMany struct {
+	query builder.Query
+}
+
+func (r conversacionToMensajesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToMensajesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToMensajesFindMany) with()                 {}
+func (r conversacionToMensajesFindMany) conversacionModel()    {}
+func (r conversacionToMensajesFindMany) conversacionRelation() {}
+
+func (r conversacionToMensajesFindMany) With(params ...MensajeRelationWith) conversacionToMensajesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionToMensajesFindMany) Select(params ...conversacionPrismaFields) conversacionToMensajesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToMensajesFindMany) Omit(params ...conversacionPrismaFields) conversacionToMensajesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToMensajesFindMany) OrderBy(params ...MensajeOrderByParam) conversacionToMensajesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionToMensajesFindMany) Skip(count int) conversacionToMensajesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionToMensajesFindMany) Take(count int) conversacionToMensajesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionToMensajesFindMany) Cursor(cursor ConversacionCursorParam) conversacionToMensajesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionToMensajesFindMany) Exec(ctx context.Context) (
+	[]ConversacionModel,
+	error,
+) {
+	var v []ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionToMensajesFindMany) ExecInner(ctx context.Context) (
+	[]InnerConversacion,
+	error,
+) {
+	var v []InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionToMensajesFindMany) Update(params ...ConversacionSetParam) conversacionToMensajesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Conversacion"
+
+	r.query.Outputs = countOutput
+
+	var v conversacionToMensajesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionToMensajesUpdateMany struct {
+	query builder.Query
+}
+
+func (r conversacionToMensajesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToMensajesUpdateMany) conversacionModel() {}
+
+func (r conversacionToMensajesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionToMensajesUpdateMany) Tx() ConversacionManyTxResult {
+	v := newConversacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionToMensajesFindMany) Delete() conversacionToMensajesDeleteMany {
+	var v conversacionToMensajesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Conversacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type conversacionToMensajesDeleteMany struct {
+	query builder.Query
+}
+
+func (r conversacionToMensajesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionToMensajesDeleteMany) conversacionModel() {}
+
+func (r conversacionToMensajesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionToMensajesDeleteMany) Tx() ConversacionManyTxResult {
+	v := newConversacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionToParticipantesFindUnique struct {
+	query builder.Query
+}
+
+func (r conversacionToParticipantesFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToParticipantesFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToParticipantesFindUnique) with()                 {}
+func (r conversacionToParticipantesFindUnique) conversacionModel()    {}
+func (r conversacionToParticipantesFindUnique) conversacionRelation() {}
+
+func (r conversacionToParticipantesFindUnique) With(params ...ConversacionParticipanteRelationWith) conversacionToParticipantesFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionToParticipantesFindUnique) Select(params ...conversacionPrismaFields) conversacionToParticipantesFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToParticipantesFindUnique) Omit(params ...conversacionPrismaFields) conversacionToParticipantesFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToParticipantesFindUnique) Exec(ctx context.Context) (
+	*ConversacionModel,
+	error,
+) {
+	var v *ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionToParticipantesFindUnique) ExecInner(ctx context.Context) (
+	*InnerConversacion,
+	error,
+) {
+	var v *InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionToParticipantesFindUnique) Update(params ...ConversacionSetParam) conversacionToParticipantesUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Conversacion"
+
+	var v conversacionToParticipantesUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionToParticipantesUpdateUnique struct {
+	query builder.Query
+}
+
+func (r conversacionToParticipantesUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToParticipantesUpdateUnique) conversacionModel() {}
+
+func (r conversacionToParticipantesUpdateUnique) Exec(ctx context.Context) (*ConversacionModel, error) {
+	var v ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionToParticipantesUpdateUnique) Tx() ConversacionUniqueTxResult {
+	v := newConversacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionToParticipantesFindUnique) Delete() conversacionToParticipantesDeleteUnique {
+	var v conversacionToParticipantesDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Conversacion"
+
+	return v
+}
+
+type conversacionToParticipantesDeleteUnique struct {
+	query builder.Query
+}
+
+func (r conversacionToParticipantesDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionToParticipantesDeleteUnique) conversacionModel() {}
+
+func (r conversacionToParticipantesDeleteUnique) Exec(ctx context.Context) (*ConversacionModel, error) {
+	var v ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionToParticipantesDeleteUnique) Tx() ConversacionUniqueTxResult {
+	v := newConversacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionToParticipantesFindFirst struct {
+	query builder.Query
+}
+
+func (r conversacionToParticipantesFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToParticipantesFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToParticipantesFindFirst) with()                 {}
+func (r conversacionToParticipantesFindFirst) conversacionModel()    {}
+func (r conversacionToParticipantesFindFirst) conversacionRelation() {}
+
+func (r conversacionToParticipantesFindFirst) With(params ...ConversacionParticipanteRelationWith) conversacionToParticipantesFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionToParticipantesFindFirst) Select(params ...conversacionPrismaFields) conversacionToParticipantesFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToParticipantesFindFirst) Omit(params ...conversacionPrismaFields) conversacionToParticipantesFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToParticipantesFindFirst) OrderBy(params ...ConversacionParticipanteOrderByParam) conversacionToParticipantesFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionToParticipantesFindFirst) Skip(count int) conversacionToParticipantesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionToParticipantesFindFirst) Take(count int) conversacionToParticipantesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionToParticipantesFindFirst) Cursor(cursor ConversacionCursorParam) conversacionToParticipantesFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionToParticipantesFindFirst) Exec(ctx context.Context) (
+	*ConversacionModel,
+	error,
+) {
+	var v *ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionToParticipantesFindFirst) ExecInner(ctx context.Context) (
+	*InnerConversacion,
+	error,
+) {
+	var v *InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type conversacionToParticipantesFindMany struct {
+	query builder.Query
+}
+
+func (r conversacionToParticipantesFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToParticipantesFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToParticipantesFindMany) with()                 {}
+func (r conversacionToParticipantesFindMany) conversacionModel()    {}
+func (r conversacionToParticipantesFindMany) conversacionRelation() {}
+
+func (r conversacionToParticipantesFindMany) With(params ...ConversacionParticipanteRelationWith) conversacionToParticipantesFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionToParticipantesFindMany) Select(params ...conversacionPrismaFields) conversacionToParticipantesFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToParticipantesFindMany) Omit(params ...conversacionPrismaFields) conversacionToParticipantesFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionToParticipantesFindMany) OrderBy(params ...ConversacionParticipanteOrderByParam) conversacionToParticipantesFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionToParticipantesFindMany) Skip(count int) conversacionToParticipantesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionToParticipantesFindMany) Take(count int) conversacionToParticipantesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionToParticipantesFindMany) Cursor(cursor ConversacionCursorParam) conversacionToParticipantesFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionToParticipantesFindMany) Exec(ctx context.Context) (
+	[]ConversacionModel,
+	error,
+) {
+	var v []ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionToParticipantesFindMany) ExecInner(ctx context.Context) (
+	[]InnerConversacion,
+	error,
+) {
+	var v []InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionToParticipantesFindMany) Update(params ...ConversacionSetParam) conversacionToParticipantesUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Conversacion"
+
+	r.query.Outputs = countOutput
+
+	var v conversacionToParticipantesUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionToParticipantesUpdateMany struct {
+	query builder.Query
+}
+
+func (r conversacionToParticipantesUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionToParticipantesUpdateMany) conversacionModel() {}
+
+func (r conversacionToParticipantesUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionToParticipantesUpdateMany) Tx() ConversacionManyTxResult {
+	v := newConversacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionToParticipantesFindMany) Delete() conversacionToParticipantesDeleteMany {
+	var v conversacionToParticipantesDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Conversacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type conversacionToParticipantesDeleteMany struct {
+	query builder.Query
+}
+
+func (r conversacionToParticipantesDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionToParticipantesDeleteMany) conversacionModel() {}
+
+func (r conversacionToParticipantesDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionToParticipantesDeleteMany) Tx() ConversacionManyTxResult {
+	v := newConversacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionFindUnique struct {
+	query builder.Query
+}
+
+func (r conversacionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionFindUnique) with()                 {}
+func (r conversacionFindUnique) conversacionModel()    {}
+func (r conversacionFindUnique) conversacionRelation() {}
+
+func (r conversacionActions) FindUnique(
+	params ConversacionEqualsUniqueWhereParam,
+) conversacionFindUnique {
+	var v conversacionFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "Conversacion"
+	v.query.Outputs = conversacionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r conversacionFindUnique) With(params ...ConversacionRelationWith) conversacionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionFindUnique) Select(params ...conversacionPrismaFields) conversacionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionFindUnique) Omit(params ...conversacionPrismaFields) conversacionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionFindUnique) Exec(ctx context.Context) (
+	*ConversacionModel,
+	error,
+) {
+	var v *ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionFindUnique) ExecInner(ctx context.Context) (
+	*InnerConversacion,
+	error,
+) {
+	var v *InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionFindUnique) Update(params ...ConversacionSetParam) conversacionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Conversacion"
+
+	var v conversacionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r conversacionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionUpdateUnique) conversacionModel() {}
+
+func (r conversacionUpdateUnique) Exec(ctx context.Context) (*ConversacionModel, error) {
+	var v ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionUpdateUnique) Tx() ConversacionUniqueTxResult {
+	v := newConversacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionFindUnique) Delete() conversacionDeleteUnique {
+	var v conversacionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Conversacion"
+
+	return v
+}
+
+type conversacionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r conversacionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionDeleteUnique) conversacionModel() {}
+
+func (r conversacionDeleteUnique) Exec(ctx context.Context) (*ConversacionModel, error) {
+	var v ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionDeleteUnique) Tx() ConversacionUniqueTxResult {
+	v := newConversacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionFindFirst struct {
+	query builder.Query
+}
+
+func (r conversacionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionFindFirst) with()                 {}
+func (r conversacionFindFirst) conversacionModel()    {}
+func (r conversacionFindFirst) conversacionRelation() {}
+
+func (r conversacionActions) FindFirst(
+	params ...ConversacionWhereParam,
+) conversacionFindFirst {
+	var v conversacionFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "Conversacion"
+	v.query.Outputs = conversacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r conversacionFindFirst) With(params ...ConversacionRelationWith) conversacionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionFindFirst) Select(params ...conversacionPrismaFields) conversacionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionFindFirst) Omit(params ...conversacionPrismaFields) conversacionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionFindFirst) OrderBy(params ...ConversacionOrderByParam) conversacionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionFindFirst) Skip(count int) conversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionFindFirst) Take(count int) conversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionFindFirst) Cursor(cursor ConversacionCursorParam) conversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionFindFirst) Exec(ctx context.Context) (
+	*ConversacionModel,
+	error,
+) {
+	var v *ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionFindFirst) ExecInner(ctx context.Context) (
+	*InnerConversacion,
+	error,
+) {
+	var v *InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type conversacionFindMany struct {
+	query builder.Query
+}
+
+func (r conversacionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionFindMany) with()                 {}
+func (r conversacionFindMany) conversacionModel()    {}
+func (r conversacionFindMany) conversacionRelation() {}
+
+func (r conversacionActions) FindMany(
+	params ...ConversacionWhereParam,
+) conversacionFindMany {
+	var v conversacionFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "Conversacion"
+	v.query.Outputs = conversacionOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r conversacionFindMany) With(params ...ConversacionRelationWith) conversacionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionFindMany) Select(params ...conversacionPrismaFields) conversacionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionFindMany) Omit(params ...conversacionPrismaFields) conversacionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionFindMany) OrderBy(params ...ConversacionOrderByParam) conversacionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionFindMany) Skip(count int) conversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionFindMany) Take(count int) conversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionFindMany) Cursor(cursor ConversacionCursorParam) conversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionFindMany) Exec(ctx context.Context) (
+	[]ConversacionModel,
+	error,
+) {
+	var v []ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionFindMany) ExecInner(ctx context.Context) (
+	[]InnerConversacion,
+	error,
+) {
+	var v []InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionFindMany) Update(params ...ConversacionSetParam) conversacionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Conversacion"
+
+	r.query.Outputs = countOutput
+
+	var v conversacionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionUpdateMany struct {
+	query builder.Query
+}
+
+func (r conversacionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionUpdateMany) conversacionModel() {}
+
+func (r conversacionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionUpdateMany) Tx() ConversacionManyTxResult {
+	v := newConversacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionFindMany) Delete() conversacionDeleteMany {
+	var v conversacionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Conversacion"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type conversacionDeleteMany struct {
+	query builder.Query
+}
+
+func (r conversacionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionDeleteMany) conversacionModel() {}
+
+func (r conversacionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionDeleteMany) Tx() ConversacionManyTxResult {
+	v := newConversacionManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionParticipanteToConversacionFindUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) with()                             {}
+func (r conversacionParticipanteToConversacionFindUnique) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteToConversacionFindUnique) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteToConversacionFindUnique) With(params ...ConversacionRelationWith) conversacionParticipanteToConversacionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteToConversacionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteToConversacionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) Exec(ctx context.Context) (
+	*ConversacionParticipanteModel,
+	error,
+) {
+	var v *ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) ExecInner(ctx context.Context) (
+	*InnerConversacionParticipante,
+	error,
+) {
+	var v *InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) Update(params ...ConversacionParticipanteSetParam) conversacionParticipanteToConversacionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "ConversacionParticipante"
+
+	var v conversacionParticipanteToConversacionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionParticipanteToConversacionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToConversacionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToConversacionUpdateUnique) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteToConversacionUpdateUnique) Exec(ctx context.Context) (*ConversacionParticipanteModel, error) {
+	var v ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteToConversacionUpdateUnique) Tx() ConversacionParticipanteUniqueTxResult {
+	v := newConversacionParticipanteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionParticipanteToConversacionFindUnique) Delete() conversacionParticipanteToConversacionDeleteUnique {
+	var v conversacionParticipanteToConversacionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "ConversacionParticipante"
+
+	return v
+}
+
+type conversacionParticipanteToConversacionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToConversacionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionParticipanteToConversacionDeleteUnique) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteToConversacionDeleteUnique) Exec(ctx context.Context) (*ConversacionParticipanteModel, error) {
+	var v ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteToConversacionDeleteUnique) Tx() ConversacionParticipanteUniqueTxResult {
+	v := newConversacionParticipanteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionParticipanteToConversacionFindFirst struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) with()                             {}
+func (r conversacionParticipanteToConversacionFindFirst) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteToConversacionFindFirst) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteToConversacionFindFirst) With(params ...ConversacionRelationWith) conversacionParticipanteToConversacionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteToConversacionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteToConversacionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) OrderBy(params ...ConversacionOrderByParam) conversacionParticipanteToConversacionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) Skip(count int) conversacionParticipanteToConversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) Take(count int) conversacionParticipanteToConversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) Cursor(cursor ConversacionParticipanteCursorParam) conversacionParticipanteToConversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) Exec(ctx context.Context) (
+	*ConversacionParticipanteModel,
+	error,
+) {
+	var v *ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToConversacionFindFirst) ExecInner(ctx context.Context) (
+	*InnerConversacionParticipante,
+	error,
+) {
+	var v *InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type conversacionParticipanteToConversacionFindMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToConversacionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToConversacionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToConversacionFindMany) with()                             {}
+func (r conversacionParticipanteToConversacionFindMany) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteToConversacionFindMany) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteToConversacionFindMany) With(params ...ConversacionRelationWith) conversacionParticipanteToConversacionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindMany) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteToConversacionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindMany) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteToConversacionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindMany) OrderBy(params ...ConversacionOrderByParam) conversacionParticipanteToConversacionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindMany) Skip(count int) conversacionParticipanteToConversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindMany) Take(count int) conversacionParticipanteToConversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindMany) Cursor(cursor ConversacionParticipanteCursorParam) conversacionParticipanteToConversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionParticipanteToConversacionFindMany) Exec(ctx context.Context) (
+	[]ConversacionParticipanteModel,
+	error,
+) {
+	var v []ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToConversacionFindMany) ExecInner(ctx context.Context) (
+	[]InnerConversacionParticipante,
+	error,
+) {
+	var v []InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToConversacionFindMany) Update(params ...ConversacionParticipanteSetParam) conversacionParticipanteToConversacionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "ConversacionParticipante"
+
+	r.query.Outputs = countOutput
+
+	var v conversacionParticipanteToConversacionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionParticipanteToConversacionUpdateMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToConversacionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToConversacionUpdateMany) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteToConversacionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteToConversacionUpdateMany) Tx() ConversacionParticipanteManyTxResult {
+	v := newConversacionParticipanteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionParticipanteToConversacionFindMany) Delete() conversacionParticipanteToConversacionDeleteMany {
+	var v conversacionParticipanteToConversacionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "ConversacionParticipante"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type conversacionParticipanteToConversacionDeleteMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToConversacionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionParticipanteToConversacionDeleteMany) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteToConversacionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteToConversacionDeleteMany) Tx() ConversacionParticipanteManyTxResult {
+	v := newConversacionParticipanteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionParticipanteToUsuarioFindUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) with()                             {}
+func (r conversacionParticipanteToUsuarioFindUnique) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteToUsuarioFindUnique) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteToUsuarioFindUnique) With(params ...UsuarioRelationWith) conversacionParticipanteToUsuarioFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteToUsuarioFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) Exec(ctx context.Context) (
+	*ConversacionParticipanteModel,
+	error,
+) {
+	var v *ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) ExecInner(ctx context.Context) (
+	*InnerConversacionParticipante,
+	error,
+) {
+	var v *InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) Update(params ...ConversacionParticipanteSetParam) conversacionParticipanteToUsuarioUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "ConversacionParticipante"
+
+	var v conversacionParticipanteToUsuarioUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionParticipanteToUsuarioUpdateUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToUsuarioUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToUsuarioUpdateUnique) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteToUsuarioUpdateUnique) Exec(ctx context.Context) (*ConversacionParticipanteModel, error) {
+	var v ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteToUsuarioUpdateUnique) Tx() ConversacionParticipanteUniqueTxResult {
+	v := newConversacionParticipanteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionParticipanteToUsuarioFindUnique) Delete() conversacionParticipanteToUsuarioDeleteUnique {
+	var v conversacionParticipanteToUsuarioDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "ConversacionParticipante"
+
+	return v
+}
+
+type conversacionParticipanteToUsuarioDeleteUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToUsuarioDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionParticipanteToUsuarioDeleteUnique) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteToUsuarioDeleteUnique) Exec(ctx context.Context) (*ConversacionParticipanteModel, error) {
+	var v ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteToUsuarioDeleteUnique) Tx() ConversacionParticipanteUniqueTxResult {
+	v := newConversacionParticipanteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionParticipanteToUsuarioFindFirst struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) with()                             {}
+func (r conversacionParticipanteToUsuarioFindFirst) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteToUsuarioFindFirst) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteToUsuarioFindFirst) With(params ...UsuarioRelationWith) conversacionParticipanteToUsuarioFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteToUsuarioFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) OrderBy(params ...UsuarioOrderByParam) conversacionParticipanteToUsuarioFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) Skip(count int) conversacionParticipanteToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) Take(count int) conversacionParticipanteToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) Cursor(cursor ConversacionParticipanteCursorParam) conversacionParticipanteToUsuarioFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) Exec(ctx context.Context) (
+	*ConversacionParticipanteModel,
+	error,
+) {
+	var v *ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToUsuarioFindFirst) ExecInner(ctx context.Context) (
+	*InnerConversacionParticipante,
+	error,
+) {
+	var v *InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type conversacionParticipanteToUsuarioFindMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) with()                             {}
+func (r conversacionParticipanteToUsuarioFindMany) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteToUsuarioFindMany) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteToUsuarioFindMany) With(params ...UsuarioRelationWith) conversacionParticipanteToUsuarioFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteToUsuarioFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteToUsuarioFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) OrderBy(params ...UsuarioOrderByParam) conversacionParticipanteToUsuarioFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) Skip(count int) conversacionParticipanteToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) Take(count int) conversacionParticipanteToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) Cursor(cursor ConversacionParticipanteCursorParam) conversacionParticipanteToUsuarioFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) Exec(ctx context.Context) (
+	[]ConversacionParticipanteModel,
+	error,
+) {
+	var v []ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) ExecInner(ctx context.Context) (
+	[]InnerConversacionParticipante,
+	error,
+) {
+	var v []InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) Update(params ...ConversacionParticipanteSetParam) conversacionParticipanteToUsuarioUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "ConversacionParticipante"
+
+	r.query.Outputs = countOutput
+
+	var v conversacionParticipanteToUsuarioUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionParticipanteToUsuarioUpdateMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToUsuarioUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteToUsuarioUpdateMany) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteToUsuarioUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteToUsuarioUpdateMany) Tx() ConversacionParticipanteManyTxResult {
+	v := newConversacionParticipanteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionParticipanteToUsuarioFindMany) Delete() conversacionParticipanteToUsuarioDeleteMany {
+	var v conversacionParticipanteToUsuarioDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "ConversacionParticipante"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type conversacionParticipanteToUsuarioDeleteMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteToUsuarioDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionParticipanteToUsuarioDeleteMany) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteToUsuarioDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteToUsuarioDeleteMany) Tx() ConversacionParticipanteManyTxResult {
+	v := newConversacionParticipanteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionParticipanteFindUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteFindUnique) with()                             {}
+func (r conversacionParticipanteFindUnique) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteFindUnique) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteActions) FindUnique(
+	params ConversacionParticipanteEqualsUniqueWhereParam,
+) conversacionParticipanteFindUnique {
+	var v conversacionParticipanteFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "ConversacionParticipante"
+	v.query.Outputs = conversacionParticipanteOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r conversacionParticipanteFindUnique) With(params ...ConversacionParticipanteRelationWith) conversacionParticipanteFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteFindUnique) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteFindUnique) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteFindUnique) Exec(ctx context.Context) (
+	*ConversacionParticipanteModel,
+	error,
+) {
+	var v *ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteFindUnique) ExecInner(ctx context.Context) (
+	*InnerConversacionParticipante,
+	error,
+) {
+	var v *InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteFindUnique) Update(params ...ConversacionParticipanteSetParam) conversacionParticipanteUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "ConversacionParticipante"
+
+	var v conversacionParticipanteUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionParticipanteUpdateUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteUpdateUnique) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteUpdateUnique) Exec(ctx context.Context) (*ConversacionParticipanteModel, error) {
+	var v ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteUpdateUnique) Tx() ConversacionParticipanteUniqueTxResult {
+	v := newConversacionParticipanteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionParticipanteFindUnique) Delete() conversacionParticipanteDeleteUnique {
+	var v conversacionParticipanteDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "ConversacionParticipante"
+
+	return v
+}
+
+type conversacionParticipanteDeleteUnique struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionParticipanteDeleteUnique) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteDeleteUnique) Exec(ctx context.Context) (*ConversacionParticipanteModel, error) {
+	var v ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteDeleteUnique) Tx() ConversacionParticipanteUniqueTxResult {
+	v := newConversacionParticipanteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionParticipanteFindFirst struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteFindFirst) with()                             {}
+func (r conversacionParticipanteFindFirst) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteFindFirst) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteActions) FindFirst(
+	params ...ConversacionParticipanteWhereParam,
+) conversacionParticipanteFindFirst {
+	var v conversacionParticipanteFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "ConversacionParticipante"
+	v.query.Outputs = conversacionParticipanteOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r conversacionParticipanteFindFirst) With(params ...ConversacionParticipanteRelationWith) conversacionParticipanteFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteFindFirst) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteFindFirst) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteFindFirst) OrderBy(params ...ConversacionParticipanteOrderByParam) conversacionParticipanteFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionParticipanteFindFirst) Skip(count int) conversacionParticipanteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteFindFirst) Take(count int) conversacionParticipanteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteFindFirst) Cursor(cursor ConversacionParticipanteCursorParam) conversacionParticipanteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionParticipanteFindFirst) Exec(ctx context.Context) (
+	*ConversacionParticipanteModel,
+	error,
+) {
+	var v *ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteFindFirst) ExecInner(ctx context.Context) (
+	*InnerConversacionParticipante,
+	error,
+) {
+	var v *InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type conversacionParticipanteFindMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteFindMany) with()                             {}
+func (r conversacionParticipanteFindMany) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteFindMany) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteActions) FindMany(
+	params ...ConversacionParticipanteWhereParam,
+) conversacionParticipanteFindMany {
+	var v conversacionParticipanteFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "ConversacionParticipante"
+	v.query.Outputs = conversacionParticipanteOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r conversacionParticipanteFindMany) With(params ...ConversacionParticipanteRelationWith) conversacionParticipanteFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r conversacionParticipanteFindMany) Select(params ...conversacionParticipantePrismaFields) conversacionParticipanteFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteFindMany) Omit(params ...conversacionParticipantePrismaFields) conversacionParticipanteFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range conversacionParticipanteOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r conversacionParticipanteFindMany) OrderBy(params ...ConversacionParticipanteOrderByParam) conversacionParticipanteFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r conversacionParticipanteFindMany) Skip(count int) conversacionParticipanteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteFindMany) Take(count int) conversacionParticipanteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r conversacionParticipanteFindMany) Cursor(cursor ConversacionParticipanteCursorParam) conversacionParticipanteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r conversacionParticipanteFindMany) Exec(ctx context.Context) (
+	[]ConversacionParticipanteModel,
+	error,
+) {
+	var v []ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteFindMany) ExecInner(ctx context.Context) (
+	[]InnerConversacionParticipante,
+	error,
+) {
+	var v []InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r conversacionParticipanteFindMany) Update(params ...ConversacionParticipanteSetParam) conversacionParticipanteUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "ConversacionParticipante"
+
+	r.query.Outputs = countOutput
+
+	var v conversacionParticipanteUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type conversacionParticipanteUpdateMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteUpdateMany) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteUpdateMany) Tx() ConversacionParticipanteManyTxResult {
+	v := newConversacionParticipanteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r conversacionParticipanteFindMany) Delete() conversacionParticipanteDeleteMany {
+	var v conversacionParticipanteDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "ConversacionParticipante"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type conversacionParticipanteDeleteMany struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p conversacionParticipanteDeleteMany) conversacionParticipanteModel() {}
+
+func (r conversacionParticipanteDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteDeleteMany) Tx() ConversacionParticipanteManyTxResult {
+	v := newConversacionParticipanteManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type mensajeToConversacionFindUnique struct {
+	query builder.Query
+}
+
+func (r mensajeToConversacionFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToConversacionFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToConversacionFindUnique) with()            {}
+func (r mensajeToConversacionFindUnique) mensajeModel()    {}
+func (r mensajeToConversacionFindUnique) mensajeRelation() {}
+
+func (r mensajeToConversacionFindUnique) With(params ...ConversacionRelationWith) mensajeToConversacionFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeToConversacionFindUnique) Select(params ...mensajePrismaFields) mensajeToConversacionFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToConversacionFindUnique) Omit(params ...mensajePrismaFields) mensajeToConversacionFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToConversacionFindUnique) Exec(ctx context.Context) (
+	*MensajeModel,
+	error,
+) {
+	var v *MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeToConversacionFindUnique) ExecInner(ctx context.Context) (
+	*InnerMensaje,
+	error,
+) {
+	var v *InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeToConversacionFindUnique) Update(params ...MensajeSetParam) mensajeToConversacionUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Mensaje"
+
+	var v mensajeToConversacionUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type mensajeToConversacionUpdateUnique struct {
+	query builder.Query
+}
+
+func (r mensajeToConversacionUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToConversacionUpdateUnique) mensajeModel() {}
+
+func (r mensajeToConversacionUpdateUnique) Exec(ctx context.Context) (*MensajeModel, error) {
+	var v MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeToConversacionUpdateUnique) Tx() MensajeUniqueTxResult {
+	v := newMensajeUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r mensajeToConversacionFindUnique) Delete() mensajeToConversacionDeleteUnique {
+	var v mensajeToConversacionDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Mensaje"
+
+	return v
+}
+
+type mensajeToConversacionDeleteUnique struct {
+	query builder.Query
+}
+
+func (r mensajeToConversacionDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p mensajeToConversacionDeleteUnique) mensajeModel() {}
+
+func (r mensajeToConversacionDeleteUnique) Exec(ctx context.Context) (*MensajeModel, error) {
+	var v MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeToConversacionDeleteUnique) Tx() MensajeUniqueTxResult {
+	v := newMensajeUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type mensajeToConversacionFindFirst struct {
+	query builder.Query
+}
+
+func (r mensajeToConversacionFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToConversacionFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToConversacionFindFirst) with()            {}
+func (r mensajeToConversacionFindFirst) mensajeModel()    {}
+func (r mensajeToConversacionFindFirst) mensajeRelation() {}
+
+func (r mensajeToConversacionFindFirst) With(params ...ConversacionRelationWith) mensajeToConversacionFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeToConversacionFindFirst) Select(params ...mensajePrismaFields) mensajeToConversacionFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToConversacionFindFirst) Omit(params ...mensajePrismaFields) mensajeToConversacionFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToConversacionFindFirst) OrderBy(params ...ConversacionOrderByParam) mensajeToConversacionFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r mensajeToConversacionFindFirst) Skip(count int) mensajeToConversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeToConversacionFindFirst) Take(count int) mensajeToConversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeToConversacionFindFirst) Cursor(cursor MensajeCursorParam) mensajeToConversacionFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r mensajeToConversacionFindFirst) Exec(ctx context.Context) (
+	*MensajeModel,
+	error,
+) {
+	var v *MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeToConversacionFindFirst) ExecInner(ctx context.Context) (
+	*InnerMensaje,
+	error,
+) {
+	var v *InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type mensajeToConversacionFindMany struct {
+	query builder.Query
+}
+
+func (r mensajeToConversacionFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToConversacionFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToConversacionFindMany) with()            {}
+func (r mensajeToConversacionFindMany) mensajeModel()    {}
+func (r mensajeToConversacionFindMany) mensajeRelation() {}
+
+func (r mensajeToConversacionFindMany) With(params ...ConversacionRelationWith) mensajeToConversacionFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeToConversacionFindMany) Select(params ...mensajePrismaFields) mensajeToConversacionFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToConversacionFindMany) Omit(params ...mensajePrismaFields) mensajeToConversacionFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToConversacionFindMany) OrderBy(params ...ConversacionOrderByParam) mensajeToConversacionFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r mensajeToConversacionFindMany) Skip(count int) mensajeToConversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeToConversacionFindMany) Take(count int) mensajeToConversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeToConversacionFindMany) Cursor(cursor MensajeCursorParam) mensajeToConversacionFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r mensajeToConversacionFindMany) Exec(ctx context.Context) (
+	[]MensajeModel,
+	error,
+) {
+	var v []MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r mensajeToConversacionFindMany) ExecInner(ctx context.Context) (
+	[]InnerMensaje,
+	error,
+) {
+	var v []InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r mensajeToConversacionFindMany) Update(params ...MensajeSetParam) mensajeToConversacionUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Mensaje"
+
+	r.query.Outputs = countOutput
+
+	var v mensajeToConversacionUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type mensajeToConversacionUpdateMany struct {
+	query builder.Query
+}
+
+func (r mensajeToConversacionUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToConversacionUpdateMany) mensajeModel() {}
+
+func (r mensajeToConversacionUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeToConversacionUpdateMany) Tx() MensajeManyTxResult {
+	v := newMensajeManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r mensajeToConversacionFindMany) Delete() mensajeToConversacionDeleteMany {
+	var v mensajeToConversacionDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Mensaje"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type mensajeToConversacionDeleteMany struct {
+	query builder.Query
+}
+
+func (r mensajeToConversacionDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p mensajeToConversacionDeleteMany) mensajeModel() {}
+
+func (r mensajeToConversacionDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeToConversacionDeleteMany) Tx() MensajeManyTxResult {
+	v := newMensajeManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type mensajeToRemitenteFindUnique struct {
+	query builder.Query
+}
+
+func (r mensajeToRemitenteFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToRemitenteFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToRemitenteFindUnique) with()            {}
+func (r mensajeToRemitenteFindUnique) mensajeModel()    {}
+func (r mensajeToRemitenteFindUnique) mensajeRelation() {}
+
+func (r mensajeToRemitenteFindUnique) With(params ...UsuarioRelationWith) mensajeToRemitenteFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeToRemitenteFindUnique) Select(params ...mensajePrismaFields) mensajeToRemitenteFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToRemitenteFindUnique) Omit(params ...mensajePrismaFields) mensajeToRemitenteFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToRemitenteFindUnique) Exec(ctx context.Context) (
+	*MensajeModel,
+	error,
+) {
+	var v *MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeToRemitenteFindUnique) ExecInner(ctx context.Context) (
+	*InnerMensaje,
+	error,
+) {
+	var v *InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeToRemitenteFindUnique) Update(params ...MensajeSetParam) mensajeToRemitenteUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Mensaje"
+
+	var v mensajeToRemitenteUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type mensajeToRemitenteUpdateUnique struct {
+	query builder.Query
+}
+
+func (r mensajeToRemitenteUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToRemitenteUpdateUnique) mensajeModel() {}
+
+func (r mensajeToRemitenteUpdateUnique) Exec(ctx context.Context) (*MensajeModel, error) {
+	var v MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeToRemitenteUpdateUnique) Tx() MensajeUniqueTxResult {
+	v := newMensajeUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r mensajeToRemitenteFindUnique) Delete() mensajeToRemitenteDeleteUnique {
+	var v mensajeToRemitenteDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Mensaje"
+
+	return v
+}
+
+type mensajeToRemitenteDeleteUnique struct {
+	query builder.Query
+}
+
+func (r mensajeToRemitenteDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p mensajeToRemitenteDeleteUnique) mensajeModel() {}
+
+func (r mensajeToRemitenteDeleteUnique) Exec(ctx context.Context) (*MensajeModel, error) {
+	var v MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeToRemitenteDeleteUnique) Tx() MensajeUniqueTxResult {
+	v := newMensajeUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type mensajeToRemitenteFindFirst struct {
+	query builder.Query
+}
+
+func (r mensajeToRemitenteFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToRemitenteFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToRemitenteFindFirst) with()            {}
+func (r mensajeToRemitenteFindFirst) mensajeModel()    {}
+func (r mensajeToRemitenteFindFirst) mensajeRelation() {}
+
+func (r mensajeToRemitenteFindFirst) With(params ...UsuarioRelationWith) mensajeToRemitenteFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeToRemitenteFindFirst) Select(params ...mensajePrismaFields) mensajeToRemitenteFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToRemitenteFindFirst) Omit(params ...mensajePrismaFields) mensajeToRemitenteFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToRemitenteFindFirst) OrderBy(params ...UsuarioOrderByParam) mensajeToRemitenteFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r mensajeToRemitenteFindFirst) Skip(count int) mensajeToRemitenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeToRemitenteFindFirst) Take(count int) mensajeToRemitenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeToRemitenteFindFirst) Cursor(cursor MensajeCursorParam) mensajeToRemitenteFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r mensajeToRemitenteFindFirst) Exec(ctx context.Context) (
+	*MensajeModel,
+	error,
+) {
+	var v *MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeToRemitenteFindFirst) ExecInner(ctx context.Context) (
+	*InnerMensaje,
+	error,
+) {
+	var v *InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type mensajeToRemitenteFindMany struct {
+	query builder.Query
+}
+
+func (r mensajeToRemitenteFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToRemitenteFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToRemitenteFindMany) with()            {}
+func (r mensajeToRemitenteFindMany) mensajeModel()    {}
+func (r mensajeToRemitenteFindMany) mensajeRelation() {}
+
+func (r mensajeToRemitenteFindMany) With(params ...UsuarioRelationWith) mensajeToRemitenteFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeToRemitenteFindMany) Select(params ...mensajePrismaFields) mensajeToRemitenteFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToRemitenteFindMany) Omit(params ...mensajePrismaFields) mensajeToRemitenteFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeToRemitenteFindMany) OrderBy(params ...UsuarioOrderByParam) mensajeToRemitenteFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r mensajeToRemitenteFindMany) Skip(count int) mensajeToRemitenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeToRemitenteFindMany) Take(count int) mensajeToRemitenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeToRemitenteFindMany) Cursor(cursor MensajeCursorParam) mensajeToRemitenteFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r mensajeToRemitenteFindMany) Exec(ctx context.Context) (
+	[]MensajeModel,
+	error,
+) {
+	var v []MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r mensajeToRemitenteFindMany) ExecInner(ctx context.Context) (
+	[]InnerMensaje,
+	error,
+) {
+	var v []InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r mensajeToRemitenteFindMany) Update(params ...MensajeSetParam) mensajeToRemitenteUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Mensaje"
+
+	r.query.Outputs = countOutput
+
+	var v mensajeToRemitenteUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type mensajeToRemitenteUpdateMany struct {
+	query builder.Query
+}
+
+func (r mensajeToRemitenteUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeToRemitenteUpdateMany) mensajeModel() {}
+
+func (r mensajeToRemitenteUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeToRemitenteUpdateMany) Tx() MensajeManyTxResult {
+	v := newMensajeManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r mensajeToRemitenteFindMany) Delete() mensajeToRemitenteDeleteMany {
+	var v mensajeToRemitenteDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Mensaje"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type mensajeToRemitenteDeleteMany struct {
+	query builder.Query
+}
+
+func (r mensajeToRemitenteDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p mensajeToRemitenteDeleteMany) mensajeModel() {}
+
+func (r mensajeToRemitenteDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeToRemitenteDeleteMany) Tx() MensajeManyTxResult {
+	v := newMensajeManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type mensajeFindUnique struct {
+	query builder.Query
+}
+
+func (r mensajeFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeFindUnique) with()            {}
+func (r mensajeFindUnique) mensajeModel()    {}
+func (r mensajeFindUnique) mensajeRelation() {}
+
+func (r mensajeActions) FindUnique(
+	params MensajeEqualsUniqueWhereParam,
+) mensajeFindUnique {
+	var v mensajeFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "Mensaje"
+	v.query.Outputs = mensajeOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r mensajeFindUnique) With(params ...MensajeRelationWith) mensajeFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeFindUnique) Select(params ...mensajePrismaFields) mensajeFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeFindUnique) Omit(params ...mensajePrismaFields) mensajeFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeFindUnique) Exec(ctx context.Context) (
+	*MensajeModel,
+	error,
+) {
+	var v *MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeFindUnique) ExecInner(ctx context.Context) (
+	*InnerMensaje,
+	error,
+) {
+	var v *InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeFindUnique) Update(params ...MensajeSetParam) mensajeUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "Mensaje"
+
+	var v mensajeUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type mensajeUpdateUnique struct {
+	query builder.Query
+}
+
+func (r mensajeUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeUpdateUnique) mensajeModel() {}
+
+func (r mensajeUpdateUnique) Exec(ctx context.Context) (*MensajeModel, error) {
+	var v MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeUpdateUnique) Tx() MensajeUniqueTxResult {
+	v := newMensajeUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r mensajeFindUnique) Delete() mensajeDeleteUnique {
+	var v mensajeDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "Mensaje"
+
+	return v
+}
+
+type mensajeDeleteUnique struct {
+	query builder.Query
+}
+
+func (r mensajeDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p mensajeDeleteUnique) mensajeModel() {}
+
+func (r mensajeDeleteUnique) Exec(ctx context.Context) (*MensajeModel, error) {
+	var v MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeDeleteUnique) Tx() MensajeUniqueTxResult {
+	v := newMensajeUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type mensajeFindFirst struct {
+	query builder.Query
+}
+
+func (r mensajeFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeFindFirst) with()            {}
+func (r mensajeFindFirst) mensajeModel()    {}
+func (r mensajeFindFirst) mensajeRelation() {}
+
+func (r mensajeActions) FindFirst(
+	params ...MensajeWhereParam,
+) mensajeFindFirst {
+	var v mensajeFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "Mensaje"
+	v.query.Outputs = mensajeOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r mensajeFindFirst) With(params ...MensajeRelationWith) mensajeFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeFindFirst) Select(params ...mensajePrismaFields) mensajeFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeFindFirst) Omit(params ...mensajePrismaFields) mensajeFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeFindFirst) OrderBy(params ...MensajeOrderByParam) mensajeFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r mensajeFindFirst) Skip(count int) mensajeFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeFindFirst) Take(count int) mensajeFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeFindFirst) Cursor(cursor MensajeCursorParam) mensajeFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r mensajeFindFirst) Exec(ctx context.Context) (
+	*MensajeModel,
+	error,
+) {
+	var v *MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r mensajeFindFirst) ExecInner(ctx context.Context) (
+	*InnerMensaje,
+	error,
+) {
+	var v *InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type mensajeFindMany struct {
+	query builder.Query
+}
+
+func (r mensajeFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeFindMany) with()            {}
+func (r mensajeFindMany) mensajeModel()    {}
+func (r mensajeFindMany) mensajeRelation() {}
+
+func (r mensajeActions) FindMany(
+	params ...MensajeWhereParam,
+) mensajeFindMany {
+	var v mensajeFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "Mensaje"
+	v.query.Outputs = mensajeOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r mensajeFindMany) With(params ...MensajeRelationWith) mensajeFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r mensajeFindMany) Select(params ...mensajePrismaFields) mensajeFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeFindMany) Omit(params ...mensajePrismaFields) mensajeFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range mensajeOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r mensajeFindMany) OrderBy(params ...MensajeOrderByParam) mensajeFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r mensajeFindMany) Skip(count int) mensajeFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeFindMany) Take(count int) mensajeFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r mensajeFindMany) Cursor(cursor MensajeCursorParam) mensajeFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r mensajeFindMany) Exec(ctx context.Context) (
+	[]MensajeModel,
+	error,
+) {
+	var v []MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r mensajeFindMany) ExecInner(ctx context.Context) (
+	[]InnerMensaje,
+	error,
+) {
+	var v []InnerMensaje
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r mensajeFindMany) Update(params ...MensajeSetParam) mensajeUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "Mensaje"
+
+	r.query.Outputs = countOutput
+
+	var v mensajeUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type mensajeUpdateMany struct {
+	query builder.Query
+}
+
+func (r mensajeUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeUpdateMany) mensajeModel() {}
+
+func (r mensajeUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeUpdateMany) Tx() MensajeManyTxResult {
+	v := newMensajeManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r mensajeFindMany) Delete() mensajeDeleteMany {
+	var v mensajeDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "Mensaje"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type mensajeDeleteMany struct {
+	query builder.Query
+}
+
+func (r mensajeDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p mensajeDeleteMany) mensajeModel() {}
+
+func (r mensajeDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeDeleteMany) Tx() MensajeManyTxResult {
+	v := newMensajeManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template transaction.gotpl ---
 
 func newUsuarioUniqueTxResult() UsuarioUniqueTxResult {
@@ -85226,6 +105019,54 @@ func (p PasswordRecoveryTokenManyTxResult) ExtractQuery() builder.Query {
 func (p PasswordRecoveryTokenManyTxResult) IsTx() {}
 
 func (r PasswordRecoveryTokenManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newRegistrationTemporaryKeyUniqueTxResult() RegistrationTemporaryKeyUniqueTxResult {
+	return RegistrationTemporaryKeyUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type RegistrationTemporaryKeyUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p RegistrationTemporaryKeyUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p RegistrationTemporaryKeyUniqueTxResult) IsTx() {}
+
+func (r RegistrationTemporaryKeyUniqueTxResult) Result() (v *RegistrationTemporaryKeyModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newRegistrationTemporaryKeyManyTxResult() RegistrationTemporaryKeyManyTxResult {
+	return RegistrationTemporaryKeyManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type RegistrationTemporaryKeyManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p RegistrationTemporaryKeyManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p RegistrationTemporaryKeyManyTxResult) IsTx() {}
+
+func (r RegistrationTemporaryKeyManyTxResult) Result() (v *BatchResult) {
 	if err := r.result.Get(r.query.TxResult, &v); err != nil {
 		panic(err)
 	}
@@ -85952,6 +105793,150 @@ func (r SesionPonenteManyTxResult) Result() (v *BatchResult) {
 	return v
 }
 
+func newConversacionUniqueTxResult() ConversacionUniqueTxResult {
+	return ConversacionUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type ConversacionUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p ConversacionUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p ConversacionUniqueTxResult) IsTx() {}
+
+func (r ConversacionUniqueTxResult) Result() (v *ConversacionModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newConversacionManyTxResult() ConversacionManyTxResult {
+	return ConversacionManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type ConversacionManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p ConversacionManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p ConversacionManyTxResult) IsTx() {}
+
+func (r ConversacionManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newConversacionParticipanteUniqueTxResult() ConversacionParticipanteUniqueTxResult {
+	return ConversacionParticipanteUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type ConversacionParticipanteUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p ConversacionParticipanteUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p ConversacionParticipanteUniqueTxResult) IsTx() {}
+
+func (r ConversacionParticipanteUniqueTxResult) Result() (v *ConversacionParticipanteModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newConversacionParticipanteManyTxResult() ConversacionParticipanteManyTxResult {
+	return ConversacionParticipanteManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type ConversacionParticipanteManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p ConversacionParticipanteManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p ConversacionParticipanteManyTxResult) IsTx() {}
+
+func (r ConversacionParticipanteManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newMensajeUniqueTxResult() MensajeUniqueTxResult {
+	return MensajeUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type MensajeUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p MensajeUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p MensajeUniqueTxResult) IsTx() {}
+
+func (r MensajeUniqueTxResult) Result() (v *MensajeModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newMensajeManyTxResult() MensajeManyTxResult {
+	return MensajeManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type MensajeManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p MensajeManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p MensajeManyTxResult) IsTx() {}
+
+func (r MensajeManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
 // --- template upsert.gotpl ---
 
 type usuarioUpsertOne struct {
@@ -86243,6 +106228,157 @@ func (r passwordRecoveryTokenUpsertOne) Exec(ctx context.Context) (*PasswordReco
 
 func (r passwordRecoveryTokenUpsertOne) Tx() PasswordRecoveryTokenUniqueTxResult {
 	v := newPasswordRecoveryTokenUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type registrationTemporaryKeyUpsertOne struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyUpsertOne) with()                             {}
+func (r registrationTemporaryKeyUpsertOne) registrationTemporaryKeyModel()    {}
+func (r registrationTemporaryKeyUpsertOne) registrationTemporaryKeyRelation() {}
+
+func (r registrationTemporaryKeyActions) UpsertOne(
+	params RegistrationTemporaryKeyEqualsUniqueWhereParam,
+) registrationTemporaryKeyUpsertOne {
+	var v registrationTemporaryKeyUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "RegistrationTemporaryKey"
+	v.query.Outputs = registrationTemporaryKeyOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r registrationTemporaryKeyUpsertOne) Create(
+
+	_name RegistrationTemporaryKeyWithPrismaNameSetParam,
+	_email RegistrationTemporaryKeyWithPrismaEmailSetParam,
+	_tokenHash RegistrationTemporaryKeyWithPrismaTokenHashSetParam,
+	_expiresAt RegistrationTemporaryKeyWithPrismaExpiresAtSetParam,
+
+	optional ...RegistrationTemporaryKeySetParam,
+) registrationTemporaryKeyUpsertOne {
+	var v registrationTemporaryKeyUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _name.field())
+	fields = append(fields, _email.field())
+	fields = append(fields, _tokenHash.field())
+	fields = append(fields, _expiresAt.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r registrationTemporaryKeyUpsertOne) Update(
+	params ...RegistrationTemporaryKeySetParam,
+) registrationTemporaryKeyUpsertOne {
+	var v registrationTemporaryKeyUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r registrationTemporaryKeyUpsertOne) CreateOrUpdate(
+
+	_name RegistrationTemporaryKeyWithPrismaNameSetParam,
+	_email RegistrationTemporaryKeyWithPrismaEmailSetParam,
+	_tokenHash RegistrationTemporaryKeyWithPrismaTokenHashSetParam,
+	_expiresAt RegistrationTemporaryKeyWithPrismaExpiresAtSetParam,
+
+	optional ...RegistrationTemporaryKeySetParam,
+) registrationTemporaryKeyUpsertOne {
+	var v registrationTemporaryKeyUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _name.field())
+	fields = append(fields, _email.field())
+	fields = append(fields, _tokenHash.field())
+	fields = append(fields, _expiresAt.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r registrationTemporaryKeyUpsertOne) Exec(ctx context.Context) (*RegistrationTemporaryKeyModel, error) {
+	var v RegistrationTemporaryKeyModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r registrationTemporaryKeyUpsertOne) Tx() RegistrationTemporaryKeyUniqueTxResult {
+	v := newRegistrationTemporaryKeyUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -88413,6 +108549,429 @@ func (r sesionPonenteUpsertOne) Tx() SesionPonenteUniqueTxResult {
 	return v
 }
 
+type conversacionUpsertOne struct {
+	query builder.Query
+}
+
+func (r conversacionUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionUpsertOne) with()                 {}
+func (r conversacionUpsertOne) conversacionModel()    {}
+func (r conversacionUpsertOne) conversacionRelation() {}
+
+func (r conversacionActions) UpsertOne(
+	params ConversacionEqualsUniqueWhereParam,
+) conversacionUpsertOne {
+	var v conversacionUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "Conversacion"
+	v.query.Outputs = conversacionOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r conversacionUpsertOne) Create(
+
+	optional ...ConversacionSetParam,
+) conversacionUpsertOne {
+	var v conversacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r conversacionUpsertOne) Update(
+	params ...ConversacionSetParam,
+) conversacionUpsertOne {
+	var v conversacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r conversacionUpsertOne) CreateOrUpdate(
+
+	optional ...ConversacionSetParam,
+) conversacionUpsertOne {
+	var v conversacionUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r conversacionUpsertOne) Exec(ctx context.Context) (*ConversacionModel, error) {
+	var v ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionUpsertOne) Tx() ConversacionUniqueTxResult {
+	v := newConversacionUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type conversacionParticipanteUpsertOne struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteUpsertOne) with()                             {}
+func (r conversacionParticipanteUpsertOne) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteUpsertOne) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteActions) UpsertOne(
+	params ConversacionParticipanteEqualsUniqueWhereParam,
+) conversacionParticipanteUpsertOne {
+	var v conversacionParticipanteUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "ConversacionParticipante"
+	v.query.Outputs = conversacionParticipanteOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r conversacionParticipanteUpsertOne) Create(
+
+	_conversacion ConversacionParticipanteWithPrismaConversacionSetParam,
+	_usuario ConversacionParticipanteWithPrismaUsuarioSetParam,
+
+	optional ...ConversacionParticipanteSetParam,
+) conversacionParticipanteUpsertOne {
+	var v conversacionParticipanteUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _conversacion.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r conversacionParticipanteUpsertOne) Update(
+	params ...ConversacionParticipanteSetParam,
+) conversacionParticipanteUpsertOne {
+	var v conversacionParticipanteUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r conversacionParticipanteUpsertOne) CreateOrUpdate(
+
+	_conversacion ConversacionParticipanteWithPrismaConversacionSetParam,
+	_usuario ConversacionParticipanteWithPrismaUsuarioSetParam,
+
+	optional ...ConversacionParticipanteSetParam,
+) conversacionParticipanteUpsertOne {
+	var v conversacionParticipanteUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _conversacion.field())
+	fields = append(fields, _usuario.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r conversacionParticipanteUpsertOne) Exec(ctx context.Context) (*ConversacionParticipanteModel, error) {
+	var v ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r conversacionParticipanteUpsertOne) Tx() ConversacionParticipanteUniqueTxResult {
+	v := newConversacionParticipanteUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type mensajeUpsertOne struct {
+	query builder.Query
+}
+
+func (r mensajeUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeUpsertOne) with()            {}
+func (r mensajeUpsertOne) mensajeModel()    {}
+func (r mensajeUpsertOne) mensajeRelation() {}
+
+func (r mensajeActions) UpsertOne(
+	params MensajeEqualsUniqueWhereParam,
+) mensajeUpsertOne {
+	var v mensajeUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "Mensaje"
+	v.query.Outputs = mensajeOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r mensajeUpsertOne) Create(
+
+	_cuerpo MensajeWithPrismaCuerpoSetParam,
+	_conversacion MensajeWithPrismaConversacionSetParam,
+	_remitente MensajeWithPrismaRemitenteSetParam,
+
+	optional ...MensajeSetParam,
+) mensajeUpsertOne {
+	var v mensajeUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _cuerpo.field())
+	fields = append(fields, _conversacion.field())
+	fields = append(fields, _remitente.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r mensajeUpsertOne) Update(
+	params ...MensajeSetParam,
+) mensajeUpsertOne {
+	var v mensajeUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r mensajeUpsertOne) CreateOrUpdate(
+
+	_cuerpo MensajeWithPrismaCuerpoSetParam,
+	_conversacion MensajeWithPrismaConversacionSetParam,
+	_remitente MensajeWithPrismaRemitenteSetParam,
+
+	optional ...MensajeSetParam,
+) mensajeUpsertOne {
+	var v mensajeUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _cuerpo.field())
+	fields = append(fields, _conversacion.field())
+	fields = append(fields, _remitente.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r mensajeUpsertOne) Exec(ctx context.Context) (*MensajeModel, error) {
+	var v MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r mensajeUpsertOne) Tx() MensajeUniqueTxResult {
+	v := newMensajeUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 // --- template raw.gotpl ---
 
 type usuarioAggregateRaw struct {
@@ -88571,6 +109130,87 @@ func (r passwordRecoveryTokenAggregateRaw) Exec(ctx context.Context) ([]Password
 
 func (r passwordRecoveryTokenAggregateRaw) ExecInner(ctx context.Context) ([]InnerPasswordRecoveryToken, error) {
 	var v []InnerPasswordRecoveryToken
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type registrationTemporaryKeyAggregateRaw struct {
+	query builder.Query
+}
+
+func (r registrationTemporaryKeyAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r registrationTemporaryKeyAggregateRaw) with()                             {}
+func (r registrationTemporaryKeyAggregateRaw) registrationTemporaryKeyModel()    {}
+func (r registrationTemporaryKeyAggregateRaw) registrationTemporaryKeyRelation() {}
+
+func (r registrationTemporaryKeyActions) FindRaw(filter interface{}, options ...interface{}) registrationTemporaryKeyAggregateRaw {
+	var v registrationTemporaryKeyAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "RegistrationTemporaryKey"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r registrationTemporaryKeyActions) AggregateRaw(pipeline []interface{}, options ...interface{}) registrationTemporaryKeyAggregateRaw {
+	var v registrationTemporaryKeyAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "RegistrationTemporaryKey"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r registrationTemporaryKeyAggregateRaw) Exec(ctx context.Context) ([]RegistrationTemporaryKeyModel, error) {
+	var v []RegistrationTemporaryKeyModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r registrationTemporaryKeyAggregateRaw) ExecInner(ctx context.Context) ([]InnerRegistrationTemporaryKey, error) {
+	var v []InnerRegistrationTemporaryKey
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}
@@ -89786,6 +110426,249 @@ func (r sesionPonenteAggregateRaw) Exec(ctx context.Context) ([]SesionPonenteMod
 
 func (r sesionPonenteAggregateRaw) ExecInner(ctx context.Context) ([]InnerSesionPonente, error) {
 	var v []InnerSesionPonente
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type conversacionAggregateRaw struct {
+	query builder.Query
+}
+
+func (r conversacionAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionAggregateRaw) with()                 {}
+func (r conversacionAggregateRaw) conversacionModel()    {}
+func (r conversacionAggregateRaw) conversacionRelation() {}
+
+func (r conversacionActions) FindRaw(filter interface{}, options ...interface{}) conversacionAggregateRaw {
+	var v conversacionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Conversacion"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r conversacionActions) AggregateRaw(pipeline []interface{}, options ...interface{}) conversacionAggregateRaw {
+	var v conversacionAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Conversacion"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r conversacionAggregateRaw) Exec(ctx context.Context) ([]ConversacionModel, error) {
+	var v []ConversacionModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r conversacionAggregateRaw) ExecInner(ctx context.Context) ([]InnerConversacion, error) {
+	var v []InnerConversacion
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type conversacionParticipanteAggregateRaw struct {
+	query builder.Query
+}
+
+func (r conversacionParticipanteAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r conversacionParticipanteAggregateRaw) with()                             {}
+func (r conversacionParticipanteAggregateRaw) conversacionParticipanteModel()    {}
+func (r conversacionParticipanteAggregateRaw) conversacionParticipanteRelation() {}
+
+func (r conversacionParticipanteActions) FindRaw(filter interface{}, options ...interface{}) conversacionParticipanteAggregateRaw {
+	var v conversacionParticipanteAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "ConversacionParticipante"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r conversacionParticipanteActions) AggregateRaw(pipeline []interface{}, options ...interface{}) conversacionParticipanteAggregateRaw {
+	var v conversacionParticipanteAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "ConversacionParticipante"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r conversacionParticipanteAggregateRaw) Exec(ctx context.Context) ([]ConversacionParticipanteModel, error) {
+	var v []ConversacionParticipanteModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r conversacionParticipanteAggregateRaw) ExecInner(ctx context.Context) ([]InnerConversacionParticipante, error) {
+	var v []InnerConversacionParticipante
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type mensajeAggregateRaw struct {
+	query builder.Query
+}
+
+func (r mensajeAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r mensajeAggregateRaw) with()            {}
+func (r mensajeAggregateRaw) mensajeModel()    {}
+func (r mensajeAggregateRaw) mensajeRelation() {}
+
+func (r mensajeActions) FindRaw(filter interface{}, options ...interface{}) mensajeAggregateRaw {
+	var v mensajeAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Mensaje"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r mensajeActions) AggregateRaw(pipeline []interface{}, options ...interface{}) mensajeAggregateRaw {
+	var v mensajeAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "Mensaje"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r mensajeAggregateRaw) Exec(ctx context.Context) ([]MensajeModel, error) {
+	var v []MensajeModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r mensajeAggregateRaw) ExecInner(ctx context.Context) ([]InnerMensaje, error) {
+	var v []InnerMensaje
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}

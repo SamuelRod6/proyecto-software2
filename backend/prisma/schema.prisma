@@ -17,6 +17,8 @@ model Usuario {
   inscripciones   Inscripcion[]
   notificaciones  Notificacion[] @relation("UsuarioNotificaciones")
   sesionesPonente SesionPonente[]
+  conversaciones  ConversacionParticipante[]
+  mensajesEnviados Mensaje[] @relation("MensajesEnviados")
   UsuarioRoles    UsuarioRoles[]
   preferencias    NotificacionPreferencia?
   recoveryTokens  PasswordRecoveryToken[]
@@ -33,6 +35,20 @@ model PasswordRecoveryToken {
 
   @@index([id_usuario])
   @@index([token_hash])
+}
+
+model RegistrationTemporaryKey {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email], map: "registration_temporary_key_email_idx")
+  @@index([tokenHash], map: "registration_temporary_key_token_hash_idx")
+  @@map("RegistrationTemporaryKey")
 }
 
 model Roles {

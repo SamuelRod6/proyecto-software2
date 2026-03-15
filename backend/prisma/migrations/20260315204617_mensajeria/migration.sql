@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "RegistrationTemporaryKey" ALTER COLUMN "expires_at" SET DATA TYPE TIMESTAMP(3),
+ALTER COLUMN "used_at" SET DATA TYPE TIMESTAMP(3),
+ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(3);
