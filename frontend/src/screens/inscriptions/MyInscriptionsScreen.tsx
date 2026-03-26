@@ -10,10 +10,13 @@ import emptyAnimation from "../../assets/animations/empty-animation.json";
 import { useToast } from "../../contexts/Toast/ToastContext";
 import { NotificationContext } from "../../contexts/Notifications/NotificationContext";
 import {
+  downloadInscriptionHistoryPDF,
   downloadReceipt,
+  getInscriptionHistory,
   getInscriptions,
   getNotifications,
   getPreferences,
+  InscriptionHistoryItem,
   updatePreferences,
   InscriptionItem,
   NotificacionItem,
@@ -54,6 +57,16 @@ export default function MyInscriptionsScreen(): JSX.Element {
   const [enabled, setEnabled] = useState(true);
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+  const [selectedHistoryInscriptionId, setSelectedHistoryInscriptionId] =
+    useState<number | null>(null);
+  const [historyItems, setHistoryItems] = useState<InscriptionHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const [historyEstadoFilter, setHistoryEstadoFilter] = useState("");
+  const [historyTypeFilter, setHistoryTypeFilter] = useState("");
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyDesde, setHistoryDesde] = useState("");
+  const [historyHasta, setHistoryHasta] = useState("");
   const { showToast } = useToast();
   const { notifications: roleNotifications, clearNotifications } =
     useContext(NotificationContext);
@@ -162,6 +175,135 @@ export default function MyInscriptionsScreen(): JSX.Element {
       setSelectedEvento(evento);
       setCalendarMonth(parseDate(evento.fecha_inicio));
     }
+  };
+
+  function toApiDate(value: string): string {
+    if (!value.includes("-")) return value;
+    const [year, month, day] = value.split("-");
+    if (!year || !month || !day) return value;
+    return `${day}/${month}/${year}`;
+  }
+
+  const historyFilters = useMemo(
+    () => ({
+      estado: historyEstadoFilter.trim() || undefined,
+      tipo_cambio: historyTypeFilter.trim() || undefined,
+      q: historyQuery.trim() || undefined,
+      desde: historyDesde ? toApiDate(historyDesde) : undefined,
+      hasta: historyHasta ? toApiDate(historyHasta) : undefined,
+    }),
+    [historyDesde, historyEstadoFilter, historyHasta, historyQuery, historyTypeFilter],
+  );
+
+  const loadHistory = async (inscriptionId: number, keepSelection = false) => {
+    if (!keepSelection) {
+      setSelectedHistoryInscriptionId(inscriptionId);
+    }
+    setHistoryLoading(true);
+    setHistoryError("");
+
+    const { status, data } = await getInscriptionHistory(inscriptionId, historyFilters);
+    if (status >= 400) {
+      setHistoryError("No se pudo cargar el historial de cambios.");
+      setHistoryItems([]);
+    } else {
+      setHistoryItems(Array.isArray(data) ? data : []);
+    }
+
+    setHistoryLoading(false);
+  };
+
+  const handleSearchHistory = async () => {
+    if (!selectedHistoryInscriptionId) return;
+    await loadHistory(selectedHistoryInscriptionId, true);
+  };
+
+  const handleDownloadHistoryPDF = async () => {
+    if (!selectedHistoryInscriptionId) return;
+    const { status, data } = await downloadInscriptionHistoryPDF(
+      selectedHistoryInscriptionId,
+      historyFilters,
+    );
+    if (status >= 400) {
+      showToast({
+        title: "Error",
+        message: "No se pudo descargar el historial en PDF.",
+        status: "error",
+      });
+      return;
+    }
+
+    const blob = data as Blob;
+    const url = globalThis.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `historial_inscripcion_${selectedHistoryInscriptionId}.pdf`;
+    link.click();
+    globalThis.URL.revokeObjectURL(url);
+  };
+
+  const handlePrintHistory = () => {
+    if (!selectedHistoryInscriptionId) return;
+    const printWindow = globalThis.open("", "_blank", "width=1000,height=700");
+    if (!printWindow) {
+      showToast({
+        title: "Error",
+        message: "No se pudo abrir la vista de impresión.",
+        status: "error",
+      });
+      return;
+    }
+
+    const rowsMarkup =
+      historyItems.length === 0
+        ? `<tr><td colspan="5">Sin resultados.</td></tr>`
+        : historyItems
+            .map(
+              (item) =>
+                `<tr>
+                  <td>${item.fecha_cambio}</td>
+                  <td>${item.estado_anterior || "-"}</td>
+                  <td>${item.estado_nuevo}</td>
+                  <td>${item.tipo_cambio || "-"}</td>
+                  <td>${item.nota || item.actor || "-"}</td>
+                </tr>`,
+            )
+            .join("");
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Historial de cambios</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 24px; color: #0f172a; }
+            h1 { font-size: 20px; margin-bottom: 10px; }
+            p { margin: 4px 0 12px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; text-align: left; }
+            th { background: #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <h1>Historial de cambios del trabajo científico</h1>
+          <p>Inscripción: ${selectedHistoryInscriptionId}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Estado anterior</th>
+                <th>Estado nuevo</th>
+                <th>Tipo de cambio</th>
+                <th>Comentario/actor</th>
+              </tr>
+            </thead>
+            <tbody>${rowsMarkup}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
   };
 
   const handleDownload = async (id: number) => {
@@ -343,6 +485,12 @@ export default function MyInscriptionsScreen(): JSX.Element {
               >
                 Ver comprobante
               </Button>
+              <Button
+                variant="ghost"
+                onClick={() => loadHistory(item.id_inscripcion)}
+              >
+                Ver historial de cambios
+              </Button>
             </div>
           </div>
         ))}
@@ -360,6 +508,152 @@ export default function MyInscriptionsScreen(): JSX.Element {
         <div className="mt-4 max-h-[430px] overflow-y-auto pr-2">
           {inscriptionsContent}
         </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-700 bg-slate-800/80 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-[#F5E427]">
+            Historial de cambios del trabajo científico
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={handleDownloadHistoryPDF}>
+              Descargar PDF
+            </Button>
+            <Button variant="ghost" onClick={handlePrintHistory}>
+              Imprimir
+            </Button>
+          </div>
+        </div>
+
+        {selectedHistoryInscriptionId === null ? (
+          <p className="mt-3 text-sm text-slate-400">
+            Selecciona una inscripción y haz clic en "Ver historial de cambios".
+          </p>
+        ) : (
+          <>
+            <p className="mt-3 text-sm text-slate-300">
+              Inscripción seleccionada: #{selectedHistoryInscriptionId}
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <SelectInput
+                value={historyEstadoFilter}
+                onChange={(value) =>
+                  setHistoryEstadoFilter(
+                    Array.isArray(value) ? (value[0] ?? "") : value,
+                  )
+                }
+                options={[
+                  { value: "", label: "Todos los estados" },
+                  { value: "Pendiente", label: "Pendiente" },
+                  { value: "Pagado", label: "Pagado" },
+                  { value: "Aprobado", label: "Aprobado" },
+                  { value: "Rechazado", label: "Rechazado" },
+                ]}
+                inputLabel="Estado"
+                placeholder="Todos"
+                allowCustom={false}
+              />
+              <SelectInput
+                value={historyTypeFilter}
+                onChange={(value) =>
+                  setHistoryTypeFilter(
+                    Array.isArray(value) ? (value[0] ?? "") : value,
+                  )
+                }
+                options={[
+                  { value: "", label: "Todos los tipos" },
+                  { value: "Manual", label: "Manual" },
+                  { value: "Automático", label: "Automático" },
+                  { value: "Retroalimentación", label: "Retroalimentación" },
+                ]}
+                inputLabel="Tipo de cambio"
+                placeholder="Todos"
+                allowCustom={false}
+              />
+              <label className="flex flex-col gap-1 text-sm text-slate-200">
+                Buscar
+                <input
+                  className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                  value={historyQuery}
+                  onChange={(event) => setHistoryQuery(event.target.value)}
+                  placeholder="Comentario, actor o estado"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-slate-200">
+                Fecha desde
+                <input
+                  type="date"
+                  className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                  value={historyDesde}
+                  onChange={(event) => setHistoryDesde(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-slate-200">
+                Fecha hasta
+                <input
+                  type="date"
+                  className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                  value={historyHasta}
+                  onChange={(event) => setHistoryHasta(event.target.value)}
+                />
+              </label>
+              <div className="flex items-end">
+                <Button onClick={handleSearchHistory}>Aplicar filtros</Button>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-x-auto">
+              {historyLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader visible={true} />
+                </div>
+              ) : historyError ? (
+                <p className="text-sm text-red-400">{historyError}</p>
+              ) : (
+                <table className="min-w-full text-sm text-slate-200">
+                  <thead className="bg-slate-700/50 text-slate-100">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Fecha</th>
+                      <th className="px-3 py-2 text-left">Estado anterior</th>
+                      <th className="px-3 py-2 text-left">Estado nuevo</th>
+                      <th className="px-3 py-2 text-left">Tipo de cambio</th>
+                      <th className="px-3 py-2 text-left">Comentario / Retroalimentación</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyItems.length === 0 ? (
+                      <tr>
+                        <td
+                          className="px-3 py-3 text-slate-400"
+                          colSpan={5}
+                        >
+                          No hay cambios para los filtros seleccionados.
+                        </td>
+                      </tr>
+                    ) : (
+                      historyItems.map((item) => (
+                        <tr
+                          key={item.id_historial}
+                          className="border-b border-slate-700/60"
+                        >
+                          <td className="px-3 py-2">{item.fecha_cambio}</td>
+                          <td className="px-3 py-2">
+                            {item.estado_anterior || "-"}
+                          </td>
+                          <td className="px-3 py-2">{item.estado_nuevo}</td>
+                          <td className="px-3 py-2">{item.tipo_cambio || "-"}</td>
+                          <td className="px-3 py-2">
+                            {item.nota || item.actor || "-"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
