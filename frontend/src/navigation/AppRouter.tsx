@@ -9,6 +9,7 @@ import { roleManagementRoutes } from "./RoleManagement";
 import { permissionManagementRoutes } from "./PermissionManagement";
 import { inscriptionRoutes } from "./InscriptionRoutes";
 import { scientificWorkRoutes } from "./ScientificWorkRoutes";
+import { mensajesRoutes } from "./MensajesRoutes";
 // screens
 import HomeScreen from "../screens/HomeScreen";
 // contexts
@@ -33,6 +34,7 @@ export default function AppRouter(): JSX.Element {
             {roleManagementRoutes}
             {permissionManagementRoutes}
             {scientificWorkRoutes}
+            {mensajesRoutes}
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.login} replace />} />
         </Routes>

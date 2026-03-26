@@ -10,6 +10,7 @@ import (
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
 	inscripcioneshandler "project/backend/internal/inscripciones/handler"
+	mensajeshandler "project/backend/internal/mensajes/handler"
 	paishandler "project/backend/internal/pais/handler"
 	permissionhandler "project/backend/internal/permissions/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
@@ -83,6 +84,7 @@ func main() {
 	rolesHandler := rolehandler.New(prismaClient)
 	permissionsHandler := permissionhandler.New(prismaClient)
 	trabajosHandler := trabajoshandler.New(prismaClient)
+	mensajesHandler := mensajeshandler.New(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 	http.HandleFunc("/api/user/assign-roles", userHandler.UpdateUserRolesHandler)
@@ -132,6 +134,12 @@ func main() {
 	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
 		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)
 	}
+
+	http.Handle("/api/mensajes/conversaciones", mensajesHandler)
+	http.Handle("/api/mensajes/conversaciones/", mensajesHandler)
+	http.HandleFunc("/api/mensajes/usuarios/buscar", mensajesHandler.SearchUsuariosHandler)
+	http.HandleFunc("/api/mensajes/adjuntos", mensajesHandler.UploadAdjuntoHandler)
+	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 
 	port := os.Getenv("PORT")
 	if port == "" {

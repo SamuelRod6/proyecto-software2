@@ -15,4 +15,5 @@ const (
 	NotificationTypeTrabajoAsignado       = "trabajo_asignado"
 	NotificationTypeEvaluacionRecibida    = "evaluacion_recibida"
 	NotificationTypeEstadoTrabajo         = "estado_trabajo_cientifico"
+	NotificationTypeNuevoMensaje          = "nuevo_mensaje"
 )
