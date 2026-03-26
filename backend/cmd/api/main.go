@@ -119,6 +119,7 @@ func main() {
 	http.Handle("/api/sesiones/", sesionesHandler)
 	http.Handle("/api/trabajos-cientificos", trabajosHandler)
 	http.Handle("/api/trabajos-cientificos/", trabajosHandler)
+	http.HandleFunc("/api/permissions/resource-map", permissionsHandler.(*permissionhandler.Handler).ResourcePermissionMapHandler)
 
 	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
 		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)

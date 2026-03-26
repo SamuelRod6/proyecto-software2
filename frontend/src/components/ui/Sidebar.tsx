@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useLoader } from "../../contexts/Loader/LoaderContext";
 import { NavLink } from "react-router-dom";
 import { ROUTES } from "../../navigation/routes";
 import { RESOURCE_KEYS } from "../../constants/resources";
-import { hasResourceAccess } from "../../utils/accessControl";
+import { hasResourceAccess, setResourcePermissionMap } from "../../utils/accessControl";
+import { fetchResourcePermissionMap } from "../../services/permissionServices"
 
 export default function Sidebar() {
   const [canManageEvents, setCanManageEvents] = useState(false);
@@ -11,19 +13,26 @@ export default function Sidebar() {
   const [canManagePermissions, setCanManagePermissions] = useState(false);
   const [canManageScientificWorks, setCanManageScientificWorks] = useState(false);
   const [canManageScientificWorksManagement, setCanManageScientificWorksManagement] = useState(false);
+  const { showLoader, hideLoader } = useLoader();
 
   useEffect(() => {
     let isMounted = true;
     const checkAccess = async () => {
-      const [
-        eventsAccess,
-        inscriptionsAccess,
-        rolesAccess,
-        permissionsAccess,
-        scientificWorkAccess,
-        scientificWorksManagementAccess,
-      ] =
-        await Promise.all([
+      showLoader();
+      try {
+        const resourcePermissionMap = await fetchResourcePermissionMap();
+        if (resourcePermissionMap && Object.keys(resourcePermissionMap).length > 0) {
+          setResourcePermissionMap(resourcePermissionMap);
+        }
+
+        const [
+          eventsAccess,
+          inscriptionsAccess,
+          rolesAccess,
+          permissionsAccess,
+          scientificWorkAccess,
+          scientificWorksManagementAccess,
+        ] = await Promise.all([
           hasResourceAccess(RESOURCE_KEYS.EVENTS_MANAGEMENT),
           hasResourceAccess(RESOURCE_KEYS.INSCRIPTIONS_MANAGEMENT),
           hasResourceAccess(RESOURCE_KEYS.ROLE_MANAGEMENT),
@@ -31,13 +40,16 @@ export default function Sidebar() {
           hasResourceAccess(RESOURCE_KEYS.SCIENTIFIC_WORKS),
           hasResourceAccess(RESOURCE_KEYS.SCIENTIFIC_WORKS_MANAGEMENT),
         ]);
-      if (isMounted) {
-        setCanManageEvents(eventsAccess);
-        setCanManageInscriptions(inscriptionsAccess);
-        setCanManageRoles(rolesAccess);
-        setCanManagePermissions(permissionsAccess);
-        setCanManageScientificWorks(scientificWorkAccess);
-        setCanManageScientificWorksManagement(scientificWorksManagementAccess);
+        if (isMounted) {
+          setCanManageEvents(eventsAccess);
+          setCanManageInscriptions(inscriptionsAccess);
+          setCanManageRoles(rolesAccess);
+          setCanManagePermissions(permissionsAccess);
+          setCanManageScientificWorks(scientificWorkAccess);
+          setCanManageScientificWorksManagement(scientificWorksManagementAccess);
+        }
+      } finally {
+        hideLoader();
       }
     };
     void checkAccess();
