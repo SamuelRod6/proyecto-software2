@@ -34,6 +34,108 @@ go run ./cmd/api     # inicia el servidor en :8080
 go test ./...       # ejecuta pruebas
 ```
 
+## Configuracion de Email API Privada (Gmail)
+
+El backend envia correos usando una API privada local (`mailer-api`) con endpoint HTTP `POST /send`.
+La API privada se conecta por SMTP a Gmail usando App Password.
+
+### 1) Crear App Password en Gmail
+
+1. Inicia sesion en tu cuenta Google.
+2. Ve a Seguridad: `https://myaccount.google.com/security`.
+3. Activa `Verificacion en 2 pasos`.
+4. Entra a `Contrasenas de aplicaciones`: `https://myaccount.google.com/apppasswords`.
+5. Selecciona app `Mail` y dispositivo `Otro` (por ejemplo: `Docker Mailer Local`).
+6. Copia la clave generada de 16 caracteres.
+
+Notas:
+- No uses la contraseña normal de Gmail en SMTP.
+- Si no ves `Contraseñas de aplicaciones`, normalmente falta 2FA o tu cuenta tiene una restriccion administrativa.
+
+### 2) Configurar variables en .env.local
+
+Configura estas variables (backend -> API privada):
+
+```bash
+MAILER_API_URL=http://localhost:3000/send
+MAILER_API_AUTH_KEY=dev-mailer-key
+MAILER_FROM=tu_correo@gmail.com
+MAILER_DEFAULT_CC=
+MAILER_TIMEOUT_SECONDS=10
+```
+
+Configura estas variables (API privada -> Gmail SMTP):
+
+```bash
+MAILER_FROM=tu_correo@gmail.com
+MAILER_SERVER_PORT=3000
+MAILER_AUTHORIZATION_KEY=dev-mailer-key
+MAILER_WHITELIST=
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu_correo@gmail.com
+SMTP_FROM=tu_correo@gmail.com
+SMTP_PASS=tu_app_password_de_16_caracteres
+SMTP_SECURE=false
+SMTP_CC=
+```
+
+### 3) Levantar servicios
+
+Para flujo completo local:
+
+```bash
+make dev local
+```
+
+Ese comando inicia:
+- Postgres en Docker
+- API privada de correo en Docker (`http://localhost:3000/send`)
+- Backend Go en `:8080`
+- Frontend Vite en `:5173`
+
+Si solo quieres levantar Docker:
+
+```bash
+docker compose up -d db mailer-api
+```
+
+Si cambias `.env.local`, recrea el contenedor del mailer:
+
+```bash
+docker compose up -d --force-recreate mailer-api
+```
+
+### 4) Verificar funcionamiento
+
+Healthcheck:
+
+```bash
+curl http://localhost:3000/health
+```
+
+Prueba manual de envio:
+
+```bash
+curl -X POST http://localhost:3000/send \
+	-H 'Authorization: dev-mailer-key' \
+	-H 'Content-Type: application/json' \
+	-d '{
+		"from": "tu_correo@gmail.com",
+		"to": "destinatario@correo.com",
+		"subject": "Prueba SAGEC",
+		"text": "Correo de prueba",
+		"html": "<p>Correo de prueba</p>"
+	}'
+```
+
+### 5) Errores comunes
+
+- `534-5.7.9 Application-specific password required`: `SMTP_PASS` no es App Password valida.
+- `550 From header sender domain not verified`: el remitente SMTP no esta permitido por tu proveedor.
+- `401 Unauthorized` en `/send`: `MAILER_API_AUTH_KEY` y `MAILER_AUTHORIZATION_KEY` no coinciden.
+
 ## Estructura del proyecto
 
 - `frontend/`: app React + Vite (UI, rutas, servicios, estilos)
