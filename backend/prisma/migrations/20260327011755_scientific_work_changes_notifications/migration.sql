@@ -1,16 +1,16 @@
 -- CreateTable
-CREATE TABLE "SesionHistorial" (
-    "id_historial" SERIAL NOT NULL,
-    "id_sesion" INTEGER NOT NULL,
-    "accion" TEXT NOT NULL,
-    "detalle" TEXT,
-    "actor" TEXT,
-    "fecha_cambio" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "valores_antes" TEXT,
-    "valores_despues" TEXT,
+-- CREATE TABLE "SesionHistorial" (
+--     "id_historial" SERIAL NOT NULL,
+--     "id_sesion" INTEGER NOT NULL,
+--     "accion" TEXT NOT NULL,
+--     "detalle" TEXT,
+--     "actor" TEXT,
+--     "fecha_cambio" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     "valores_antes" TEXT,
+--     "valores_despues" TEXT,
 
-    CONSTRAINT "SesionHistorial_pkey" PRIMARY KEY ("id_historial")
-);
+--     CONSTRAINT "SesionHistorial_pkey" PRIMARY KEY ("id_historial")
+-- );
 
 -- CreateTable
 CREATE TABLE "TrabajoCientifico" (
@@ -85,7 +85,7 @@ CREATE UNIQUE INDEX "TrabajoEvaluacion_id_trabajo_id_revisor_key" ON "TrabajoEva
 CREATE UNIQUE INDEX "TrabajoRevisionAsignacion_id_trabajo_id_revisor_key" ON "TrabajoRevisionAsignacion"("id_trabajo", "id_revisor");
 
 -- AddForeignKey
-ALTER TABLE "SesionHistorial" ADD CONSTRAINT "SesionHistorial_id_sesion_fkey" FOREIGN KEY ("id_sesion") REFERENCES "Sesion"("id_sesion") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- ALTER TABLE "SesionHistorial" ADD CONSTRAINT "SesionHistorial_id_sesion_fkey" FOREIGN KEY ("id_sesion") REFERENCES "Sesion"("id_sesion") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "TrabajoCientifico" ADD CONSTRAINT "TrabajoCientifico_id_evento_fkey" FOREIGN KEY ("id_evento") REFERENCES "Evento"("id_evento") ON DELETE RESTRICT ON UPDATE CASCADE;
