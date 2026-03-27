@@ -14,5 +14,15 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  mailer-api:
+    build:
+      context: ./mailer-api
+    container_name: private_mailer_api
+    restart: always
+    env_file:
+      - .env.local
+    ports:
+      - "${MAILER_SERVER_PORT:-3000}:3000"
+
 volumes:
   postgres_data:

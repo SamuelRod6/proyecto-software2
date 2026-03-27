@@ -3,14 +3,13 @@ package service
 import (
 	"context"
 	"errors"
-	"net/smtp"
-	"os"
 	"strings"
 	"time"
 
 	"project/backend/internal/inscripciones/dto"
 	"project/backend/internal/inscripciones/repo"
 	"project/backend/internal/inscripciones/validation"
+	sharedsmtp "project/backend/internal/shared/smtp"
 	"project/backend/prisma/db"
 )
 
@@ -67,44 +66,24 @@ func (s *Service) CreateInscripcion(ctx context.Context, req dto.CreateInscripci
 
 	_ = s.repo.InsertHistorial(ctx, id, "", "Pendiente", "Confirmada", "system")
 	_ = s.repo.InsertNotificacion(ctx, req.IDUsuario, &id, "Confirmación de inscripción", "Tu inscripción fue registrada correctamente")
-	_ = sendConfirmationEmail(req.Email, req.NombreParticipante, evento.Nombre)
+	_ = sendConfirmationEmail(ctx, req.Email, req.NombreParticipante, evento.Nombre)
 
 	return id, nil
 }
 
-func sendConfirmationEmail(to, nombre, evento string) error {
+func sendConfirmationEmail(ctx context.Context, to, nombre, evento string) error {
 	subject := "Confirmación de inscripción"
 	body := "Hola " + nombre + ",\n\nTu inscripción al evento '" + evento + "' fue registrada correctamente.\n\nGracias."
-	return sendEmail(to, subject, body)
+	return sendEmail(ctx, to, subject, body)
 }
 
-func sendEmail(to, subject, body string) error {
-	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
-	if host == "" {
-		return nil
-	}
-	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
-	if port == "" {
-		port = "587"
-	}
-	user := strings.TrimSpace(os.Getenv("SMTP_USER"))
-	pass := strings.TrimSpace(os.Getenv("SMTP_PASS"))
-	from := strings.TrimSpace(os.Getenv("SMTP_FROM"))
-	if from == "" {
-		from = user
-	}
-
-	msg := "From: " + from + "\r\n" +
-		"To: " + to + "\r\n" +
-		"Subject: " + subject + "\r\n\r\n" +
-		body
-
-	addr := host + ":" + port
-	if user == "" {
-		return smtp.SendMail(addr, nil, from, []string{to}, []byte(msg))
-	}
-	auth := smtp.PlainAuth("", user, pass, host)
-	return smtp.SendMail(addr, auth, from, []string{to}, []byte(msg))
+func sendEmail(ctx context.Context, to, subject, body string) error {
+	_, err := sharedsmtp.SendEmail(ctx, sharedsmtp.SendEmailRequest{
+		ToEmail: to,
+		Subject: subject,
+		Text:    body,
+	})
+	return err
 }
 
 func shouldSendStatusEmail(pref repo.PreferenciaRow, estadoAnterior, estadoNuevo string) bool {
@@ -246,7 +225,7 @@ func (s *Service) UpdateEstado(ctx context.Context, req dto.UpdateEstadoRequest)
 		fecha := time.Now().Format("02/01/2006")
 		asunto, mensaje := buildStatusEmail(rows[0].Nombre, rows[0].EventoNombre, actual, newStatus, fecha, req.Nota)
 		_ = s.repo.InsertNotificacion(ctx, rows[0].IDUsuario, &req.IDInscripcion, asunto, mensaje)
-		_ = sendEmail(rows[0].Email, asunto, mensaje)
+		_ = sendEmail(ctx, rows[0].Email, asunto, mensaje)
 	}
 
 	return nil
