@@ -25,17 +25,31 @@ func ValidateEventoNombre(nombre string) error {
 
 func ValidateEventoFechas(fechaInicio, fechaFin, fechaCierre string, now time.Time) (time.Time, time.Time, time.Time, error) {
 	loc := now.Location()
-	start, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaInicio), loc)
-	if err != nil {
-		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de inicio inválida (formato DD/MM/AAAA).")
+	parseDate := func(dateStr string) (time.Time, error) {
+		dateStr = strings.TrimSpace(dateStr)
+		// Intentar formato con hora
+		t, err := time.ParseInLocation("02/01/2006 15:04:05", dateStr, loc)
+		if err == nil {
+			return t, nil
+		}
+		// Intentar formato sin hora
+		t, err = time.ParseInLocation("02/01/2006", dateStr, loc)
+		if err == nil {
+			return t, nil
+		}
+		return time.Time{}, errors.New("Formato de fecha inválido (DD/MM/AAAA o DD/MM/AAAA HH:mm:ss)")
 	}
-	end, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaFin), loc)
+	start, err := parseDate(fechaInicio)
 	if err != nil {
-		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de fin inválida (formato DD/MM/AAAA).")
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de inicio inválida (formato DD/MM/AAAA o DD/MM/AAAA HH:mm:ss).")
 	}
-	cierre, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaCierre), loc)
+	end, err := parseDate(fechaFin)
 	if err != nil {
-		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de cierre de inscripción inválida (formato DD/MM/AAAA).")
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de fin inválida (formato DD/MM/AAAA o DD/MM/AAAA HH:mm:ss).")
+	}
+	cierre, err := parseDate(fechaCierre)
+	if err != nil {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de cierre de inscripción inválida (formato DD/MM/AAAA o DD/MM/AAAA HH:mm:ss).")
 	}
 
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
@@ -59,17 +73,29 @@ func ValidateEventoFechas(fechaInicio, fechaFin, fechaCierre string, now time.Ti
 
 func ValidateEventoFechasUpdate(fechaInicio, fechaFin, fechaCierre string, now, currentCierre time.Time) (time.Time, time.Time, time.Time, error) {
 	loc := now.Location()
-	start, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaInicio), loc)
-	if err != nil {
-		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de inicio inválida (formato DD/MM/AAAA).")
+	parseDate := func(dateStr string) (time.Time, error) {
+		dateStr = strings.TrimSpace(dateStr)
+		t, err := time.ParseInLocation("02/01/2006 15:04:05", dateStr, loc)
+		if err == nil {
+			return t, nil
+		}
+		t, err = time.ParseInLocation("02/01/2006", dateStr, loc)
+		if err == nil {
+			return t, nil
+		}
+		return time.Time{}, errors.New("Formato de fecha inválido (DD/MM/AAAA o DD/MM/AAAA HH:mm:ss)")
 	}
-	end, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaFin), loc)
+	start, err := parseDate(fechaInicio)
 	if err != nil {
-		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de fin inválida (formato DD/MM/AAAA).")
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de inicio inválida (formato DD/MM/AAAA o DD/MM/AAAA HH:mm:ss).")
 	}
-	cierre, err := time.ParseInLocation("02/01/2006", strings.TrimSpace(fechaCierre), loc)
+	end, err := parseDate(fechaFin)
 	if err != nil {
-		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de cierre de inscripción inválida (formato DD/MM/AAAA).")
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de fin inválida (formato DD/MM/AAAA o DD/MM/AAAA HH:mm:ss).")
+	}
+	cierre, err := parseDate(fechaCierre)
+	if err != nil {
+		return time.Time{}, time.Time{}, time.Time{}, errors.New("Fecha de cierre de inscripción inválida (formato DD/MM/AAAA o DD/MM/AAAA HH:mm:ss).")
 	}
 
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)

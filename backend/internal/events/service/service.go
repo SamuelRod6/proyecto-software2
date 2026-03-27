@@ -13,6 +13,7 @@ import (
 	notificationsrepo "project/backend/internal/notifications/repo"
 	notificationsrv "project/backend/internal/notifications/service"
 	registrationrepo "project/backend/internal/registrations/repo"
+	sesionesrepo "project/backend/internal/sesiones/repo"
 	"project/backend/prisma/db"
 )
 
@@ -31,6 +32,13 @@ type Service struct {
 	repo                *repo.Repository
 	inscripcionRepo     *registrationrepo.Repository
 	notificationService notificationsrv.NotificationService
+	sesionesRepo        *sesionesrepo.Repository
+}
+
+var venezuelaLocation = time.FixedZone("VET", -4*60*60)
+
+func formatDateVE(t time.Time) string {
+	return t.In(venezuelaLocation).Format("02/01/2006")
 }
 
 func New(prismaClient *db.PrismaClient) *Service {
@@ -38,11 +46,13 @@ func New(prismaClient *db.PrismaClient) *Service {
 	inscripcionRepo := registrationrepo.New(prismaClient)
 	notificationRepo := notificationsrepo.NewNotificationRepository(prismaClient)
 	notificationService := notificationsrv.NewNotificationService(notificationRepo)
+	sesionesRepo := sesionesrepo.NewRepository(prismaClient)
 
 	return &Service{
 		repo:                eventRepo,
 		inscripcionRepo:     inscripcionRepo,
 		notificationService: notificationService,
+		sesionesRepo:        sesionesRepo,
 	}
 }
 
@@ -143,13 +153,13 @@ func (s *Service) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest,
 		cambios = append(cambios, fmt.Sprintf("nuevo nombre: %s", req.Nombre))
 	}
 	if !evento.FechaInicio.Equal(start) {
-		cambios = append(cambios, fmt.Sprintf("nueva fecha de inicio: %s", start.Format("02/01/2006")))
+		cambios = append(cambios, fmt.Sprintf("nueva fecha de inicio: %s", formatDateVE(start)))
 	}
 	if !evento.FechaFin.Equal(end) {
-		cambios = append(cambios, fmt.Sprintf("nueva fecha de fin: %s", end.Format("02/01/2006")))
+		cambios = append(cambios, fmt.Sprintf("nueva fecha de fin: %s", formatDateVE(end)))
 	}
 	if !evento.FechaCierreInscripcion.Equal(cierre) {
-		cambios = append(cambios, fmt.Sprintf("nueva fecha de cierre de inscripción: %s", cierre.Format("02/01/2006")))
+		cambios = append(cambios, fmt.Sprintf("nueva fecha de cierre de inscripción: %s", formatDateVE(cierre)))
 	}
 	if evento.Ubicacion != req.Ubicacion {
 		cambios = append(cambios, fmt.Sprintf("nueva ubicación: %s", req.Ubicacion))
@@ -255,4 +265,8 @@ func sameDay(a, b time.Time) bool {
 
 func (s *Service) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error) {
 	return s.repo.GetFechasOcupadas(ctx)
+}
+
+func (s *Service) GetSesionesRepo() *sesionesrepo.Repository {
+	return s.sesionesRepo
 }

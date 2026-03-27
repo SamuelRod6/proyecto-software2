@@ -265,3 +265,34 @@ func splitPermissionName(value string) (string, string) {
 	}
 	return value, ""
 }
+
+func (h *Handler) ResourcePermissionMapHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response.WriteError(w, http.StatusMethodNotAllowed, response.ErrMethodNotAllowed)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	permissions, err := h.client.Permisos.FindMany().Select(
+		db.Permisos.IDPermiso.Field(),
+		db.Permisos.NombrePermiso.Field(),
+	).Exec(ctx)
+	if err != nil {
+		response.WriteError(w, http.StatusInternalServerError, response.ErrDatabase)
+		return
+	}
+
+	nameToResourceKey := map[string]string{
+		"Ser Ponente":                    "scientific.works",
+		"Ser Miembro del Comite/Revisor": "scientific.works.management",
+	}
+	resourceMap := make(map[string]int)
+	for _, permiso := range permissions {
+		if key, ok := nameToResourceKey[permiso.NombrePermiso]; ok {
+			resourceMap[key] = permiso.IDPermiso
+		}
+	}
+	response.WriteSuccess(w, http.StatusOK, response.SuccessGeneral, resourceMap)
+}

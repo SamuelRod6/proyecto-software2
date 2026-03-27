@@ -10,12 +10,12 @@ import (
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
 	inscripcioneshandler "project/backend/internal/inscripciones/handler"
+	mensajeshandler "project/backend/internal/mensajes/handler"
 	paishandler "project/backend/internal/pais/handler"
 	permissionhandler "project/backend/internal/permissions/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
 	rolehandler "project/backend/internal/roles/handler"
 	roles "project/backend/internal/roles/service"
-	mensajeshandler "project/backend/internal/mensajes/handler"
 	sesioneshandler "project/backend/internal/sesiones/handler"
 	smtphandler "project/backend/internal/shared/smtp"
 	userhandler "project/backend/internal/users/handler"
@@ -23,6 +23,8 @@ import (
 
 	notificationcron "project/backend/internal/notifications/cron"
 	notificationhandler "project/backend/internal/notifications/handler"
+
+	trabajoshandler "project/backend/internal/trabajos/handler"
 
 	"project/backend/prisma/db"
 
@@ -81,6 +83,7 @@ func main() {
 	sesionesHandler := sesioneshandler.New(prismaClient)
 	rolesHandler := rolehandler.New(prismaClient)
 	permissionsHandler := permissionhandler.New(prismaClient)
+	trabajosHandler := trabajoshandler.New(prismaClient)
 	mensajesHandler := mensajeshandler.New(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
@@ -124,6 +127,9 @@ func main() {
 	http.Handle("/api/paises", paisesHandler)
 	http.Handle("/api/sesiones", sesionesHandler)
 	http.Handle("/api/sesiones/", sesionesHandler)
+	http.Handle("/api/trabajos-cientificos", trabajosHandler)
+	http.Handle("/api/trabajos-cientificos/", trabajosHandler)
+	http.HandleFunc("/api/permissions/resource-map", permissionsHandler.(*permissionhandler.Handler).ResourcePermissionMapHandler)
 
 	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
 		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)
@@ -134,7 +140,6 @@ func main() {
 	http.HandleFunc("/api/mensajes/usuarios/buscar", mensajesHandler.SearchUsuariosHandler)
 	http.HandleFunc("/api/mensajes/adjuntos", mensajesHandler.UploadAdjuntoHandler)
 	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
-
 
 	port := os.Getenv("PORT")
 	if port == "" {

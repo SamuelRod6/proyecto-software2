@@ -3,6 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	notificationdto "project/backend/internal/notifications/dto"
+	notificationsrepo "project/backend/internal/notifications/repo"
+	notificationsrv "project/backend/internal/notifications/service"
 	"project/backend/internal/sesiones/dto"
 	"project/backend/internal/sesiones/repo"
 	validation "project/backend/internal/sesiones/validation"
@@ -11,12 +15,18 @@ import (
 )
 
 type Service struct {
-	repo *repo.Repository
+	repo                *repo.Repository
+	notificationService notificationsrv.NotificationService
 }
 
 func New(prismaClient *db.PrismaClient) *Service {
+	sesionRepo := repo.NewRepository(prismaClient)
+	notificationRepo := notificationsrepo.NewNotificationRepository(prismaClient)
+	notificationService := notificationsrv.NewNotificationService(notificationRepo)
+
 	return &Service{
-		repo: repo.NewRepository(prismaClient),
+		repo:                sesionRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -25,6 +35,13 @@ var (
 	ErrDB       = errors.New("db error")
 	ErrInvalid  = errors.New("datos inválidos")
 )
+
+var venezuelaLocation = time.FixedZone("VET", -4*60*60)
+
+func formatDateTimeVE(t time.Time) string {
+	// Normaliza a UTC y aplica UTC-4 para evitar depender de la ubicación original.
+	return t.UTC().In(venezuelaLocation).Format("02/01/2006 15:04")
+}
 
 func (s *Service) CreateSesion(ctx context.Context, eventoID int, req dto.CreateSesionRequest) (*dto.SesionResponse, error) {
 	if req.Titulo == "" || req.FechaInicio == "" || req.FechaFin == "" {
@@ -166,6 +183,13 @@ func (s *Service) UpdateSesion(ctx context.Context, sesionID int, req dto.Update
 	if err := validation.ValidarSolapamiento(otrasSesiones, fechaInicio, fechaFin); err != nil {
 		return nil, err
 	}
+	antes := fmt.Sprintf("titulo=%s|inicio=%s|fin=%s|ubicacion=%s",
+		sesion.Titulo,
+		sesion.FechaInicio.Format(time.RFC3339),
+		sesion.FechaFin.Format(time.RFC3339),
+		sesion.Ubicacion,
+	)
+
 	err = s.repo.UpdateSesion(ctx, sesionID, req.Titulo, req.Descripcion, req.FechaInicio, req.FechaFin, req.Ubicacion)
 	if err != nil {
 		return nil, ErrDB
@@ -174,6 +198,46 @@ func (s *Service) UpdateSesion(ctx context.Context, sesionID int, req dto.Update
 	if err != nil || sesion == nil {
 		return nil, ErrDB
 	}
+	despues := fmt.Sprintf("titulo=%s|inicio=%s|fin=%s|ubicacion=%s",
+		sesion.Titulo,
+		sesion.FechaInicio.Format(time.RFC3339),
+		sesion.FechaFin.Format(time.RFC3339),
+		sesion.Ubicacion,
+	)
+
+	_ = s.repo.RegistrarHistorialSesion(
+		ctx,
+		sesionID,
+		"UPDATE_SESION",
+		"Actualización de datos de la sesión",
+		"coordinador",
+		antes,
+		despues,
+	)
+
+	// Notificar a ponentes asignados sobre cambios en la sesión
+	ponentesAsignados, err := s.repo.ListPonentes(ctx, sesionID)
+	if err == nil {
+		for _, p := range ponentesAsignados {
+			eventID := evento.IDEvento
+			_, notifErr := s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+				UserID:  p.IDUsuario,
+				EventID: &eventID,
+				Type:    notificationdto.NotificationTypeCambioSesion,
+				Message: fmt.Sprintf(
+					"La sesión '%s' del evento '%s' ha sido actualizada. Nuevo horario: %s - %s.",
+					sesion.Titulo,
+					evento.Nombre,
+					formatDateTimeVE(sesion.FechaInicio),
+					formatDateTimeVE(sesion.FechaFin),
+				),
+			})
+			if notifErr != nil {
+				fmt.Println("[UpdateSesion] Error notificando cambio de sesión:", notifErr)
+			}
+		}
+	}
+
 	return s.mapSesionToResponse(ctx, sesion), nil
 }
 
@@ -197,8 +261,8 @@ func (svc *Service) mapSesionToResponse(ctx context.Context, sesion *db.SesionMo
 		IDSesion:    sesion.IDSesion,
 		Titulo:      sesion.Titulo,
 		Descripcion: sesion.Descripcion,
-		FechaInicio: sesion.FechaInicio.Format("2006-01-02T15:04:05Z"),
-		FechaFin:    sesion.FechaFin.Format("2006-01-02T15:04:05Z"),
+		FechaInicio: formatDateTimeVE(sesion.FechaInicio),
+		FechaFin:    formatDateTimeVE(sesion.FechaFin),
 		Ubicacion:   sesion.Ubicacion,
 		EventoID:    sesion.IDEvento,
 		Ponentes:    ponentes,
@@ -209,6 +273,7 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 	if len(req.Usuarios) == 0 {
 		return ErrInvalid
 	}
+
 	sesion, err := s.repo.GetSesionByID(ctx, sesionID)
 	if err != nil || sesion == nil {
 		return ErrNotFound
@@ -216,6 +281,7 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 	if err := validation.ValidarSesionNoCancelada(sesion); err != nil {
 		return err
 	}
+
 	evento, err := s.repo.Prisma().Evento.FindUnique(db.Evento.IDEvento.Equals(sesion.IDEvento)).Exec(ctx)
 	if err != nil || evento == nil {
 		return errors.New("Evento no encontrado")
@@ -223,6 +289,7 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 	if err := validation.ValidarEventoNoIniciado(evento); err != nil {
 		return err
 	}
+
 	var usuarios []db.UsuarioModel
 	for _, id := range req.Usuarios {
 		u, err := s.repo.Prisma().Usuario.
@@ -234,13 +301,50 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 		}
 		usuarios = append(usuarios, *u)
 	}
+
 	if err := validation.ValidarRolPonente(usuarios); err != nil {
 		return err
 	}
-	err = s.repo.AsignarPonentes(ctx, sesionID, req.Usuarios)
-	if err != nil {
+
+	// Validar disponibilidad por solapamiento horario
+	for _, userID := range req.Usuarios {
+		conflicto, err := s.repo.UsuarioTieneConflictoHorario(ctx, userID, sesionID)
+
+		if err != nil {
+			return ErrDB
+		}
+
+		if conflicto {
+			return errors.New("Uno de los ponentes ya está asignado a otra sesión en el mismo horario")
+		}
+	}
+
+	// Persistir asignaciones
+	if err = s.repo.AsignarPonentes(ctx, sesionID, req.Usuarios); err != nil {
 		return ErrDB
 	}
+
+	// Notificar a cada ponente asignado
+	for _, userID := range req.Usuarios {
+		eventID := evento.IDEvento
+		_, notifErr := s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
+			UserID:  userID,
+			EventID: &eventID,
+			Type:    notificationdto.NotificationTypeCambioEvento,
+			Message: fmt.Sprintf(
+				"Has sido asignado como ponente en la sesión '%s' del evento '%s'. Horario: %s - %s.",
+				sesion.Titulo,
+				evento.Nombre,
+				formatDateTimeVE(sesion.FechaInicio),
+				formatDateTimeVE(sesion.FechaFin),
+			),
+		})
+
+		if notifErr != nil {
+			fmt.Println("[AsignarPonentes] Error creando notificación:", notifErr)
+		}
+	}
+	
 	return nil
 }
 

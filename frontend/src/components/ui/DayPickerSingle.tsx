@@ -8,13 +8,15 @@ interface DayPickerSingleProps {
 	maxDate?: Date;
 	disabled?: (date: Date) => boolean;
 	className?: string;
+	initialMonth?: Date;
 }
 export default function DayPickerSingle({ 
 	selected, 
 	onSelect, 
 	maxDate,
 	disabled, 
-	className = "" 
+	className = "",
+	initialMonth
 }: DayPickerSingleProps) {
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
@@ -33,6 +35,7 @@ export default function DayPickerSingle({
 				disabled={combinedDisabled}
 				showOutsideDays
 				locale={es}
+				month={initialMonth}
 			/>
 		</div>
 	);
