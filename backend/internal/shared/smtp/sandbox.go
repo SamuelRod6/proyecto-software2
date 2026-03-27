@@ -67,6 +67,9 @@ func SendSandboxEmail(ctx context.Context, input SandboxSendRequest) (*SandboxSe
 	if err != nil {
 		return nil, err
 	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("mailtrap sandbox error: status=%d body=%s", res.StatusCode, strings.TrimSpace(string(body)))
+	}
 
 	return &SandboxSendResponse{
 		StatusCode: res.StatusCode,
