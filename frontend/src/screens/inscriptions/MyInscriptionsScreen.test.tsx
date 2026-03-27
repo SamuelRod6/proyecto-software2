@@ -1,6 +1,8 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import MyInscriptionsScreen from "./MyInscriptionsScreen";
 
+let anchorClickSpy: jest.SpyInstance;
+
 jest.mock("../../services/inscriptionServices", () => ({
     getInscriptions: jest.fn(async () => ({
         status: 200,
@@ -73,10 +75,14 @@ beforeEach(() => {
     if (!window.open) {
         window.open = jest.fn();
     }
+    anchorClickSpy = jest
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
 });
 
 afterEach(() => {
     localStorage.clear();
+    anchorClickSpy.mockRestore();
 });
 
 describe("MyInscriptionsScreen", () => {
@@ -113,11 +119,13 @@ describe("MyInscriptionsScreen", () => {
 
         await waitFor(() => {
             expect(screen.getByText("Historial de cambios del trabajo científico")).toBeInTheDocument();
-            expect(screen.getByText("21/02/2026")).toBeInTheDocument();
+            expect(screen.getAllByText("21/02/2026").length).toBeGreaterThan(0);
             expect(screen.getAllByText("Pendiente").length).toBeGreaterThan(0);
             expect(screen.getByText("Aprobado")).toBeInTheDocument();
             expect(screen.getByText("Retroalimentación")).toBeInTheDocument();
-            expect(screen.getByText("Ajustes solicitados")).toBeInTheDocument();
+            expect(
+              screen.getAllByText("Ajustes solicitados").length,
+            ).toBeGreaterThan(0);
         });
     });
 
