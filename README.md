@@ -50,11 +50,11 @@ La API privada se conecta por SMTP a Gmail usando App Password.
 
 Notas:
 - No uses la contraseña normal de Gmail en SMTP.
-- Si no ves `Contraseñas de aplicaciones`, normalmente falta 2FA o tu cuenta tiene una restriccion administrativa.
+- Si no ves `Contraseñas de aplicaciones`, normalmente falta 2FA o tu cuenta tiene una restricción administrativa.
 
 ### 2) Configurar variables en .env.local
 
-Configura estas variables (backend -> API privada):
+Configura estas variables:
 
 ```bash
 MAILER_API_URL=http://localhost:3000/send
@@ -62,12 +62,6 @@ MAILER_API_AUTH_KEY=dev-mailer-key
 MAILER_FROM=tu_correo@gmail.com
 MAILER_DEFAULT_CC=
 MAILER_TIMEOUT_SECONDS=10
-```
-
-Configura estas variables (API privada -> Gmail SMTP):
-
-```bash
-MAILER_FROM=tu_correo@gmail.com
 MAILER_SERVER_PORT=3000
 MAILER_AUTHORIZATION_KEY=dev-mailer-key
 MAILER_WHITELIST=
