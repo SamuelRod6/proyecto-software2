@@ -73,11 +73,17 @@ describe("MensajesScreen", () => {
 
   it("shows Nueva conversación button", async () => {
     renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText("Proyecto Final")).toBeInTheDocument();
+    });
     expect(screen.getByText("+ Nueva conversación")).toBeInTheDocument();
   });
 
   it("opens modal on Nueva conversación click", async () => {
     renderScreen();
+    await waitFor(() => {
+      expect(screen.getByText("Proyecto Final")).toBeInTheDocument();
+    });
     fireEvent.click(screen.getByText("+ Nueva conversación"));
     await waitFor(() => {
       expect(screen.getByText("Crear conversación")).toBeInTheDocument();
