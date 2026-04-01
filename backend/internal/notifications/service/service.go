@@ -9,6 +9,8 @@ import (
 	registrationrepo "project/backend/internal/registrations/repo"
 	"project/backend/prisma/db"
 	"time"
+	sharedsmtp "project/backend/internal/shared/smtp"
+	"strings"
 )
 
 type NotificationService interface {
@@ -37,7 +39,16 @@ func NewNotificationService(r repo.NotificationRepository) NotificationService {
 }
 
 func (s *notificationService) CreateNotification(ctx context.Context, req dto.CreateNotificationRequest) (*db.NotificacionModel, error) {
-	return s.repo.Create(ctx, req)
+    notification, err := s.repo.Create(ctx, req)
+    if err != nil {
+        return nil, err
+    }
+
+    if emailErr := s.sendNotificationEmail(ctx, req); emailErr != nil {
+        fmt.Println("[NotificationEmail] Error enviando correo:", emailErr)
+    }
+
+    return notification, nil
 }
 
 func (s *notificationService) ListNotificationsByUser(ctx context.Context, idUsuario int) ([]db.NotificacionModel, error) {
@@ -234,4 +245,55 @@ func (s *notificationService) NotificarCancelacionEvento(ctx context.Context, ev
 		}
 	}
 	return nil
+}
+
+// Funciones y variables de envío de correos
+var emailEnabledNotificationTypes = map[string]struct{}{
+    dto.NotificationTypeCambioEvento:          {},
+    dto.NotificationTypeCierreInscripciones:   {},
+    dto.NotificationTypeRecordatorioEvento:    {},
+    dto.NotificationTypeRecordatorioPago:      {},
+    dto.NotificationTypeAperturaInscripciones: {},
+    dto.NotificationTypeCancelacionEvento:     {},
+    dto.NotificationTypeCambioSesion:          {},
+
+    dto.NotificationTypeTrabajoRecibido:    {},
+    dto.NotificationTypeTrabajoNuevo:       {},
+    dto.NotificationTypeTrabajoActualizado: {},
+    dto.NotificationTypeTrabajoAsignado:    {},
+    dto.NotificationTypeEvaluacionRecibida: {},
+    dto.NotificationTypeEstadoTrabajo:      {},
+}
+
+func shouldSendEmailForType(notificationType string) bool {
+    _, ok := emailEnabledNotificationTypes[strings.TrimSpace(notificationType)]
+    return ok
+}
+
+func (s *notificationService) sendNotificationEmail(ctx context.Context, req dto.CreateNotificationRequest) error {
+    if !shouldSendEmailForType(req.Type) {
+        return nil
+    }
+
+    email, err := s.repo.FindUserEmailByID(ctx, req.UserID)
+    if err != nil {
+        return err
+    }
+
+    email = strings.TrimSpace(strings.ToLower(email))
+    if email == "" {
+        return nil
+    }
+
+    subject := dto.GetNotificationTitle(req.Type)
+    if strings.TrimSpace(subject) == "" {
+        subject = "Notificación"
+    }
+
+    _, err = sharedsmtp.SendEmail(ctx, sharedsmtp.SendEmailRequest{
+        ToEmail: email,
+        Subject: subject,
+        Text:    req.Message,
+    })
+    return err
 }

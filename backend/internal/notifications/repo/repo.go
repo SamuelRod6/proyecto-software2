@@ -14,6 +14,7 @@ type NotificationRepository interface {
 	MarkAsRead(ctx context.Context, idNotificacion int, leida bool) error
 	ExistsCierreInscripcionToday(ctx context.Context, userID int, eventID int) (bool, error)
 	ExistsNotificationToday(ctx context.Context, userID int, eventID int, tipo string) (bool, error)
+	FindUserEmailByID(ctx context.Context, userID int) (string, error)
 }
 
 type notificationRepository struct {
@@ -101,4 +102,17 @@ func (r *notificationRepository) ExistsNotificationToday(ctx context.Context, us
 		return false, err
 	}
 	return notif != nil, nil
+}
+
+func (r *notificationRepository) FindUserEmailByID(ctx context.Context, userID int) (string, error) {
+    user, err := r.client.Usuario.FindUnique(
+        db.Usuario.IDUsuario.Equals(userID),
+    ).Exec(ctx)
+    if err != nil {
+        return "", err
+    }
+    if user == nil {
+        return "", fmt.Errorf("usuario %d no encontrado", userID)
+    }
+    return user.Email, nil
 }
