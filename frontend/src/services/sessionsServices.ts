@@ -1,5 +1,17 @@
+/*
+File: sessionsServices.ts
+
+Contains:
+Session API service wrappers for creation, updates, and speaker assignment management.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import axios from 'axios';
 
+// getEventDetail retrieves event information used to constrain session scheduling.
 export async function getEventDetail(eventoId: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(`/api/eventos?evento_id=${eventoId}`);
@@ -12,6 +24,7 @@ export async function getEventDetail(eventoId: number): Promise<{ status: number
   }
 }
 
+// createSession registers a new session for a target event.
 export async function createSession(eventoId: number, data: any): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.post(`/api/sesiones?evento=${eventoId}`, data);
@@ -24,6 +37,7 @@ export async function createSession(eventoId: number, data: any): Promise<{ stat
   }
 }
 
+// getAvailableSpeakers returns selectable speakers for a session.
 export async function getAvailableSpeakers(eventoId: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(`/api/sesiones/ponibles?sesion_id=${eventoId}`);
@@ -36,6 +50,7 @@ export async function getAvailableSpeakers(eventoId: number): Promise<{ status: 
   }
 }
 
+// assignSpeakersToSession assigns one or more users as session speakers.
 export async function assignSpeakersToSession( sessionId: number, usuarios: number[]): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.post(`/api/sesiones/asignar-ponentes?sesion_id=${sessionId}`, {
@@ -51,6 +66,7 @@ export async function assignSpeakersToSession( sessionId: number, usuarios: numb
   }
 }
 
+// updateSession updates the core metadata of an existing session.
 export async function updateSession( sessionId: number, data: any ): Promise<{ status: number; data: any }> {
 
   try {
@@ -65,6 +81,7 @@ export async function updateSession( sessionId: number, data: any ): Promise<{ s
   }
 }
 
+// removeSpeakerFromSession removes one assigned speaker from a session.
 export async function removeSpeakerFromSession( sessionId: number, usuarioId: number ): Promise<{ status: number; data: any }> {
 
   try {

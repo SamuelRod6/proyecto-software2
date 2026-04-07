@@ -1,3 +1,14 @@
+/*
+File: sessionsServices.test.ts
+
+Contains:
+Unit tests for session service wrappers and network error normalization.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import axios from "axios";
 import {
   assignSpeakersToSession,
@@ -16,6 +27,7 @@ describe("sessionsServices", () => {
     jest.clearAllMocks();
   });
 
+  // Covers success paths for CRUD-like calls and fallback behavior on network failures.
   it("should fetch event detail", async () => {
     mockedAxios.get.mockResolvedValueOnce({ status: 200, data: { id_evento: 4, sesiones: [] } });
 

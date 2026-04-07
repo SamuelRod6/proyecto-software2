@@ -1,3 +1,14 @@
+/*
+File: notificationsServices.test.ts
+
+Contains:
+Unit tests for notification retrieval and read-status update service calls.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import axios from "axios";
 import {
   fetchNotificationsApi,
@@ -13,6 +24,7 @@ describe("notificationsServices", () => {
   });
 
   describe("fetchNotificationsApi", () => {
+    // Validates successful payload retrieval and backend error pass-through.
     it("should return notifications on success", async () => {
       const payload = [
         {
