@@ -1,3 +1,14 @@
+/*
+File: EditEventModal.tsx
+
+Contains:
+Modal component to edit event data, close date, and related sessions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import DayPickerSingle from "../ui/DayPickerSingle";
@@ -17,6 +28,7 @@ import { getEventDetail } from "../../services/sessionsServices";
 import EditSessionModal from "../sessions/EditSessionModal";
 import SessionList from "../sessions/SessionList";
 
+// EditEventModalProps controls visibility and refresh callback.
 interface EditEventModalProps {
   open: boolean;
   onClose: () => void;
@@ -24,11 +36,12 @@ interface EditEventModalProps {
   onUpdate?: () => void;
 }
 
+// EditEventModal handles event edition and session quick-access workflow.
 export default function EditEventModal({ open, onClose, event, onUpdate }: EditEventModalProps): JSX.Element {
     const [sessions, setSessions] = useState<any[]>([]);
     const [selectedSession, setSelectedSession] = useState<any | null>(null);
     const [showEditSessionModal, setShowEditSessionModal] = useState(false);
-    // Cargar sesiones del evento cuando se abre el modal o cambia el evento
+    // Load event sessions when modal opens or selected event changes.
     useEffect(() => {
       if (open && event?.id_evento) {
         getEventDetail(event.id_evento).then(({ status, data }) => {
@@ -72,12 +85,14 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
     }
   }, [open]);
 
+  // parseDate converts API dates (DD/MM/YYYY) into Date objects.
   function parseDate(dateStr: string): Date {
     if (!dateStr) return new Date();
     const [day, month, year] = dateStr.split("/");
     return new Date(Number(year), Number(month) - 1, Number(day));
   }
 
+  // formatDateWithTime builds API payload date strings.
   function formatDateWithTime(d: Date, hour: number, minute: number): string {
     const date = new Date(d);
     date.setHours(hour, minute, 0, 0);
@@ -85,6 +100,7 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
     return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
   }
 
+  // getEventPayload validates required fields and builds update payload.
   function getEventPayload() {
     if (!name || !dateRange || !dateRange.from || !dateRange.to || !country || !city || !closeDate) {
       return null;
@@ -99,6 +115,7 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
     };
   }
 
+  // handleSubmit submits event updates and refreshes parent view on success.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     showLoader();

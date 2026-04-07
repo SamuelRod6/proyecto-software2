@@ -1,6 +1,18 @@
+/*
+File: EventCreateModal.test.tsx
+
+Contains:
+Unit tests for event creation modal behavior and payload generation.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import EventCreateModal from "./EventCreateModal";
 
+// Service and UI context mocks.
 const mockCreateEvent = jest.fn();
 const mockFetchFechasOcupadas = jest.fn();
 const mockShowToast = jest.fn();
@@ -47,6 +59,7 @@ jest.mock("../ui/SelectorInput", () => ({
   ),
 }));
 
+// EventCreateModal tests focus on payload generation and happy-path flow.
 describe("EventCreateModal", () => {
   beforeEach(() => {
     jest.clearAllMocks();

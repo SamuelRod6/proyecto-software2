@@ -1,3 +1,14 @@
+/*
+File: EventDetailModal.tsx
+
+Contains:
+Modal component that displays event details, sessions, and enrollment controls.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useEffect, useState } from "react";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
@@ -24,6 +35,7 @@ import SessionsCalendar from "../sessions/SessionsCalendar";
 // interfaces
 import { Evento } from "../../services/eventsServices";
 
+// EventDetailModalProps controls modal visibility, source event, and optional actions.
 interface EventDetailModalProps {
     open: boolean;
     onClose: () => void;
@@ -33,6 +45,8 @@ interface EventDetailModalProps {
     onInscribir?: () => void;
 }
 
+// EventDetailModal renders event details, session calendar/list, and
+// management actions for inscriptions and editing.
 export default function EventDetailModal({ 
     open, 
     onClose, 
@@ -41,9 +55,9 @@ export default function EventDetailModal({
     showInscribirButton,
     onInscribir
 }: EventDetailModalProps): JSX.Element | null {
-    // modal context
+    // Modal context for cross-component modal state.
     const { state: modalState, dispatch: modalDispatch } = useModal();
-    // states
+    // Local UI state.
     const [showCloseDateModal, setShowCloseDateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState<"abrir"|"cerrar"|null>(null);
@@ -52,7 +66,7 @@ export default function EventDetailModal({
     const [eventDetail, setEventDetail] = useState<any | null>(null);
     const [sessions, setSessions] = useState<any[]>([]);
 
-    // contexts
+    // Shared contexts.
     const { showToast } = useToast();
     const [canManageEvents, setCanManageEvents] = useState(false);
 
@@ -70,7 +84,7 @@ export default function EventDetailModal({
       };
     }, []);
 
-    // helper to parse date string from API
+    // parseDate converts API date strings into Date objects for UI rendering.
     function parseDate(dateStr: string): Date | undefined {
         if (!dateStr) return undefined;
         // Soporta formato DD/MM/YYYY HH:mm:ss
@@ -87,7 +101,7 @@ export default function EventDetailModal({
         return new Date(year, month - 1, day, hours, minutes, seconds);
     }
 
-    // Fetch event detail when modal opens
+    // Fetch full event detail when the modal is opened.
     useEffect(() => {
         if (open && event?.id_evento) {
             setLoading(true);
@@ -124,8 +138,7 @@ export default function EventDetailModal({
         }
     }, [open, event]);
 
-    // prepare date range for the calendar
-    // Corrige visualización: si la hora de fin es antes de las 6am, muestra el día anterior
+    // adjustEndDate avoids off-by-one rendering when end time is near midnight.
     function adjustEndDate(date: Date | undefined): Date | undefined {
         if (!date) return undefined;
         if (date.getHours() < 6) {
@@ -136,12 +149,14 @@ export default function EventDetailModal({
         }
         return date;
     }
+
+    // Calendar date range used by DateRangePicker.
     const dateRange = event ? {
         from: parseDate(event.fecha_inicio),
         to: adjustEndDate(parseDate(event.fecha_fin))
     } : undefined;
 
-    // effect to show error if no event is provided when modal is opened
+    // Guard against opening modal without event payload.
     useEffect(() => {
         if (open && !event) {
             showToast({
@@ -153,7 +168,7 @@ export default function EventDetailModal({
         }
     }, [open, event, showToast, onClose]);
 
-    // PATCH open/close inscriptions
+    // Toggle inscription state using PATCH endpoint.
     async function handleToggleInscripciones() {
         if (!event) return;
         setLoadingConfirm(true);
@@ -188,7 +203,7 @@ export default function EventDetailModal({
         }
     }
 
-    // Only render modal if allowed by context
+    // Render guards.
     if (!open || modalState.openModal !== "EVENT_DETAIL") return null;
     if (!event) return null;
     if (loading) {
@@ -202,7 +217,7 @@ export default function EventDetailModal({
     }
     if (!eventDetail) return null;
 
-    // Handler to close modal via context and parent
+    // Close through modal context and parent callback.
     const handleClose = () => {
         modalDispatch({ type: 'CLOSE_MODAL' });
         onClose();

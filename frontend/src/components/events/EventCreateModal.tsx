@@ -1,3 +1,14 @@
+/*
+File: EventCreateModal.tsx
+
+Contains:
+Modal component to create events with date range, location, and close date.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import DayPickerSingle from "../ui/DayPickerSingle";
@@ -16,14 +27,17 @@ import { createEvent, fetchFechasOcupadas, RangoFechasApi } from "../../services
 // constants
 import { venezuelaCities } from "../../constants/venezuelaCities";
 
-
+// EventCreateModalProps controls visibility and close behavior.
 interface EventCreateModalProps {
 	open: boolean;
 	onClose: () => void;
 }
 
+// EventCreateModal handles a two-step event creation flow:
+// 1) core event data and range selection
+// 2) registration close date confirmation and submit
 export default function EventCreateModal({ open, onClose }: EventCreateModalProps): JSX.Element {
-	// states
+	// Form state.
 	const [name, setName] = useState("");
 	const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 	const [country, setCountry] = useState("");
@@ -32,11 +46,11 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	const [closeDate, setCloseDate] = useState<Date | undefined>(undefined);
 	const [disabledRanges, setDisabledRanges] = useState<{ from: Date; to: Date }[]>([]);
 
-	// contexts
+	// UI feedback contexts.
 	const { showLoader, hideLoader } = useLoader();
 	const { showToast } = useToast();
 
-	// effect to fetch occupied date ranges when modal opens
+	// Load occupied ranges when modal opens to prevent overlaps.
 	useEffect(() => {
 		if (open) {
 			fetchFechasOcupadas().then(({ status, data }) => {
@@ -58,8 +72,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		}
 	}, [open]);
 
-
-	// clean up and close modal
+	// Reset local state and close modal.
 	const handleClose = () => {
 		setName("");
 		setDateRange(undefined);
@@ -70,7 +83,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		onClose();
 	};
 
-	// helper to format date
+	// formatDateWithTime returns API-compatible date string.
  function formatDateWithTime(d: Date, hour: number, minute: number): string {
 	const date = new Date(d);
 	// Set hora en UTC
@@ -83,7 +96,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
 }	
 
-	//function to parse date string from API
+	// parseDate converts API date strings into Date objects for UI controls.
 	function parseDate(dateStr: string): Date | undefined {
 		if (!dateStr) return undefined;
 		// Soporta formato DD/MM/YYYY HH:mm:ss
@@ -99,7 +112,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		return new Date(year, month - 1, day, hours, minutes, seconds);
 	}
 
-	// function to form the payload
+	// getEventPayload composes validated request payload for createEvent API.
 	function getEventPayload() {
 		if (!name || !dateRange || !dateRange.from || !dateRange.to || !country || !city || !closeDate) {
 			return null;
@@ -113,7 +126,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	   };
 	}
 
-	// submit handler
+	// handleSubmit validates and sends create event request.
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		showLoader();
