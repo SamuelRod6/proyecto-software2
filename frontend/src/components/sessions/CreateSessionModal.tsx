@@ -1,3 +1,14 @@
+/*
+File: CreateSessionModal.tsx
+
+Contains:
+Two-step modal to create a session and assign at least one speaker.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React, { useState, useEffect, useContext } from 'react';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -18,6 +29,7 @@ interface CreateSessionModalProps {
   onSessionCreated: () => void;
 }
 
+// CreateSessionModal orchestrates session creation and mandatory speaker assignment.
 const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ 
     event, 
     open,
@@ -41,7 +53,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
 
     const [loadingData, setLoadingData] = useState(false);
 
-    // Solo cargar ponentes en la segunda página
+    // fetchPonentes loads available speakers after the session is created.
     const fetchPonentes = async (sessionId: number) => {
       //setLoadingData(true);
       try {
@@ -88,7 +100,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       setErrors({});
     }, [open, event.id]);
 
-  // Helper y validaciones
+  // buildDateTime combines selected day and HH:mm input into a single Date.
   const buildDateTime = (baseDate: Date, timeHHmm: string) => {
     const [h, m] = timeHHmm.split(":").map(Number);
     const result = new Date(baseDate);
@@ -96,6 +108,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     return result;
   };
 
+  // validateCreateForm enforces title and time-window constraints.
   const validateCreateForm = () => {
     const nextErrors: { titulo?: string; fechaHora?: string; general?: string } = {};
 
@@ -131,6 +144,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     return Object.keys(nextErrors).length === 0;
   };
 
+  // parseEventDate accepts display dates (DD/MM/YYYY) and ISO-like strings.
   const parseEventDate = (value?: string): Date | undefined => {
     if (!value) return undefined;
 
@@ -150,7 +164,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
 
   const atStartOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-  // Primera página: crear sesión
+  // handleCreateSession submits step one and opens speaker assignment on success.
   const handleCreateSession = async () => {
 
     // Validar antes de enviar
@@ -219,7 +233,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     }
   };
 
-  // Segunda página: asignar ponente obligatorio
+  // handleAssignPonente persists selected speakers and closes the modal flow.
   const handleAssignPonente = async () => {
     showLoader();
     try {

@@ -1,3 +1,14 @@
+/*
+File: CreateSessionModal.test.tsx
+
+Contains:
+Behavior test for session creation and speaker-assignment flow.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import CreateSessionModal from "./CreateSessionModal";
 
@@ -58,6 +69,7 @@ describe("CreateSessionModal", () => {
   });
 
   it("creates a session and advances to speaker assignment", async () => {
+    // Render with an event fixture that includes the scheduling range.
     render(
       <CreateSessionModal
         open={true}
@@ -73,6 +85,7 @@ describe("CreateSessionModal", () => {
       />,
     );
 
+    // Fill required fields, create the session, and assert service calls.
     fireEvent.change(screen.getByLabelText("Título"), {
       target: { value: "Sesion magistral" },
     });

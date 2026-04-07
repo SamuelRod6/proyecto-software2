@@ -1,3 +1,14 @@
+/*
+File: EditSessionModal.tsx
+
+Contains:
+Modal form to update session details and synchronize assigned speakers.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React, { useState, useEffect } from 'react';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -16,6 +27,7 @@ interface EditSessionModalProps {
   onSessionUpdated: () => void;
 }
 
+// parseDisplayDateTime parses either display format or ISO-like datetime values.
 const parseDisplayDateTime = (value: string): Date => {
   if (!value) return new Date(NaN);
   if (!value.includes('/')) return new Date(value);
@@ -25,6 +37,7 @@ const parseDisplayDateTime = (value: string): Date => {
   return new Date(y, m - 1, d, hh || 0, mm || 0, 0, 0);
 };
 
+// parseEventDate parses event boundaries used by the day picker.
 const parseEventDate = (value?: string): Date | undefined => {
   if (!value) return undefined;
   if (value.includes('/')) {
@@ -40,6 +53,7 @@ const parseEventDate = (value?: string): Date | undefined => {
 
 const atStartOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
+// getHHmm extracts a HH:mm string from stored datetime values.
 const getHHmm = (value?: string): string => {
   if (!value) return '08:00';
   const date = parseDisplayDateTime(value);
@@ -49,6 +63,7 @@ const getHHmm = (value?: string): string => {
   return `${hh}:${mm}`;
 };
 
+// EditSessionModal edits session metadata and reconciles speaker assignments.
 const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, session, event, onSessionUpdated }) => {
   const [titulo, setTitulo] = useState(session.titulo || '');
   const [descripcion, setDescripcion] = useState(session.descripcion || '');
@@ -99,6 +114,7 @@ const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, sess
 
   }, [open, session, event]);
 
+  // validateEditForm ensures required fields are valid before update.
   const validateEditForm = () => {
     const next: { titulo?: string; fechaHora?: string; ponentes?: string } = {};
 
@@ -129,6 +145,7 @@ const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, sess
     return Object.keys(next).length === 0;
   };
 
+  // handleUpdateSession updates session data, adds new speakers, and removes unselected ones.
   const handleUpdateSession = async () => {
     
     if (!validateEditForm()) return;

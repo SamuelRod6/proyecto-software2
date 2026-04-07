@@ -1,3 +1,14 @@
+/*
+File: SessionList.tsx
+
+Contains:
+Session list renderer with schedule formatting and optional edit action.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React from "react";
 
 interface SessionListProps {
@@ -6,7 +17,9 @@ interface SessionListProps {
   showEditButton?: boolean;
 }
 
+// SessionList displays each session, its schedule, and assigned speakers.
 const SessionList: React.FC<SessionListProps> = ({ sessions, onEdit, showEditButton = false }) => {
+  // parseDisplayDateTime supports both display and ISO date formats.
   const parseDisplayDateTime = (value: string): Date => {
     if (!value) return new Date(NaN);
     if (!value.includes("/")) return new Date(value);
