@@ -1,21 +1,39 @@
+/*
+File: NotificationsModal.tsx
+
+Contains:
+Modal component that displays notification inbox, detail panel,
+and actions for read state and removal.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React, { useContext, useMemo, useState } from "react";
 import Modal from "../ui/Modal";
 import { NotificationContext } from "../../contexts/Notifications/NotificationContext";
 
+// NotificationsModalProps controls visibility and close behavior.
 interface NotificationsModalProps {
   open: boolean;
   onClose: () => void;
 }
 
+// NotificationsModal renders a two-panel inbox:
+// left side for list navigation and right side for selected detail.
 const NotificationsModal: React.FC<NotificationsModalProps> = ({
   open,
   onClose,
 }) => {
+  // Notification context drives list data and actions.
   const { notifications, markAsRead, removeNotification, loading, error } = useContext(
     NotificationContext,
   );
+  // selectedId tracks the currently opened notification detail.
   const [selectedId, setSelectedId] = useState<number | string | null>(null);
 
+  // orderedNotifications keeps newest notifications first.
   const orderedNotifications = useMemo(() => {
     return [...notifications].sort((a, b) => {
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -24,6 +42,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
     });
   }, [notifications]);
 
+  // selectedNotif resolves the active item for right-side detail panel.
   const selectedNotif = notifications.find((n) => n.id === selectedId);
 
   return (
