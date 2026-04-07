@@ -1,3 +1,16 @@
+/*
+File: validation_test.go
+
+Contains:
+Unit tests for the Evento validation rules.
+It verifies expected acceptance and rejection cases for names,
+dates, locations, and update constraints.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package validation
 
 import (
@@ -5,6 +18,7 @@ import (
 	"time"
 )
 
+// TestValidateEventoNombre verifies valid and invalid name inputs.
 func TestValidateEventoNombre(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -27,6 +41,7 @@ func TestValidateEventoNombre(t *testing.T) {
 	}
 }
 
+// TestValidateEventoFechas verifies create-flow date validation rules.
 func TestValidateEventoFechas(t *testing.T) {
 	now := time.Date(2026, 2, 4, 10, 0, 0, 0, time.Local)
 
@@ -61,6 +76,7 @@ func TestValidateEventoFechas(t *testing.T) {
 	}
 }
 
+// TestValidateEventoUbicacion verifies accepted and rejected location formats.
 func TestValidateEventoUbicacion(t *testing.T) {
 	cases := []struct {
 		loc     string
@@ -84,6 +100,7 @@ func TestValidateEventoUbicacion(t *testing.T) {
 	}
 }
 
+// TestValidateEventoFechasUpdate verifies close-date locking behavior in updates.
 func TestValidateEventoFechasUpdate(t *testing.T) {
 	now := time.Date(2026, 2, 11, 10, 0, 0, 0, time.Local)
 	currentCierre := time.Date(2026, 2, 10, 0, 0, 0, 0, time.Local)

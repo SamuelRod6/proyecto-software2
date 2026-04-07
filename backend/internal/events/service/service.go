@@ -1,3 +1,16 @@
+/*
+File: service.go
+
+Contains:
+Business service implementation for the Evento module.
+It orchestrates repository calls, enforces business rules,
+maps persistence errors to domain errors, and triggers notifications.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package service
 
 import (
@@ -28,6 +41,7 @@ var (
 	ErrCloseDateLocked       = errors.New("La fecha de cierre de inscripción no puede modificarse una vez alcanzada")
 )
 
+// Service implements business rules for events.
 type Service struct {
 	repo                *repo.Repository
 	inscripcionRepo     *registrationrepo.Repository
@@ -35,12 +49,15 @@ type Service struct {
 	sesionesRepo        *sesionesrepo.Repository
 }
 
+// venezuelaLocation defines the timezone used for user-facing date messages.
 var venezuelaLocation = time.FixedZone("VET", -4*60*60)
 
+// formatDateVE formats a date in dd/mm/yyyy using Venezuela local time.
 func formatDateVE(t time.Time) string {
 	return t.In(venezuelaLocation).Format("02/01/2006")
 }
 
+// New builds a Service with its required repositories and notification service.
 func New(prismaClient *db.PrismaClient) *Service {
 	eventRepo := repo.New(prismaClient)
 	inscripcionRepo := registrationrepo.New(prismaClient)
@@ -56,6 +73,7 @@ func New(prismaClient *db.PrismaClient) *Service {
 	}
 }
 
+// EnsureNombreUnico validates that no active event exists with the same name.
 func (s *Service) EnsureNombreUnico(ctx context.Context, nombre string) error {
 	existing, err := s.repo.FindByName(ctx, strings.TrimSpace(nombre))
 	if err == nil && existing != nil {
@@ -67,6 +85,7 @@ func (s *Service) EnsureNombreUnico(ctx context.Context, nombre string) error {
 	return nil
 }
 
+// EnsureNoSolapamiento validates that [start, end] does not overlap existing events.
 func (s *Service) EnsureNoSolapamiento(ctx context.Context, start, end time.Time) error {
 	eventos, err := s.repo.FindAll(ctx)
 	if err != nil {
@@ -80,6 +99,8 @@ func (s *Service) EnsureNoSolapamiento(ctx context.Context, start, end time.Time
 	return nil
 }
 
+// CreateEvento persists a new event and attempts to notify registration opening.
+// Notification failures are logged but do not fail the create operation.
 func (s *Service) CreateEvento(ctx context.Context, req dto.CreateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error) {
 	created, err := s.repo.Create(ctx, req.Nombre, req.Ubicacion, start, end, cierre)
 	if err != nil {
@@ -92,6 +113,7 @@ func (s *Service) CreateEvento(ctx context.Context, req dto.CreateEventoRequest,
 	return created, nil
 }
 
+// ListEventos returns all non-cancelled events.
 func (s *Service) ListEventos(ctx context.Context) ([]db.EventoModel, error) {
 	eventos, err := s.repo.FindAll(ctx)
 	if err != nil {
@@ -100,6 +122,7 @@ func (s *Service) ListEventos(ctx context.Context) ([]db.EventoModel, error) {
 	return eventos, nil
 }
 
+// GetEventoByID returns one event by identifier.
 func (s *Service) GetEventoByID(ctx context.Context, id int) (*db.EventoModel, error) {
 	evento, err := s.repo.FindByID(ctx, id)
 	if err != nil {
@@ -111,6 +134,13 @@ func (s *Service) GetEventoByID(ctx context.Context, id int) (*db.EventoModel, e
 	return evento, nil
 }
 
+// UpdateEvento updates event data and notifies registered users when relevant
+// fields change.
+//
+// Enforced rules:
+// - Close date cannot be changed after it has been reached.
+// - Name must remain unique across events.
+// - Date range cannot overlap other events.
 func (s *Service) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error) {
 	evento, err := s.repo.FindByID(ctx, req.ID)
 	if err != nil {
@@ -172,7 +202,7 @@ func (s *Service) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest,
 			strings.Join(cambios, ", "),
 		)
 
-		// Notificar a los usuarios inscritos
+		// Notify users currently registered in the event.
 		inscripciones, err := s.inscripcionRepo.FindByEventoID(ctx, req.ID)
 		if err != nil {
 			fmt.Println("Error obteniendo inscripciones:", err)
@@ -194,8 +224,10 @@ func (s *Service) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest,
 	return updated, nil
 }
 
+// DeleteEvento performs a logical delete (cancellation) and triggers
+// cancellation notifications.
 func (s *Service) DeleteEvento(ctx context.Context, id int) error {
-	// Verificar que el evento existe
+	// Verify that the target event exists.
 	evento, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
@@ -203,7 +235,7 @@ func (s *Service) DeleteEvento(ctx context.Context, id int) error {
 		}
 		return ErrDB
 	}
-	// Soft delete: marcar como cancelado
+	// Soft delete: mark event as cancelled.
 	if err := s.repo.DeleteByID(ctx, id); err != nil {
 		return ErrDB
 	}
@@ -214,6 +246,7 @@ func (s *Service) DeleteEvento(ctx context.Context, id int) error {
 	return nil
 }
 
+// CerrarInscripciones closes registrations for an event if it has not started.
 func (s *Service) CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error) {
 	evento, err := s.repo.FindByID(ctx, eventoID)
 	if err != nil {
@@ -234,6 +267,8 @@ func (s *Service) CerrarInscripciones(ctx context.Context, eventoID int) (*db.Ev
 	return updated, nil
 }
 
+// AbrirInscripciones reopens registrations if the event has not started and
+// close date has not passed.
 func (s *Service) AbrirInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error) {
 	evento, err := s.repo.FindByID(ctx, eventoID)
 	if err != nil {
@@ -257,16 +292,19 @@ func (s *Service) AbrirInscripciones(ctx context.Context, eventoID int) (*db.Eve
 	return updated, nil
 }
 
+// sameDay returns true when both timestamps share the same calendar day.
 func sameDay(a, b time.Time) bool {
 	y1, m1, d1 := a.Date()
 	y2, m2, d2 := b.Date()
 	return y1 == y2 && m1 == m2 && d1 == d2
 }
 
+// GetFechasOcupadas returns occupied date ranges for existing events.
 func (s *Service) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error) {
 	return s.repo.GetFechasOcupadas(ctx)
 }
 
+// GetSesionesRepo exposes the sessions repository used by this service.
 func (s *Service) GetSesionesRepo() *sesionesrepo.Repository {
 	return s.sesionesRepo
 }

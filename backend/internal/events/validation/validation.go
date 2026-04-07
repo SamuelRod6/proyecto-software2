@@ -1,3 +1,16 @@
+/*
+File: validation.go
+
+Contains:
+Validation rules for the Evento module.
+It validates event name, date ranges, and location fields before
+business operations are executed.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package validation
 
 import (
@@ -12,6 +25,7 @@ var (
 	locationRegex = regexp.MustCompile(`^[\p{L}0-9\s,\.\-]+$`)
 )
 
+// ValidateEventoNombre checks event name length and allowed characters.
 func ValidateEventoNombre(nombre string) error {
 	trimmed := strings.TrimSpace(nombre)
 	if len(trimmed) < 5 || len(trimmed) > 100 {
@@ -23,16 +37,18 @@ func ValidateEventoNombre(nombre string) error {
 	return nil
 }
 
+// ValidateEventoFechas validates create-flow event dates and returns parsed
+// values using the same location as now.
 func ValidateEventoFechas(fechaInicio, fechaFin, fechaCierre string, now time.Time) (time.Time, time.Time, time.Time, error) {
 	loc := now.Location()
 	parseDate := func(dateStr string) (time.Time, error) {
 		dateStr = strings.TrimSpace(dateStr)
-		// Intentar formato con hora
+		// Try datetime format first.
 		t, err := time.ParseInLocation("02/01/2006 15:04:05", dateStr, loc)
 		if err == nil {
 			return t, nil
 		}
-		// Intentar formato sin hora
+		// Fall back to date-only format.
 		t, err = time.ParseInLocation("02/01/2006", dateStr, loc)
 		if err == nil {
 			return t, nil
@@ -71,6 +87,8 @@ func ValidateEventoFechas(fechaInicio, fechaFin, fechaCierre string, now time.Ti
 	return start, end, cierre, nil
 }
 
+// ValidateEventoFechasUpdate validates update-flow dates, including close-date
+// lock rules after the close day is reached.
 func ValidateEventoFechasUpdate(fechaInicio, fechaFin, fechaCierre string, now, currentCierre time.Time) (time.Time, time.Time, time.Time, error) {
 	loc := now.Location()
 	parseDate := func(dateStr string) (time.Time, error) {
@@ -121,6 +139,8 @@ func ValidateEventoFechasUpdate(fechaInicio, fechaFin, fechaCierre string, now, 
 	return start, end, cierre, nil
 }
 
+// ValidateEventoUbicacion validates location format and requires city/country
+// style components separated by comma or dot.
 func ValidateEventoUbicacion(ubicacion string) error {
 	trimmed := strings.TrimSpace(ubicacion)
 	if len(trimmed) < 5 || len(trimmed) > 200 {
