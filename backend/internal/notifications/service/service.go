@@ -1,3 +1,16 @@
+/*
+File: service.go
+
+Contains:
+Business service implementation for notifications.
+It orchestrates notification creation, delivery, and scheduled
+notification rules for event and work workflows.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package service
 
 import (
@@ -7,12 +20,13 @@ import (
 	"project/backend/internal/notifications/dto"
 	"project/backend/internal/notifications/repo"
 	registrationrepo "project/backend/internal/registrations/repo"
+	sharedsmtp "project/backend/internal/shared/smtp"
 	"project/backend/prisma/db"
 	"time"
-	sharedsmtp "project/backend/internal/shared/smtp"
 	"strings"
 )
 
+// NotificationService defines notification-related business operations.
 type NotificationService interface {
 	CreateNotification(ctx context.Context, req dto.CreateNotificationRequest) (*db.NotificacionModel, error)
 	ListNotificationsByUser(ctx context.Context, idUsuario int) ([]db.NotificacionModel, error)
@@ -24,20 +38,25 @@ type NotificationService interface {
 	NotificarCancelacionEvento(ctx context.Context, evento *db.EventoModel, inscripcionesRepo *registrationrepo.Repository) error
 }
 
+// notificationService implements NotificationService.
 type notificationService struct {
 	repo repo.NotificationRepository
 }
 
+// venezuelaLocation defines the timezone used in notification messages.
 var venezuelaLocation = time.FixedZone("VET", -4*60*60)
 
+// formatDateVE formats dates as dd/mm/yyyy in Venezuela time.
 func formatDateVE(t time.Time) string {
 	return t.In(venezuelaLocation).Format("02/01/2006")
 }
 
+// NewNotificationService creates a notification service from a repository.
 func NewNotificationService(r repo.NotificationRepository) NotificationService {
 	return &notificationService{repo: r}
 }
 
+// CreateNotification stores a notification and optionally sends email.
 func (s *notificationService) CreateNotification(ctx context.Context, req dto.CreateNotificationRequest) (*db.NotificacionModel, error) {
     notification, err := s.repo.Create(ctx, req)
     if err != nil {
@@ -51,14 +70,17 @@ func (s *notificationService) CreateNotification(ctx context.Context, req dto.Cr
     return notification, nil
 }
 
+// ListNotificationsByUser returns notifications for one user.
 func (s *notificationService) ListNotificationsByUser(ctx context.Context, idUsuario int) ([]db.NotificacionModel, error) {
 	return s.repo.ListByUser(ctx, idUsuario)
 }
 
+// MarkNotificationAsRead updates a notification read state.
 func (s *notificationService) MarkNotificationAsRead(ctx context.Context, idNotificacion int, leida bool) error {
 	return s.repo.MarkAsRead(ctx, idNotificacion, leida)
 }
 
+// NotificarCierreInscripciones sends close-registration reminders.
 func (s *notificationService) NotificarCierreInscripciones(ctx context.Context, eventosRepo *eventrepo.Repository, inscripcionesRepo *registrationrepo.Repository) error {
 	eventos, err := eventosRepo.FindEventosCierreManana(ctx)
 	if err != nil {
@@ -101,6 +123,7 @@ func (s *notificationService) NotificarCierreInscripciones(ctx context.Context, 
 	return nil
 }
 
+// NotificarRecordatorioEvento sends event reminder notifications.
 func (s *notificationService) NotificarRecordatorioEvento(ctx context.Context, eventosRepo *eventrepo.Repository, inscripcionesRepo *registrationrepo.Repository) error {
 	eventos, err := eventosRepo.FindEventosInicioManana(ctx)
 	if err != nil {
@@ -141,6 +164,8 @@ func (s *notificationService) NotificarRecordatorioEvento(ctx context.Context, e
 	}
 	return nil
 }
+
+// NotificarPagoPendiente sends pending payment notifications.
 func (s *notificationService) NotificarPagoPendiente(ctx context.Context, eventosRepo *eventrepo.Repository, inscripcionesRepo *registrationrepo.Repository) error {
 	inscripciones, err := inscripcionesRepo.FindAll(ctx)
 	if err != nil {
@@ -186,6 +211,7 @@ func (s *notificationService) NotificarPagoPendiente(ctx context.Context, evento
 	return nil
 }
 
+// NotificarAperturaInscripciones sends registration-open notifications.
 func (s *notificationService) NotificarAperturaInscripciones(ctx context.Context, evento *db.EventoModel, usuariosRepo *registrationrepo.Repository) error {
 	usuarios, err := usuariosRepo.FindAllUsuarios(ctx)
 	if err != nil {
@@ -220,6 +246,7 @@ func (s *notificationService) NotificarAperturaInscripciones(ctx context.Context
 	return nil
 }
 
+// NotificarCancelacionEvento sends event cancellation notifications.
 func (s *notificationService) NotificarCancelacionEvento(ctx context.Context, evento *db.EventoModel, inscripcionesRepo *registrationrepo.Repository) error {
 	inscripciones, err := inscripcionesRepo.FindByEventoID(ctx, evento.IDEvento)
 	if err != nil {
@@ -247,7 +274,7 @@ func (s *notificationService) NotificarCancelacionEvento(ctx context.Context, ev
 	return nil
 }
 
-// Funciones y variables de envío de correos
+// emailEnabledNotificationTypes lists notification types that trigger email delivery.
 var emailEnabledNotificationTypes = map[string]struct{}{
     dto.NotificationTypeCambioEvento:          {},
     dto.NotificationTypeCierreInscripciones:   {},
@@ -265,11 +292,13 @@ var emailEnabledNotificationTypes = map[string]struct{}{
     dto.NotificationTypeEstadoTrabajo:      {},
 }
 
+// shouldSendEmailForType checks whether a notification type sends email.
 func shouldSendEmailForType(notificationType string) bool {
     _, ok := emailEnabledNotificationTypes[strings.TrimSpace(notificationType)]
     return ok
 }
 
+// sendNotificationEmail sends an email for supported notification types.
 func (s *notificationService) sendNotificationEmail(ctx context.Context, req dto.CreateNotificationRequest) error {
     if !shouldSendEmailForType(req.Type) {
         return nil

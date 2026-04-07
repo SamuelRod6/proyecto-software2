@@ -1,3 +1,16 @@
+/*
+File: repo.go
+
+Contains:
+Persistence repository implementation for notifications.
+It provides data access for notification storage, listing, and
+daily-existence checks used by scheduled jobs.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package repo
 
 import (
@@ -8,6 +21,7 @@ import (
 	"time"
 )
 
+// NotificationRepository defines the persistence contract for notifications.
 type NotificationRepository interface {
 	Create(ctx context.Context, req dto.CreateNotificationRequest) (*db.NotificacionModel, error)
 	ListByUser(ctx context.Context, idUsuario int) ([]db.NotificacionModel, error)
@@ -17,14 +31,17 @@ type NotificationRepository interface {
 	FindUserEmailByID(ctx context.Context, userID int) (string, error)
 }
 
+// notificationRepository implements NotificationRepository using Prisma.
 type notificationRepository struct {
 	client *db.PrismaClient
 }
 
+// NewNotificationRepository creates a notification repository.
 func NewNotificationRepository(client *db.PrismaClient) NotificationRepository {
 	return &notificationRepository{client: client}
 }
 
+// Create stores a notification record.
 func (r *notificationRepository) Create(ctx context.Context, req dto.CreateNotificationRequest) (*db.NotificacionModel, error) {
 	setMensaje := db.Notificacion.Mensaje.Set(req.Message)
 	setUsuario := db.Notificacion.Usuario.Link(
@@ -53,6 +70,7 @@ func (r *notificationRepository) Create(ctx context.Context, req dto.CreateNotif
 	return notification, nil
 }
 
+// ListByUser returns notifications ordered by newest first.
 func (r *notificationRepository) ListByUser(ctx context.Context, idUsuario int) ([]db.NotificacionModel, error) {
 	return r.client.Notificacion.FindMany(
 		db.Notificacion.IDUsuario.Equals(idUsuario),
@@ -61,6 +79,7 @@ func (r *notificationRepository) ListByUser(ctx context.Context, idUsuario int) 
 	).Exec(ctx)
 }
 
+// MarkAsRead updates the read state of one notification.
 func (r *notificationRepository) MarkAsRead(ctx context.Context, idNotificacion int, leida bool) error {
 	_, err := r.client.Notificacion.FindUnique(
 		db.Notificacion.IDNotificacion.Equals(idNotificacion),
@@ -70,6 +89,8 @@ func (r *notificationRepository) MarkAsRead(ctx context.Context, idNotificacion 
 	return err
 }
 
+// ExistsCierreInscripcionToday checks whether a close-inscription notification
+// already exists today for a user and event.
 func (r *notificationRepository) ExistsCierreInscripcionToday(ctx context.Context, userID int, eventID int) (bool, error) {
 	now := time.Now().UTC()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
@@ -87,6 +108,8 @@ func (r *notificationRepository) ExistsCierreInscripcionToday(ctx context.Contex
 	return notif != nil, nil
 }
 
+// ExistsNotificationToday checks whether a notification of the same type was
+// already created today for a user and event.
 func (r *notificationRepository) ExistsNotificationToday(ctx context.Context, userID int, eventID int, tipo string) (bool, error) {
 	now := time.Now().UTC()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
@@ -104,6 +127,7 @@ func (r *notificationRepository) ExistsNotificationToday(ctx context.Context, us
 	return notif != nil, nil
 }
 
+// FindUserEmailByID retrieves the email for one user.
 func (r *notificationRepository) FindUserEmailByID(ctx context.Context, userID int) (string, error) {
     user, err := r.client.Usuario.FindUnique(
         db.Usuario.IDUsuario.Equals(userID),

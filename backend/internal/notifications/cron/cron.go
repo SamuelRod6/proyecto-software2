@@ -1,3 +1,16 @@
+/*
+File: cron.go
+
+Contains:
+Background scheduler for notifications-related jobs.
+It triggers notification catch-up and periodic checks for event
+closing, reminders, and pending payments.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package cron
 
 import (
@@ -13,6 +26,8 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// StartCierreInscripcionesScheduler starts the background scheduler that runs
+// notification catch-up on startup and every five minutes.
 func StartCierreInscripcionesScheduler(prismaClient *db.PrismaClient) {
 	eventRepo := eventrepo.New(prismaClient)
 	inscripcionRepo := registrationrepo.New(prismaClient)
@@ -44,6 +59,7 @@ func StartCierreInscripcionesScheduler(prismaClient *db.PrismaClient) {
 	c.Start()
 }
 
+// runNotifications executes all scheduled notification checks in sequence.
 func runNotifications(ctx context.Context, notificationService notificationsrv.NotificationService, eventRepo *eventrepo.Repository, inscripcionRepo *registrationrepo.Repository) error {
 	if err := notificationService.NotificarCierreInscripciones(ctx, eventRepo, inscripcionRepo); err != nil {
 		log.Println("Error en notificación de cierre de inscripciones:", err)

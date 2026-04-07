@@ -1,5 +1,17 @@
+/*
+File: notification_templates.go
+
+Contains:
+Notification message templates and title helpers for the notifications module.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package dto
 
+// Message templates used to build notification bodies.
 const (
 	MsgInscripcionExitosa         = "Te has inscrito exitosamente al evento '%s', que inicia el %s y finaliza el %s."
 	MsgCambioEvento               = "El evento '%s' ha sufrido cambios: %s."
@@ -19,6 +31,7 @@ const (
 	MsgNuevoMensaje               = "Tienes un nuevo mensaje de %s en la conversación '%s'."
 )
 
+// NotificationTitles maps notification types to human-readable titles.
 var NotificationTitles = map[string]string{
 	NotificationTypeInscripcion:           "Inscripción exitosa",
 	NotificationTypeCambioEvento:          "Cambio en evento",
@@ -37,6 +50,7 @@ var NotificationTitles = map[string]string{
 	NotificationTypeNuevoMensaje:          "Nuevo mensaje",
 }
 
+// GetNotificationTitle returns a human-readable title for a notification type.
 func GetNotificationTitle(tipo string) string {
 	if t, ok := NotificationTitles[tipo]; ok {
 		return t
