@@ -1,3 +1,14 @@
+/*
+File: ScientificWorksScreen.tsx
+
+Contains:
+Participant workflow to submit scientific works, upload revisions, and compare versions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useEffect, useMemo, useState } from "react";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
@@ -21,10 +32,12 @@ import {
 } from "../../services/scientificWorkServices";
 import { getEvents, Evento } from "../../services/eventsServices";
 
+// countWords computes summary length constraints used by client-side validation.
 function countWords(value: string): number {
   return value.trim() ? value.trim().split(/\s+/).length : 0;
 }
 
+// MyScientificWorksScreen manages creation, versioning, and history inspection for a participant's works.
 export default function MyScientificWorksScreen(): JSX.Element {
   const authUser = getStoredAuthUser();
   const { showToast } = useToast();
@@ -56,6 +69,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
 
   const summaryWords = useMemo(() => countWords(summary), [summary]);
 
+  // loadData fetches current user works and available events for submission.
     async function loadData() {
     if (!authUser?.id) return;
     setLoading(true);
@@ -86,6 +100,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
     void loadData();
   }, []);
 
+  // openHistory loads version history for the selected work and opens the modal.
   async function openHistory(work: ScientificWorkItem) {
     if (!authUser?.id) return;
     setSelectedWork(work);
@@ -105,6 +120,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
     setHistoryOpen(true);
   }
 
+  // handleCreateWork validates fields and submits the initial scientific work version.
   async function handleCreateWork() {
     if (!authUser?.id) return;
 
@@ -171,6 +187,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
     await loadData();
   }
 
+  // handleUploadVersion registers a new PDF version with a change description.
   async function handleUploadVersion() {
     if (!authUser?.id || !selectedWork) return;
     if (!newVersionFile) {
@@ -219,6 +236,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
     await openHistory(selectedWork);
   }
 
+  // handleCompareVersions requests a semantic diff summary between two version numbers.
   async function handleCompareVersions() {
     if (!authUser?.id || !selectedWork) return;
     const res = await compareScientificWorkVersions(
@@ -240,6 +258,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
     setComparison(res.data as ScientificWorkCompare);
   }
 
+  // handleDownload downloads a selected version as a local PDF file.
   async function handleDownload(versionId: number) {
     if (!authUser?.id) return;
     const res = await downloadScientificWorkVersion(versionId, authUser.id);

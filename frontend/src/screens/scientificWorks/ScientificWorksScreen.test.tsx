@@ -1,3 +1,14 @@
+/*
+File: ScientificWorksScreen.test.tsx
+
+Contains:
+Validation test for scientific work creation form constraints.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ScientificWorksScreen from "./ScientificWorksScreen";
 
@@ -39,6 +50,7 @@ describe("ScientificWorksScreen", () => {
   });
 
   it("blocks work creation when the title contains numbers", async () => {
+    // Build a valid 100-word summary and keep only title rule failing.
     const summary = Array.from({ length: 100 }, (_, index) => `palabra${index}`).join(" ");
 
     render(<ScientificWorksScreen />);
@@ -69,6 +81,7 @@ describe("ScientificWorksScreen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Enviar trabajo" }));
 
+    // The submit path must stop on title validation before calling service.
     await waitFor(() => {
       expect(mockShowToast).toHaveBeenCalledWith(
         expect.objectContaining({

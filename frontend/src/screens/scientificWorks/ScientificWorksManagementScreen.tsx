@@ -1,3 +1,14 @@
+/*
+File: ScientificWorksManagementScreen.tsx
+
+Contains:
+Committee and reviewer management workflow for scientific work assignment, evaluation, and decisions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useEffect, useMemo, useState } from "react";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
@@ -21,12 +32,14 @@ import {
   submitScientificWorkEvaluation,
 } from "../../services/scientificWorkServices";
 
+// formatDecisionLabel normalizes API decision values for display.
 function formatDecisionLabel(value: string): string {
   return String(value || "PENDIENTE_REVISION")
     .replaceAll("_", " ")
     .trim();
 }
 
+// ScientificWorksManagementScreen provides committee/reviewer actions over submitted works.
 export default function ScientificWorksManagementScreen(): JSX.Element {
   const authUser = getStoredAuthUser();
   const { showToast } = useToast();
@@ -79,6 +92,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
+  // loadData fetches works based on the current operating mode and filters.
   async function loadData() {
     if (!authUser?.id) return;
     setLoading(true);
@@ -120,6 +134,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     );
   }
 
+  // openAssignModal retrieves eligible reviewers for the selected work.
   async function openAssignModal(work: ScientificWorkManagementItem) {
     if (!authUser?.id) return;
     setSelectedWork(work);
@@ -139,6 +154,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setAssignOpen(true);
   }
 
+  // assignSelectedReviewers persists current multi-selection for reviewer assignment.
   async function assignSelectedReviewers() {
     if (!authUser?.id || !selectedWork) return;
 
@@ -174,6 +190,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setAssignOpen(false);
   }
 
+  // openEvaluationsModal loads summary and detailed evaluations for a work.
   async function openEvaluationsModal(work: ScientificWorkManagementItem) {
     if (!authUser?.id) return;
     setSelectedWork(work);
@@ -214,6 +231,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setDecisionOpen(true);
   }
 
+  // submitDecision saves committee final decision and optional author comment.
   async function submitDecision() {
     if (!authUser?.id || !selectedWork) return;
 
@@ -252,6 +270,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setEvaluationOpen(true);
   }
 
+  // submitEvaluation validates and stores a reviewer's scoring submission.
   async function submitEvaluation() {
     if (!authUser?.id || !selectedWork) return;
 
@@ -302,6 +321,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setEvaluationOpen(false);
   }
 
+  // handleDownloadCurrentFile downloads the current exposed PDF file version.
   async function handleDownloadCurrentFile(work: ScientificWorkManagementItem) {
     if (!authUser?.id) return;
     if (!work.archivo_actual?.id_version) {
