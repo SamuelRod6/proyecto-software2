@@ -31,11 +31,11 @@ func TestShouldSendStatusEmail(t *testing.T) {
 }
 
 func TestBuildStatusEmail(t *testing.T) {
-	subject, body := buildStatusEmail("Mauricio", "Evento X", "Pagado", "Aprobado", "21/02/2026", "Subir versión final")
+	subject, body := buildStatusEmail("Mauricio", "Evento X", "Pagado", "Aprobado", "21/02/2026 14:30", "Subir versión final")
 	if !strings.Contains(subject, "Inscripción aprobada") || !strings.Contains(subject, "Aprobado") {
 		t.Fatal("subject should include status")
 	}
-	if !strings.Contains(body, "Evento X") || !strings.Contains(body, "21/02/2026") {
+	if !strings.Contains(body, "Evento X") || !strings.Contains(body, "21/02/2026 14:30") {
 		t.Fatal("body should include event and date")
 	}
 	if !strings.Contains(body, "fue aprobada") {

@@ -254,13 +254,10 @@ func (s *Service) UpdateEstado(ctx context.Context, req dto.UpdateEstadoRequest)
 
 	_ = s.repo.InsertHistorial(ctx, req.IDInscripcion, actual, newStatus, req.Nota, req.Actor)
 
-	pref, err := s.repo.GetPreferencias(ctx, rows[0].IDUsuario)
-	if err == nil && pref != nil && shouldSendStatusEmail(*pref, actual, newStatus) {
-		fecha := time.Now().Format("02/01/2006")
-		asunto, mensaje := buildStatusEmail(rows[0].Nombre, rows[0].EventoNombre, actual, newStatus, fecha, req.Nota)
-		_ = s.repo.InsertNotificacion(ctx, rows[0].IDUsuario, &req.IDInscripcion, asunto, mensaje)
-		_ = sendEmail(ctx, rows[0].Email, asunto, mensaje)
-	}
+	fecha := time.Now().Format("02/01/2006 15:04")
+	asunto, mensaje := buildStatusEmail(rows[0].Nombre, rows[0].EventoNombre, actual, newStatus, fecha, req.Nota)
+	_ = s.repo.InsertNotificacion(ctx, rows[0].IDUsuario, &req.IDInscripcion, asunto, mensaje)
+	_ = sendEmail(ctx, rows[0].Email, asunto, mensaje)
 
 	return nil
 }
