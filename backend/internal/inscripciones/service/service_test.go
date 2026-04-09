@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -96,4 +98,62 @@ func TestStatusTransitionTypeMapping(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResolveConfirmationEmail(t *testing.T) {
+	t.Run("prefiere email del usuario", func(t *testing.T) {
+		got := resolveConfirmationEmail("usuario@correo.com", "formulario@correo.com")
+		if got != "usuario@correo.com" {
+			t.Fatalf("expected usuario email, got %s", got)
+		}
+	})
+
+	t.Run("usa email del formulario como fallback", func(t *testing.T) {
+		got := resolveConfirmationEmail("", "formulario@correo.com")
+		if got != "formulario@correo.com" {
+			t.Fatalf("expected form email fallback, got %s", got)
+		}
+	})
+}
+
+func TestSendConfirmationEmailWithRetry(t *testing.T) {
+	originalSend := sendConfirmationEmailFunc
+	t.Cleanup(func() {
+		sendConfirmationEmailFunc = originalSend
+	})
+
+	t.Run("reintenta y termina exitosamente", func(t *testing.T) {
+		attempts := 0
+		sendConfirmationEmailFunc = func(_ context.Context, _, _, _ string) error {
+			attempts++
+			if attempts < 3 {
+				return errors.New("smtp temporary error")
+			}
+			return nil
+		}
+
+		err := sendConfirmationEmailWithRetry(context.Background(), "u@test.com", "User", "Evento", 3)
+		if err != nil {
+			t.Fatalf("expected nil error, got %v", err)
+		}
+		if attempts != 3 {
+			t.Fatalf("expected 3 attempts, got %d", attempts)
+		}
+	})
+
+	t.Run("retorna error final cuando agota intentos", func(t *testing.T) {
+		attempts := 0
+		sendConfirmationEmailFunc = func(_ context.Context, _, _, _ string) error {
+			attempts++
+			return errors.New("smtp down")
+		}
+
+		err := sendConfirmationEmailWithRetry(context.Background(), "u@test.com", "User", "Evento", 2)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if attempts != 2 {
+			t.Fatalf("expected 2 attempts, got %d", attempts)
+		}
+	})
 }
