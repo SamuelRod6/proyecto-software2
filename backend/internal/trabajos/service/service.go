@@ -13,6 +13,7 @@ import (
 	notificationdto "project/backend/internal/notifications/dto"
 	notificationsrepo "project/backend/internal/notifications/repo"
 	notificationsrv "project/backend/internal/notifications/service"
+	sharedsmtp "project/backend/internal/shared/smtp"
 	"project/backend/internal/trabajos/dto"
 	"project/backend/internal/trabajos/repo"
 	"project/backend/internal/trabajos/validation"
@@ -424,6 +425,32 @@ func normalizeRecomendacion(value string) string {
 	default:
 		return "PENDIENTE"
 	}
+}
+
+func buildDecisionStatusEmail(titulo, estadoAnterior, estadoNuevo, fechaActualizacion, comentario string) (string, string) {
+	asunto := "Actualización de estado de trabajo científico"
+	mensaje := fmt.Sprintf(
+		"El estado de tu trabajo científico fue actualizado.\n\nTítulo: %s\nEstado anterior: %s\nNuevo estado: %s\nFecha de actualización: %s",
+		strings.TrimSpace(titulo),
+		strings.TrimSpace(estadoAnterior),
+		strings.TrimSpace(estadoNuevo),
+		strings.TrimSpace(fechaActualizacion),
+	)
+
+	if strings.TrimSpace(comentario) != "" {
+		mensaje += "\nComentario del comité: " + strings.TrimSpace(comentario)
+	}
+
+	return asunto, mensaje
+}
+
+func sendWorkStatusEmail(ctx context.Context, to, subject, body string) error {
+	_, err := sharedsmtp.SendEmail(ctx, sharedsmtp.SendEmailRequest{
+		ToEmail: to,
+		Subject: subject,
+		Text:    body,
+	})
+	return err
 }
 
 func findAuthorName(ctx context.Context, s *Service, userID int) string {
@@ -853,6 +880,7 @@ func (s *Service) DecideTrabajo(ctx context.Context, req dto.DecisionRequest) er
 	if err != nil || trabajo == nil {
 		return ErrTrabajoNoExiste
 	}
+	estadoAnterior := normalizeDecisionComite(trabajo.DecisionComite)
 
 	req.DecisionComite = normalizeDecisionComite(req.DecisionComite)
 	req.ComentarioComite = strings.TrimSpace(req.ComentarioComite)
@@ -872,6 +900,19 @@ func (s *Service) DecideTrabajo(ctx context.Context, req dto.DecisionRequest) er
 		Type:    notificationdto.NotificationTypeEstadoTrabajo,
 		Message: msg,
 	})
+
+	autor, findErr := s.repo.FindUserByID(ctx, trabajo.IDUsuario)
+	if findErr == nil && autor != nil && strings.TrimSpace(autor.Email) != "" {
+		fechaActualizacion := formatDateTimeVE(time.Now())
+		asunto, mensajeCorreo := buildDecisionStatusEmail(
+			trabajo.Titulo,
+			estadoAnterior,
+			req.DecisionComite,
+			fechaActualizacion,
+			req.ComentarioComite,
+		)
+		_ = sendWorkStatusEmail(ctx, autor.Email, asunto, mensajeCorreo)
+	}
 
 	return nil
 }
