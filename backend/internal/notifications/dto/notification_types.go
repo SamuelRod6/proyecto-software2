@@ -1,5 +1,17 @@
+/*
+File: notification_types.go
+
+Contains:
+Notification type identifiers used across the notifications module.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package dto
 
+// Notification type identifiers used by the application.
 const (
 	NotificationTypeInscripcion           = "inscripcion"
 	NotificationTypeCambioEvento          = "cambio_evento"

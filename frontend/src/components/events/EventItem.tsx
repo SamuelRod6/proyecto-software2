@@ -1,3 +1,14 @@
+/*
+File: EventItem.tsx
+
+Contains:
+Card/list item component that renders one event with management actions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useState } from "react";
 import { useModal } from "../../contexts/Modal/ModalContext";
 // components
@@ -10,6 +21,7 @@ import CreateSessionModal from "../sessions/CreateSessionModal";
 // contexts
 import { useAuth } from "../../contexts/Auth/Authcontext";
 
+// EventItemProps defines event card content and available management actions.
 interface EventItemProps {
   id_evento: number;
   nombre: string;
@@ -24,8 +36,10 @@ interface EventItemProps {
   onToggleInscripcion?: (id: number, open: boolean) => void;
 }
 
+// EventItem renders one event card with role-based management actions and
+// modal shortcuts for detail/session workflows.
 export default function EventItem(props: EventItemProps) {
-	// Helper para parsear fecha DD/MM/YYYY HH:mm:ss
+	// parseDate converts API date strings (DD/MM/YYYY HH:mm:ss) into Date.
 	function parseDate(dateStr: string): Date | undefined {
 		if (!dateStr) return undefined;
 		const [datePart, timePart] = dateStr.split(" ");
@@ -40,7 +54,7 @@ export default function EventItem(props: EventItemProps) {
 		return new Date(year, month - 1, day, hours, minutes, seconds);
 	}
 
-	// Ajusta fecha fin si es antes de las 6am
+	// adjustEndDate prevents off-by-one display when end time is near midnight.
 	function adjustEndDate(date: Date | undefined): Date | undefined {
 		if (!date) return undefined;
 		if (date.getHours() < 6) {
@@ -51,7 +65,7 @@ export default function EventItem(props: EventItemProps) {
 		return date;
 	}
 
-	// Formatea fecha a string legible
+	// formatDate returns a user-friendly local date string.
 	function formatDate(d: Date | undefined): string {
 		if (!d) return "";
 		return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -156,14 +170,18 @@ const {
 						 {onToggleInscripcion && (
 							 <ToggleIconButton
 								 open={!inscripciones_abiertas}
-								 onClick={() => {
+								 onClick={(e) => {
+									 e.stopPropagation();
 									 setShowConfirm(inscripciones_abiertas ? "cerrar" : "abrir");
 								 }}
 								 title={inscripciones_abiertas ? "Cerrar inscripciones" : "Abrir inscripciones"}
 							 />
 						 )}
 						 {onDelete && (
-							 <DeleteIconButton onClick={() => { onDelete(id_evento); }} />
+							 <DeleteIconButton onClick={(e) => {
+								 e.stopPropagation();
+								 onDelete(id_evento);
+							 }} />
 						 )}
 					 </div>
 				 )}

@@ -1,3 +1,16 @@
+/*
+File: service.go
+
+Contains:
+Business service implementation for the Sesiones module.
+It orchestrates repository calls, applies validation rules,
+and sends notifications for relevant session changes.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package service
 
 import (
@@ -19,6 +32,7 @@ type Service struct {
 	notificationService notificationsrv.NotificationService
 }
 
+// New creates a sessions service with repository and notification dependencies.
 func New(prismaClient *db.PrismaClient) *Service {
 	sesionRepo := repo.NewRepository(prismaClient)
 	notificationRepo := notificationsrepo.NewNotificationRepository(prismaClient)
@@ -38,11 +52,14 @@ var (
 
 var venezuelaLocation = time.FixedZone("VET", -4*60*60)
 
+// formatDateTimeVE formats date/time values using UTC-4 Venezuela display rules.
 func formatDateTimeVE(t time.Time) string {
 	// Normaliza a UTC y aplica UTC-4 para evitar depender de la ubicación original.
 	return t.UTC().In(venezuelaLocation).Format("02/01/2006 15:04")
 }
 
+// CreateSesion creates a new session after validating event state, date range,
+// duration, unique title, and overlap constraints.
 func (s *Service) CreateSesion(ctx context.Context, eventoID int, req dto.CreateSesionRequest) (*dto.SesionResponse, error) {
 	if req.Titulo == "" || req.FechaInicio == "" || req.FechaFin == "" {
 		println("[CreateSesion] Título o fechas vacíos")
@@ -114,6 +131,7 @@ func (s *Service) CreateSesion(ctx context.Context, eventoID int, req dto.Create
 	return s.mapSesionToResponse(ctx, sesion), nil
 }
 
+// ListSesiones returns active sessions for an event.
 func (s *Service) ListSesiones(ctx context.Context, eventoID int) ([]dto.SesionResponse, error) {
 	sesiones, err := s.repo.ListSesiones(ctx, eventoID)
 	if err != nil {
@@ -126,6 +144,7 @@ func (s *Service) ListSesiones(ctx context.Context, eventoID int) ([]dto.SesionR
 	return resp, nil
 }
 
+// GetSesionByID returns one session by ID.
 func (s *Service) GetSesionByID(ctx context.Context, sesionID int) (*dto.SesionResponse, error) {
 	sesion, err := s.repo.GetSesionByID(ctx, sesionID)
 	if err != nil || sesion == nil {
@@ -134,6 +153,8 @@ func (s *Service) GetSesionByID(ctx context.Context, sesionID int) (*dto.SesionR
 	return s.mapSesionToResponse(ctx, sesion), nil
 }
 
+// UpdateSesion updates a session after validating event/session status,
+// date constraints, uniqueness, and overlap rules.
 func (s *Service) UpdateSesion(ctx context.Context, sesionID int, req dto.UpdateSesionRequest) (*dto.SesionResponse, error) {
 	if req.Titulo == "" || req.FechaInicio == "" || req.FechaFin == "" {
 		return nil, ErrInvalid
@@ -215,7 +236,7 @@ func (s *Service) UpdateSesion(ctx context.Context, sesionID int, req dto.Update
 		despues,
 	)
 
-	// Notificar a ponentes asignados sobre cambios en la sesión
+	// Notify assigned speakers about session updates.
 	ponentesAsignados, err := s.repo.ListPonentes(ctx, sesionID)
 	if err == nil {
 		for _, p := range ponentesAsignados {
@@ -241,6 +262,7 @@ func (s *Service) UpdateSesion(ctx context.Context, sesionID int, req dto.Update
 	return s.mapSesionToResponse(ctx, sesion), nil
 }
 
+// DeleteSesion performs logical deletion of a session.
 func (s *Service) DeleteSesion(ctx context.Context, sesionID int) error {
 	err := s.repo.DeleteSesion(ctx, sesionID)
 	if err != nil {
@@ -249,6 +271,7 @@ func (s *Service) DeleteSesion(ctx context.Context, sesionID int) error {
 	return nil
 }
 
+// mapSesionToResponse converts a session model to API response format.
 func (svc *Service) mapSesionToResponse(ctx context.Context, sesion *db.SesionModel) *dto.SesionResponse {
 	if sesion == nil {
 		return nil
@@ -269,6 +292,8 @@ func (svc *Service) mapSesionToResponse(ctx context.Context, sesion *db.SesionMo
 	}
 }
 
+// AsignarPonentes assigns speakers to a session after validating request data,
+// event status, speaker role, and schedule conflicts.
 func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.AsignarPonentesRequest) error {
 	if len(req.Usuarios) == 0 {
 		return ErrInvalid
@@ -306,7 +331,7 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 		return err
 	}
 
-	// Validar disponibilidad por solapamiento horario
+	// Validate availability by schedule overlap.
 	for _, userID := range req.Usuarios {
 		conflicto, err := s.repo.UsuarioTieneConflictoHorario(ctx, userID, sesionID)
 
@@ -319,12 +344,12 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 		}
 	}
 
-	// Persistir asignaciones
+	// Persist assignments.
 	if err = s.repo.AsignarPonentes(ctx, sesionID, req.Usuarios); err != nil {
 		return ErrDB
 	}
 
-	// Notificar a cada ponente asignado
+	// Notify each assigned speaker.
 	for _, userID := range req.Usuarios {
 		eventID := evento.IDEvento
 		_, notifErr := s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
@@ -344,10 +369,11 @@ func (s *Service) AsignarPonentes(ctx context.Context, sesionID int, req dto.Asi
 			fmt.Println("[AsignarPonentes] Error creando notificación:", notifErr)
 		}
 	}
-	
+
 	return nil
 }
 
+// QuitarPonente removes one speaker assignment from a session.
 func (s *Service) QuitarPonente(ctx context.Context, sesionID int, usuarioID int) error {
 	err := s.repo.QuitarPonente(ctx, sesionID, usuarioID)
 	if err != nil {
@@ -356,6 +382,7 @@ func (s *Service) QuitarPonente(ctx context.Context, sesionID int, usuarioID int
 	return nil
 }
 
+// ListPonentes returns assigned speakers for a session.
 func (s *Service) ListPonentes(ctx context.Context, sesionID int) ([]dto.PonenteResponse, error) {
 	usuarios, err := s.repo.ListPonentes(ctx, sesionID)
 	if err != nil {
@@ -375,6 +402,8 @@ func (s *Service) ListPonentes(ctx context.Context, sesionID int) ([]dto.Ponente
 	return resp, nil
 }
 
+// ListPonentesAsignables returns speaker candidates that can still be assigned
+// to the session.
 func (s *Service) ListPonentesAsignables(ctx context.Context, sesionID int) ([]dto.PonenteAsignableResponse, error) {
 	sesion, err := s.repo.GetSesionByID(ctx, sesionID)
 	if err != nil || sesion == nil {

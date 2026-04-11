@@ -1,3 +1,14 @@
+/*
+File: SessionsCalendar.tsx
+
+Contains:
+Calendar visualization for sessions grouped by day with selected-day detail.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React, {useMemo, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
@@ -16,6 +27,7 @@ interface SessionsCalendarProps {
     sessions: SessionItem[];
 }
 
+// normalizeDateKey converts Date values to YYYY-MM-DD keys used for grouping.
 function normalizeDateKey(date: Date): string {
     const y = date.getFullYear();
     const m = `${date.getMonth() + 1}`.padStart(2, "0");
@@ -23,6 +35,7 @@ function normalizeDateKey(date: Date): string {
     return `${y}-${m}-${d}`;
 }
 
+// parseDisplayDateTime handles both DD/MM/YYYY HH:mm and ISO-like values.
 function parseDisplayDateTime(value: string): Date {
   if (!value) return new Date(NaN);
   if (!value.includes("/")) return new Date(value);
@@ -32,6 +45,7 @@ function parseDisplayDateTime(value: string): Date {
   return new Date(y, m - 1, d, hh || 0, mm || 0, 0, 0);
 }
 
+// SessionCalendar renders a monthly picker and sessions for the selected day.
 export default function SessionCalendar({ sessions} : SessionsCalendarProps) {
     const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
 

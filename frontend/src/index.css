@@ -25,3 +25,17 @@ body {
 	margin: 0;
 	min-height: 100vh;
 }
+
+.modal-surface,
+.modal-scroll-content,
+.modal-surface * {
+	scrollbar-width: none;
+}
+
+.modal-surface::-webkit-scrollbar,
+.modal-scroll-content::-webkit-scrollbar,
+.modal-surface *::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none;
+}

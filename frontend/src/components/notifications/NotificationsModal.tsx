@@ -1,21 +1,39 @@
+/*
+File: NotificationsModal.tsx
+
+Contains:
+Modal component that displays notification inbox, detail panel,
+and actions for read state and removal.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React, { useContext, useMemo, useState } from "react";
 import Modal from "../ui/Modal";
 import { NotificationContext } from "../../contexts/Notifications/NotificationContext";
 
+// NotificationsModalProps controls visibility and close behavior.
 interface NotificationsModalProps {
   open: boolean;
   onClose: () => void;
 }
 
+// NotificationsModal renders a two-panel inbox:
+// left side for list navigation and right side for selected detail.
 const NotificationsModal: React.FC<NotificationsModalProps> = ({
   open,
   onClose,
 }) => {
+  // Notification context drives list data and actions.
   const { notifications, markAsRead, removeNotification, loading, error } = useContext(
     NotificationContext,
   );
+  // selectedId tracks the currently opened notification detail.
   const [selectedId, setSelectedId] = useState<number | string | null>(null);
 
+  // orderedNotifications keeps newest notifications first.
   const orderedNotifications = useMemo(() => {
     return [...notifications].sort((a, b) => {
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -24,7 +42,12 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
     });
   }, [notifications]);
 
+  // selectedNotif resolves the active item for right-side detail panel.
   const selectedNotif = notifications.find((n) => n.id === selectedId);
+
+  if (loading && notifications.length === 0) {
+    return null;
+  }
 
   return (
     <Modal open={open} onClose={onClose} title="Notificaciones" className="max-w-5xl w-full">
@@ -36,9 +59,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
             </h3>
           </div>
           <div className="flex-1 overflow-y-auto" style={{ maxHeight: "520px" }}>
-            {loading ? (
-              <div className="px-5 py-6 text-sm text-slate-400">Cargando...</div>
-            ) : error ? (
+            {error ? (
               <div className="px-5 py-6 text-sm text-red-400">{error}</div>
             ) : orderedNotifications.length === 0 ? (
               <div className="px-5 py-6 text-sm text-slate-400">
@@ -47,14 +68,28 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
             ) : (
               <div className="divide-y divide-slate-700">
                 {orderedNotifications.map((notif) => (
-                  <button
+                  <div
                     key={String(notif.id)}
-                    className={`w-full text-left px-5 py-3 flex items-center gap-2 transition-colors focus:outline-none ${
+                    className={`w-full text-left px-5 py-3 flex items-center gap-2 transition-colors focus:outline-none cursor-pointer ${
                       selectedId === notif.id
                         ? "bg-slate-800/80"
                         : "bg-slate-900"
                     }`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
+                      if (selectedId === notif.id) {
+                        setSelectedId(null);
+                        return;
+                      }
+                      setSelectedId(notif.id);
+                      if (!notif.read) {
+                        markAsRead(notif.id);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
                       if (selectedId === notif.id) {
                         setSelectedId(null);
                         return;
@@ -90,7 +125,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
                     >
                       ×
                     </button>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}

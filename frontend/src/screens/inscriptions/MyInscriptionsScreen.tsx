@@ -294,6 +294,15 @@ export default function MyInscriptionsScreen(): JSX.Element {
     await loadHistory(selectedHistoryInscriptionId, true);
   };
 
+  useEffect(() => {
+    if (!selectedHistoryInscriptionId || !canLoad) return;
+    const timeoutId = window.setTimeout(() => {
+      void loadHistory(selectedHistoryInscriptionId, true);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [historyDesde, historyEstadoFilter, historyHasta, historyQuery, historyTypeFilter, selectedHistoryInscriptionId, canLoad]);
+
   const handleDownloadHistoryPDF = async () => {
     if (!selectedHistoryInscriptionId) return;
     const { status, data } = await downloadInscriptionHistoryPDF(
@@ -683,9 +692,6 @@ export default function MyInscriptionsScreen(): JSX.Element {
                   onChange={(event) => setHistoryHasta(event.target.value)}
                 />
               </label>
-              <div className="flex items-end">
-                <Button onClick={handleSearchHistory}>Aplicar filtros</Button>
-              </div>
             </div>
 
             <div className="mt-4 overflow-x-auto">

@@ -3,12 +3,17 @@ import type { ButtonHTMLAttributes } from "react";
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: "primary" | "ghost";
     disabled?: boolean;
+	loading?: boolean;
+	loadingText?: string;
 }
 
 export default function Button({
 	className = "",
 	variant = "primary",
 	disabled = false,
+	loading = false,
+	loadingText,
+	children,
 	...props
 }: ButtonProps): JSX.Element {
 	const base =
@@ -21,9 +26,18 @@ export default function Button({
 
 	return (
 		<button
-			disabled={disabled}
-			className={`${base} ${variants[variant]} ${disabled ? disabledStyles : ""} ${className}`}
+			disabled={disabled || loading}
+			className={`${base} ${variants[variant]} ${disabled || loading ? disabledStyles : ""} ${className}`}
 			{...props}
-		/>
+		>
+			{loading ? (
+				<span className="inline-flex items-center gap-2">
+					<span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+					{loadingText || "Procesando..."}
+				</span>
+			) : (
+				children
+			)}
+		</button>
 	);
 }

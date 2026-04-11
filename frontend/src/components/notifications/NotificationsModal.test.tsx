@@ -1,7 +1,19 @@
+/*
+File: NotificationsModal.test.tsx
+
+Contains:
+Unit tests for notification modal interactions and empty-state rendering.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { fireEvent, render, screen } from "@testing-library/react";
 import NotificationsModal from "./NotificationsModal";
 import { NotificationContext } from "../../contexts/Notifications/NotificationContext";
 
+// NotificationsModal tests verify interaction flow and UI states.
 describe("NotificationsModal", () => {
   it("marks unread notifications as read, shows detail, and removes items", () => {
     const markAsRead = jest.fn();

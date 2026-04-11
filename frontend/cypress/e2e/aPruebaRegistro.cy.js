@@ -86,7 +86,7 @@ describe("Prueba de Registro y Salida", () => {
     cy.wait("@login");
 
     // 5. Verificar que estamos en el Home
-    cy.contains("Bienvenido al Home", { timeout: 15000 }).should("be.visible");
+    cy.contains("Bienvenido al Sistema", { timeout: 15000 }).should("be.visible");
     cy.url().should("eq", Cypress.config().baseUrl + "/");
 
     // 6. CERRAR SESIÓN (Paso final)

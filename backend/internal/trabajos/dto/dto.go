@@ -1,5 +1,19 @@
+/*
+File: dto.go
+
+Contains:
+Request and response DTO definitions for the Trabajos module.
+It centralizes payload structures for submissions, versions,
+committee workflows, reviewer assignment, and evaluations.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package dto
 
+// UploadedFile represents an uploaded document payload.
 type UploadedFile struct {
 	FileName    string
 	ContentType string
@@ -7,6 +21,7 @@ type UploadedFile struct {
 	Bytes       []byte
 }
 
+// CreateTrabajoRequest represents payload to create a scientific work.
 type CreateTrabajoRequest struct {
 	IDEvento              int    `json:"id_evento"`
 	IDUsuario             int    `json:"id_usuario"`
@@ -16,12 +31,14 @@ type CreateTrabajoRequest struct {
 	DescripcionCambios    string `json:"descripcion_cambios"`
 }
 
+// AddVersionRequest represents payload to upload a new work version.
 type AddVersionRequest struct {
 	IDTrabajo          int    `json:"id_trabajo"`
 	IDUsuario          int    `json:"id_usuario"`
 	DescripcionCambios string `json:"descripcion_cambios"`
 }
 
+// TrabajoResponse represents one scientific work in API responses.
 type TrabajoResponse struct {
 	IDTrabajo        int              `json:"id_trabajo"`
 	IDEvento         int              `json:"id_evento"`
@@ -34,6 +51,7 @@ type TrabajoResponse struct {
 	ArchivoActual    *VersionResponse `json:"archivo_actual,omitempty"`
 }
 
+// VersionResponse represents one uploaded work version.
 type VersionResponse struct {
 	IDVersion          int    `json:"id_version"`
 	IDTrabajo          int    `json:"id_trabajo"`
@@ -46,6 +64,7 @@ type VersionResponse struct {
 	FechaEnvio         string `json:"fecha_envio"`
 }
 
+// CompareVersionsResponse represents version comparison output.
 type CompareVersionsResponse struct {
 	IDTrabajo int             `json:"id_trabajo"`
 	From      VersionResponse `json:"from"`
@@ -53,6 +72,7 @@ type CompareVersionsResponse struct {
 	Resumen   []string        `json:"resumen"`
 }
 
+// TrabajoComiteFilter represents filters for committee listing.
 type TrabajoComiteFilter struct {
 	UserID   int
 	Query    string
@@ -61,6 +81,7 @@ type TrabajoComiteFilter struct {
 	IDEvento int
 }
 
+// TrabajoComiteItem represents one work item in committee listings.
 type TrabajoComiteItem struct {
 	IDTrabajo                 int              `json:"id_trabajo"`
 	IDEvento                  int              `json:"id_evento"`
@@ -80,22 +101,25 @@ type TrabajoComiteItem struct {
 	ArchivoActual             *VersionResponse `json:"archivo_actual,omitempty"`
 }
 
+// AssignReviewersRequest represents payload to assign reviewers.
 type AssignReviewersRequest struct {
 	UserID    int   `json:"user_id"`
 	IDTrabajo int   `json:"id_trabajo"`
 	Revisores []int `json:"revisores"`
 }
 
+// ReviewerListItem represents one reviewer candidate.
 type ReviewerListItem struct {
 	IDUsuario int    `json:"id_usuario"`
 	Nombre    string `json:"nombre"`
 	Email     string `json:"email"`
 }
 
+// SubmitEvaluationRequest represents payload to submit reviewer evaluation.
 type SubmitEvaluationRequest struct {
 	UserID          int    `json:"user_id"`
 	IDTrabajo       int    `json:"id_trabajo"`
-	Recomendacion   string `json:"recomendacion"` // ACEPTAR, RECHAZAR, PENDIENTE
+	Recomendacion   string `json:"recomendacion"`
 	Puntaje         *int   `json:"puntaje"`
 	Comentarios     string `json:"comentarios"`
 	Fortalezas      string `json:"fortalezas"`
@@ -103,6 +127,7 @@ type SubmitEvaluationRequest struct {
 	Recomendaciones string `json:"recomendaciones"`
 }
 
+// EvaluationItem represents one stored evaluation entry.
 type EvaluationItem struct {
 	IDEvaluacion  int    `json:"id_evaluacion"`
 	IDTrabajo     int    `json:"id_trabajo"`
@@ -114,6 +139,7 @@ type EvaluationItem struct {
 	UpdatedAt     string `json:"updated_at"`
 }
 
+// EvaluationSummary represents evaluation aggregate and detail list.
 type EvaluationSummary struct {
 	IDTrabajo            int              `json:"id_trabajo"`
 	CantidadEvaluaciones int              `json:"cantidad_evaluaciones"`
@@ -121,9 +147,10 @@ type EvaluationSummary struct {
 	Evaluaciones         []EvaluationItem `json:"evaluaciones"`
 }
 
+// DecisionRequest represents payload for committee final decision.
 type DecisionRequest struct {
 	UserID           int    `json:"user_id"`
 	IDTrabajo        int    `json:"id_trabajo"`
-	DecisionComite   string `json:"decision_comite"` // ACEPTADO, RECHAZADO, PENDIENTE_REVISION
+	DecisionComite   string `json:"decision_comite"`
 	ComentarioComite string `json:"comentario_comite"`
 }

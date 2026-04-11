@@ -1,3 +1,14 @@
+/*
+File: EventsAdminListScreen.tsx
+
+Contains:
+Administrative event list with creation, details, deletion, and inscription toggle actions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useEffect, useState } from "react";
 // components
 import Button from "../../components/ui/Button";
@@ -22,6 +33,7 @@ import {
 import { RESOURCE_KEYS } from "../../constants/resources";
 import { hasResourceAccess } from "../../utils/accessControl";
 
+// EventsAdminListScreen centralizes event management operations for privileged users.
 export default function EventsAdminListScreen(): JSX.Element {
 	// states
 	const [events, setEvents] = useState<Evento[]>([]);
@@ -37,7 +49,7 @@ export default function EventsAdminListScreen(): JSX.Element {
 	// contexts
 	const { showToast } = useToast();
 
-	// function to fetch events
+	// fetchEvents retrieves event rows and updates loading/error state.
 	async function fetchEvents() {
 		setLoading(true);
 		try {
@@ -69,13 +81,13 @@ export default function EventsAdminListScreen(): JSX.Element {
 		}
 	}
 
-	// handler to open delete confirmation modal
+	// handleDeleteClick opens the confirmation modal with selected event id.
 	const handleDeleteClick = (id: number) => {
 		setEventToDelete(id);
 		setDeleteModalOpen(true);
 	};
 
-	// handler to confirm deletion
+	// handleConfirmDelete performs the delete operation and refreshes the list.
 	const handleConfirmDelete = async () => {
 		if (eventToDelete == null) return;
 		setDeleting(true);
@@ -99,13 +111,13 @@ export default function EventsAdminListScreen(): JSX.Element {
 		setEventToDelete(null);
 	};
 
-	// handler to cancel deletion
+	// handleCancelDelete closes the delete modal without mutating data.
 	const handleCancelDelete = () => {
 		setDeleteModalOpen(false);
 		setEventToDelete(null);
 	};
 
-	// handler to toggle inscription status
+	// handleToggleInscripcion opens or closes event inscriptions using backend action.
 	const handleToggleInscripcion = async (id: number, abiertas: boolean) => {
 		const action = abiertas ? "cerrar" : "abrir";
 		const { status, data } = await patchInscriptionDate(id, action);

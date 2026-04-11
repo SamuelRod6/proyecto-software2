@@ -89,6 +89,7 @@ const SelectInput: React.FC<SelectInputProps> = ({
         isSearchable
         isMulti={isMulti}
         isClearable={isClearable}
+        closeMenuOnSelect={!isMulti}
         menuPortalTarget={menuPortalTarget}
         menuPosition={menuPortalTarget ? "fixed" : "absolute"}
         styles={customStyles}
@@ -148,6 +149,42 @@ const customStyles: StylesConfig<OptionType, boolean> = {
     ...provided,
     color: "#e2e8f0",
     fontSize: "0.85rem",
+  }),
+  multiValue: (provided) => ({
+    ...provided,
+    backgroundColor: "#334155",
+    border: "1px solid #475569",
+    borderRadius: "0.5rem",
+  }),
+  multiValueLabel: (provided) => ({
+    ...provided,
+    color: "#e2e8f0",
+    fontSize: "0.8rem",
+    paddingLeft: "0.5rem",
+    paddingRight: "0.35rem",
+  }),
+  multiValueRemove: (provided, state) => ({
+    ...provided,
+    color: "#facc15",
+    backgroundColor: state.isFocused ? "#475569" : "transparent",
+    borderRadius: "0 0.5rem 0.5rem 0",
+    paddingLeft: "0.35rem",
+    paddingRight: "0.45rem",
+    ":hover": {
+      backgroundColor: "#64748b",
+      color: "#fff",
+      cursor: "pointer",
+    },
+  }),
+  clearIndicator: (provided) => ({
+    ...provided,
+    color: "#facc15",
+    ":hover": { color: "#fde047" },
+  }),
+  dropdownIndicator: (provided) => ({
+    ...provided,
+    color: "#94a3b8",
+    ":hover": { color: "#e2e8f0" },
   }),
 };
 

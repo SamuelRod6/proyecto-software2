@@ -100,8 +100,17 @@ describe("Trabajos module", () => {
     cy.wait("@getVersions");
     cy.contains("Historial de versiones").should("be.visible");
 
-    cy.get('select').eq(0).select('1');
-    cy.get('select').eq(1).select('2');
+    cy.contains("label", "Desde")
+      .parent()
+      .find(".react-select__control")
+      .click();
+    cy.contains(".react-select__option", "Versión 1").click();
+
+    cy.contains("label", "Hasta")
+      .parent()
+      .find(".react-select__control")
+      .click();
+    cy.contains(".react-select__option", "Versión 2").click();
     cy.contains("button", "Comparar").click();
 
     cy.wait("@compareVersions");

@@ -46,7 +46,7 @@ describe('Prueba de Inicio de Sesión', () => {
         cy.url().should('eq', Cypress.config().baseUrl + '/');
 
         // Confirmamos que vemos el mensaje de bienvenida
-        cy.contains('Bienvenido al Home').should('be.visible');
+        cy.contains('Bienvenido al Sistema').should('be.visible');
 
         // Verificamos que el botón de "Cerrar sesión" esté presente (lo que indica que estamos logueados)
         cy.get('button').contains('Cerrar sesión').should('be.visible');

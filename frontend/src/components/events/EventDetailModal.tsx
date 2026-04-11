@@ -1,8 +1,20 @@
+/*
+File: EventDetailModal.tsx
+
+Contains:
+Modal component that displays event details, sessions, and enrollment controls.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useEffect, useState } from "react";
 // contexts
 import { useToast } from "../../contexts/Toast/ToastContext";
 import { useAuth } from "../../contexts/Auth/Authcontext";
 import { useModal } from "../../contexts/Modal/ModalContext";
+import { useLoader } from "../../contexts/Loader/LoaderContext";
 // components
 import DateRangePicker from "../../components/ui/DateRangePicker";
 import Input from "../../components/ui/Input";
@@ -12,7 +24,6 @@ import Modal from "../../components/ui/Modal";
 import UpdateCloseDateModal from "./UpdateCloseDateModal";
 import ToggleIconButton from "../../components/ui/ToggleIconButton";
 import ConfirmModal from "../../components/ui/ConfirmModal";
-import Loader from "../../components/ui/Loader";
 import Button from "../../components/ui/Button";
 import { RESOURCE_KEYS } from "../../constants/resources";
 import { hasResourceAccess } from "../../utils/accessControl";
@@ -24,6 +35,7 @@ import SessionsCalendar from "../sessions/SessionsCalendar";
 // interfaces
 import { Evento } from "../../services/eventsServices";
 
+// EventDetailModalProps controls modal visibility, source event, and optional actions.
 interface EventDetailModalProps {
     open: boolean;
     onClose: () => void;
@@ -31,29 +43,35 @@ interface EventDetailModalProps {
     onUpdate?: () => void;
     showInscribirButton?: boolean;
     onInscribir?: () => void;
+    requireModalContext?: boolean;
+    showManagementActions?: boolean;
 }
 
+// EventDetailModal renders event details, session calendar/list, and
+// management actions for inscriptions and editing.
 export default function EventDetailModal({ 
     open, 
     onClose, 
     event, 
     onUpdate,
     showInscribirButton,
-    onInscribir
+    onInscribir,
+    requireModalContext = true,
+    showManagementActions = true,
 }: EventDetailModalProps): JSX.Element | null {
-    // modal context
+    // Modal context for cross-component modal state.
     const { state: modalState, dispatch: modalDispatch } = useModal();
-    // states
+    // Local UI state.
     const [showCloseDateModal, setShowCloseDateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState<"abrir"|"cerrar"|null>(null);
     const [loadingConfirm, setLoadingConfirm] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [eventDetail, setEventDetail] = useState<any | null>(null);
     const [sessions, setSessions] = useState<any[]>([]);
 
-    // contexts
+    // Shared contexts.
     const { showToast } = useToast();
+    const { showLoader, hideLoader } = useLoader();
     const [canManageEvents, setCanManageEvents] = useState(false);
 
     useEffect(() => {
@@ -70,7 +88,7 @@ export default function EventDetailModal({
       };
     }, []);
 
-    // helper to parse date string from API
+    // parseDate converts API date strings into Date objects for UI rendering.
     function parseDate(dateStr: string): Date | undefined {
         if (!dateStr) return undefined;
         // Soporta formato DD/MM/YYYY HH:mm:ss
@@ -87,12 +105,14 @@ export default function EventDetailModal({
         return new Date(year, month - 1, day, hours, minutes, seconds);
     }
 
-    // Fetch event detail when modal opens
+    // Fetch full event detail when the modal is opened.
     useEffect(() => {
+        let isMounted = true;
         if (open && event?.id_evento) {
-            setLoading(true);
+            showLoader();
             getEventDetail(event.id_evento)
                 .then(({ status, data }) => {
+                    if (!isMounted) return;
                     if (status === 200 && data) {
                         setEventDetail(data);
                         setSessions(data.sesiones || []);
@@ -108,6 +128,7 @@ export default function EventDetailModal({
                     }
                 })
                 .catch(() => {
+                    if (!isMounted) return;
                     showToast({
                         title: "Error",
                         message: "No se pudo cargar el detalle del evento.",
@@ -117,15 +138,21 @@ export default function EventDetailModal({
                     setSessions([]);
                     onClose();
                 })
-                .finally(() => setLoading(false));
+                .finally(() => {
+                    if (isMounted) hideLoader();
+                });
         } else {
             setEventDetail(null);
             setSessions([]);
         }
+
+        return () => {
+            isMounted = false;
+            hideLoader();
+        };
     }, [open, event]);
 
-    // prepare date range for the calendar
-    // Corrige visualización: si la hora de fin es antes de las 6am, muestra el día anterior
+    // adjustEndDate avoids off-by-one rendering when end time is near midnight.
     function adjustEndDate(date: Date | undefined): Date | undefined {
         if (!date) return undefined;
         if (date.getHours() < 6) {
@@ -136,12 +163,14 @@ export default function EventDetailModal({
         }
         return date;
     }
+
+    // Calendar date range used by DateRangePicker.
     const dateRange = event ? {
         from: parseDate(event.fecha_inicio),
         to: adjustEndDate(parseDate(event.fecha_fin))
     } : undefined;
 
-    // effect to show error if no event is provided when modal is opened
+    // Guard against opening modal without event payload.
     useEffect(() => {
         if (open && !event) {
             showToast({
@@ -153,7 +182,7 @@ export default function EventDetailModal({
         }
     }, [open, event, showToast, onClose]);
 
-    // PATCH open/close inscriptions
+    // Toggle inscription state using PATCH endpoint.
     async function handleToggleInscripciones() {
         if (!event) return;
         setLoadingConfirm(true);
@@ -188,23 +217,16 @@ export default function EventDetailModal({
         }
     }
 
-    // Only render modal if allowed by context
-    if (!open || modalState.openModal !== "EVENT_DETAIL") return null;
+    // Render guards.
+    if (!open || (requireModalContext && modalState.openModal !== "EVENT_DETAIL")) return null;
     if (!event) return null;
-    if (loading) {
-        return (
-            <Modal open={open} onClose={onClose} title="Detalle del evento">
-                <div className="flex justify-center items-center min-h-[120px]">
-                    <Loader visible={true} />
-                </div>
-            </Modal>
-        );
-    }
     if (!eventDetail) return null;
 
-    // Handler to close modal via context and parent
+    // Close through modal context and parent callback.
     const handleClose = () => {
-        modalDispatch({ type: 'CLOSE_MODAL' });
+        if (requireModalContext) {
+            modalDispatch({ type: 'CLOSE_MODAL' });
+        }
         onClose();
     };
 
@@ -219,7 +241,7 @@ export default function EventDetailModal({
                 <div className="rounded-xl border border-slate-700 bg-slate-800/90 p-6 md:p-8 w-full mx-auto shadow-lg grid grid-cols-1 lg:grid-cols-[minmax(320px,420px)_minmax(390px,470px)] gap-6 md:gap-8 lg:gap-9 items-start lg:justify-start">
                     <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-2 flex-wrap">
-                            {eventDetail.inscripciones_abiertas ? (
+                            {showManagementActions && canManageEvents && eventDetail.inscripciones_abiertas ? (
                                 <>
                                     <span className="bg-green-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
                                         Inscripciones abiertas
@@ -237,7 +259,7 @@ export default function EventDetailModal({
                                         color="#94a3b8"
                                     />
                                 </>
-                            ) : (
+                            ) : showManagementActions && canManageEvents ? (
                                 <>
                                     <span className="bg-red-500 text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight">
                                         Inscripciones cerradas
@@ -254,6 +276,12 @@ export default function EventDetailModal({
                                         onClick={() => setShowCloseDateModal(true)}
                                         color="#94a3b8"
                                     />
+                                </>
+                            ) : (
+                                <>
+                                    <span className={`${eventDetail.inscripciones_abiertas ? "bg-green-500" : "bg-red-500"} text-white text-sm font-medium px-3 py-1 rounded-full shadow leading-tight`}>
+                                        {eventDetail.inscripciones_abiertas ? "Inscripciones abiertas" : "Inscripciones cerradas"}
+                                    </span>
                                 </>
                             )}
                         </div>
@@ -283,14 +311,6 @@ export default function EventDetailModal({
                                 className="w-full" 
                             />
                         </div>
-                        {showInscribirButton && (
-                            <Button
-                                className="bg-yellow-400 text-slate-800 font-semibold px-4 py-2 rounded-lg hover:bg-yellow-500 transition w-full"
-                                onClick={onInscribir}
-                            >
-                                Inscribirme
-                            </Button>
-                        )}
                         <div>
                             <label className="block mb-2 text-slate-300 font-medium text-lg">
                                 Fechas del evento
@@ -310,13 +330,23 @@ export default function EventDetailModal({
                             </div>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-4 lg:items-start lg:pl-5 lg:border-l lg:border-slate-700/70">
+                    <div className="flex flex-col gap-4 lg:items-start lg:pl-5 lg:border-l lg:border-slate-700/70 lg:min-h-full">
                         <div className="pt-1 w-full lg:max-w-[470px]">
                             <SessionsCalendar sessions={sessions} />
                         </div>
                         <div className="w-full lg:max-w-[470px]">
                             <SessionList sessions={sessions} />
                         </div>
+                        {showInscribirButton && (
+                            <div className="w-full lg:max-w-[470px] mt-1 lg:mt-auto flex justify-center">
+                                <Button
+                                    className="bg-yellow-400 text-slate-800 font-semibold px-6 py-2 rounded-lg hover:bg-yellow-500 transition w-full sm:w-auto sm:min-w-[220px]"
+                                    onClick={onInscribir}
+                                >
+                                    Inscribirme
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </Modal>

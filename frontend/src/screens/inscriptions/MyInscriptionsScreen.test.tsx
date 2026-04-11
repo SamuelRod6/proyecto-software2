@@ -153,8 +153,6 @@ describe("MyInscriptionsScreen", () => {
             target: { value: "2026-02-28" },
         });
 
-        fireEvent.click(screen.getByText("Aplicar filtros"));
-
         await waitFor(() => {
             expect(getInscriptionHistory).toHaveBeenCalledWith(
                 1,

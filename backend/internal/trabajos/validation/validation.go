@@ -1,3 +1,16 @@
+/*
+File: validation.go
+
+Contains:
+Validation rules for the Trabajos module.
+It validates title and abstract constraints, PDF file checks,
+and version change description requirements.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package validation
 
 import (
@@ -22,11 +35,13 @@ var (
 
 var tituloPattern = regexp.MustCompile(`^[A-Za-zÁÉÍÓÚáéíóúÑñÜü ]+$`)
 
+// NormalizeTitle trims, collapses spaces, and lowercases title text.
 func NormalizeTitle(value string) string {
 	clean := strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
 	return strings.ToLower(clean)
 }
 
+// ValidateTitulo validates title length and allowed characters.
 func ValidateTitulo(value string) error {
 	clean := strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
 	length := utf8.RuneCountInString(clean)
@@ -42,6 +57,7 @@ func ValidateTitulo(value string) error {
 	return nil
 }
 
+// ValidateResumen validates abstract word count and declaration flag.
 func ValidateResumen(value string, declarado bool) error {
 	words := len(strings.Fields(strings.TrimSpace(value)))
 
@@ -56,6 +72,7 @@ func ValidateResumen(value string, declarado bool) error {
 	return nil
 }
 
+// ValidatePDFHeader validates multipart metadata for uploaded PDF files.
 func ValidatePDFHeader(header *multipart.FileHeader) error {
 	if header == nil {
 		return ErrArchivoRequerido
@@ -73,6 +90,7 @@ func ValidatePDFHeader(header *multipart.FileHeader) error {
 	return nil
 }
 
+// ValidatePDFContent validates detected file MIME type and size.
 func ValidatePDFContent(contentType string, size int64) error {
 	if size == 0 {
 		return ErrArchivoRequerido
@@ -89,6 +107,7 @@ func ValidatePDFContent(contentType string, size int64) error {
 	return nil
 }
 
+// ValidateDescripcionCambios validates version change description length.
 func ValidateDescripcionCambios(value string) error {
 	clean := strings.TrimSpace(value)
 

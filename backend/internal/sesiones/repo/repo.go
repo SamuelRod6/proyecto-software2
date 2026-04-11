@@ -1,3 +1,16 @@
+/*
+File: repo.go
+
+Contains:
+Persistence repository implementation for the Sesiones module.
+It provides data access operations for sessions, speaker assignments,
+availability checks, and session history.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package repo
 
 import (
@@ -14,6 +27,8 @@ func NewRepository(prismaClient *db.PrismaClient) *Repository {
 	return &Repository{prisma: prismaClient}
 }
 
+// CreateSesion persists a new session and links it to an event.
+// fechaInicio and fechaFin must be RFC3339 strings.
 func (r *Repository) CreateSesion(ctx context.Context, eventoID int, titulo, descripcion, fechaInicio, fechaFin, ubicacion string) (int, error) {
 	fechaInicioTime, err := time.Parse(time.RFC3339, fechaInicio)
 	if err != nil {
@@ -37,6 +52,7 @@ func (r *Repository) CreateSesion(ctx context.Context, eventoID int, titulo, des
 	return s.IDSesion, nil
 }
 
+// ListSesiones lists non-cancelled sessions for an event.
 func (r *Repository) ListSesiones(ctx context.Context, eventoID int) ([]db.SesionModel, error) {
 	return r.prisma.Sesion.FindMany(
 		db.Sesion.IDEvento.Equals(eventoID),
@@ -44,6 +60,7 @@ func (r *Repository) ListSesiones(ctx context.Context, eventoID int) ([]db.Sesio
 	).Exec(ctx)
 }
 
+// GetSesionByID gets one non-cancelled session by identifier.
 func (r *Repository) GetSesionByID(ctx context.Context, sesionID int) (*db.SesionModel, error) {
 	return r.prisma.Sesion.FindFirst(
 		db.Sesion.IDSesion.Equals(sesionID),
@@ -51,6 +68,8 @@ func (r *Repository) GetSesionByID(ctx context.Context, sesionID int) (*db.Sesio
 	).Exec(ctx)
 }
 
+// UpdateSesion updates main session fields.
+// fechaInicio and fechaFin must be RFC3339 strings.
 func (r *Repository) UpdateSesion(ctx context.Context, sesionID int, titulo, descripcion, fechaInicio, fechaFin, ubicacion string) error {
 	fechaInicioTime, err := time.Parse(time.RFC3339, fechaInicio)
 	if err != nil {
@@ -72,6 +91,7 @@ func (r *Repository) UpdateSesion(ctx context.Context, sesionID int, titulo, des
 	return err
 }
 
+// DeleteSesion performs logical deletion by setting Cancelado to true.
 func (r *Repository) DeleteSesion(ctx context.Context, sesionID int) error {
 	_, err := r.prisma.Sesion.FindUnique(
 		db.Sesion.IDSesion.Equals(sesionID),
@@ -81,6 +101,7 @@ func (r *Repository) DeleteSesion(ctx context.Context, sesionID int) error {
 	return err
 }
 
+// AsignarPonentes assigns speaker users to a session.
 func (r *Repository) AsignarPonentes(ctx context.Context, sesionID int, usuarios []int) error {
 	for _, userID := range usuarios {
 		_, err := r.prisma.SesionPonente.CreateOne(
@@ -94,6 +115,7 @@ func (r *Repository) AsignarPonentes(ctx context.Context, sesionID int, usuarios
 	return nil
 }
 
+// QuitarPonente removes one speaker assignment from a session.
 func (r *Repository) QuitarPonente(ctx context.Context, sesionID int, usuarioID int) error {
 	sp, err := r.prisma.SesionPonente.FindFirst(
 		db.SesionPonente.IDSesion.Equals(sesionID),
@@ -111,6 +133,7 @@ func (r *Repository) QuitarPonente(ctx context.Context, sesionID int, usuarioID 
 	return err
 }
 
+// ListPonentes returns users assigned as speakers for a session.
 func (r *Repository) ListPonentes(ctx context.Context, sesionID int) ([]db.UsuarioModel, error) {
 	ponentes, err := r.prisma.SesionPonente.FindMany(
 		db.SesionPonente.IDSesion.Equals(sesionID),
@@ -130,6 +153,8 @@ func (r *Repository) ListPonentes(ctx context.Context, sesionID int) ([]db.Usuar
 	return usuarios, nil
 }
 
+// ListPonentesAsignables returns speaker candidates for a session by role,
+// current assignment, and schedule availability.
 func (r *Repository) ListPonentesAsignables(ctx context.Context, sesionID int) ([]db.UsuarioModel, error) {
 	sesionObjetivo, err := r.GetSesionByID(ctx, sesionID)
 	if err != nil || sesionObjetivo == nil {
@@ -192,6 +217,8 @@ func (r *Repository) ListPonentesAsignables(ctx context.Context, sesionID int) (
 	return disponibles, nil
 }
 
+// UsuarioTieneConflictoHorario checks whether a user already has another
+// non-cancelled session overlapping with the target session time window.
 func (r *Repository) UsuarioTieneConflictoHorario(ctx context.Context, usuarioID int, sesionID int) (bool, error) {
 
 	sesionObjetivo, err := r.GetSesionByID(ctx, sesionID)
@@ -222,7 +249,7 @@ func (r *Repository) UsuarioTieneConflictoHorario(ctx context.Context, usuarioID
 			continue
 		}
 
-		// solapa si incio < finExistente y fin > inicioExistente
+		// Overlap exists when targetStart < existingEnd and targetEnd > existingStart.
 		if sesionObjetivo.FechaInicio.Before(s.FechaFin) && sesionObjetivo.FechaFin.After(s.FechaInicio) {
 			return true, nil
 		}
@@ -231,6 +258,7 @@ func (r *Repository) UsuarioTieneConflictoHorario(ctx context.Context, usuarioID
 	return false, nil
 }
 
+// RegistrarHistorialSesion persists one audit trail entry for session changes.
 func (r *Repository) RegistrarHistorialSesion(ctx context.Context, sesionID int, accion string, detalle string, actor string, valoresAntes string, valoresDespues string) error {
 	_, err := r.prisma.SesionHistorial.CreateOne(
 		db.SesionHistorial.Accion.Set(accion),
@@ -243,6 +271,7 @@ func (r *Repository) RegistrarHistorialSesion(ctx context.Context, sesionID int,
 	return err
 }
 
+// Prisma exposes the underlying Prisma client for advanced queries.
 func (r *Repository) Prisma() *db.PrismaClient {
 	return r.prisma
 }

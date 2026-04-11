@@ -1,7 +1,19 @@
+/*
+File: EventFilters.tsx
+
+Contains:
+Filter panel component for searching and filtering events.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import Input from "../ui/Input";
 import SelectInput from "../ui/SelectorInput";
 import { venezuelaCities } from "../../constants/venezuelaCities";
 
+// EventFiltersProps defines controlled filter state and setter callbacks.
 interface EventFiltersProps {
 	searchTerm: string;
 	countryTerm: string;
@@ -15,8 +27,11 @@ interface EventFiltersProps {
 	onToDateChange: (value: string) => void;
 }
 
+// countryOptions currently limits selection to Venezuela for consistency
+// with available city options.
 const countryOptions = [{ value: "Venezuela", label: "Venezuela" }];
 
+// EventFilters renders the search and date/location filter controls.
 export default function EventFilters({
 	searchTerm,
 	countryTerm,

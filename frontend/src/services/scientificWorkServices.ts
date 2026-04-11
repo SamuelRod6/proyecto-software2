@@ -1,3 +1,14 @@
+/*
+File: scientificWorkServices.ts
+
+Contains:
+Scientific work API service wrappers for submission, versioning, review, and committee workflows.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import axios from "axios";
 
 export interface ScientificWorkVersion {
@@ -77,6 +88,7 @@ export interface ScientificWorkEvaluationSummary {
   evaluaciones: ScientificWorkEvaluationItem[];
 }
 
+// listScientificWorks returns works submitted by one user.
 export async function listScientificWorks(userId: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(`/api/trabajos-cientificos?user_id=${userId}`);
@@ -89,6 +101,7 @@ export async function listScientificWorks(userId: number): Promise<{ status: num
   }
 }
 
+// createScientificWork uploads an initial scientific work payload as multipart form data.
 export async function createScientificWork(payload: FormData): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.post("/api/trabajos-cientificos", payload, {
@@ -103,6 +116,7 @@ export async function createScientificWork(payload: FormData): Promise<{ status:
   }
 }
 
+// uploadScientificWorkVersion uploads a revised version for an existing work.
 export async function uploadScientificWorkVersion(payload: FormData): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.post("/api/trabajos-cientificos/versiones", payload, {
@@ -117,6 +131,7 @@ export async function uploadScientificWorkVersion(payload: FormData): Promise<{ 
   }
 }
 
+// listScientificWorkVersions retrieves all versions available for a work and user.
 export async function listScientificWorkVersions(workId: number, userId: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(`/api/trabajos-cientificos/versiones?id_trabajo=${workId}&user_id=${userId}`);
@@ -129,6 +144,7 @@ export async function listScientificWorkVersions(workId: number, userId: number)
   }
 }
 
+// compareScientificWorkVersions requests the comparison summary between two versions.
 export async function compareScientificWorkVersions(workId: number, userId: number, from: number, to: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(
@@ -143,6 +159,7 @@ export async function compareScientificWorkVersions(workId: number, userId: numb
   }
 }
 
+// downloadScientificWorkVersion downloads one scientific work version as blob.
 export async function downloadScientificWorkVersion(versionId: number, userId: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(
@@ -158,6 +175,7 @@ export async function downloadScientificWorkVersion(versionId: number, userId: n
   }
 }
 
+// listScientificWorksForCommittee lists committee-visible works with optional filters.
 export async function listScientificWorksForCommittee(params: {
   userId: number;
   query?: string;
@@ -183,6 +201,7 @@ export async function listScientificWorksForCommittee(params: {
   }
 }
 
+// listScientificWorksForReviewer returns works assigned to one reviewer.
 export async function listScientificWorksForReviewer(userId: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(`/api/trabajos-cientificos/revisor/asignados?user_id=${userId}`);
@@ -195,6 +214,7 @@ export async function listScientificWorksForReviewer(userId: number): Promise<{ 
   }
 }
 
+// listScientificWorkReviewers lists users eligible to review scientific works.
 export async function listScientificWorkReviewers(userId: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(`/api/trabajos-cientificos/revisores?user_id=${userId}`);
@@ -207,6 +227,7 @@ export async function listScientificWorkReviewers(userId: number): Promise<{ sta
   }
 }
 
+// assignScientificWorkReviewers assigns one or more reviewers to a work.
 export async function assignScientificWorkReviewers(payload: {
   user_id: number;
   id_trabajo: number;
@@ -223,6 +244,7 @@ export async function assignScientificWorkReviewers(payload: {
   }
 }
 
+// listScientificWorkEvaluations retrieves evaluation details for committee inspection.
 export async function listScientificWorkEvaluations(
   userId: number,
   workId: number,
@@ -240,6 +262,7 @@ export async function listScientificWorkEvaluations(
   }
 }
 
+// decideScientificWork stores committee final decision and optional comment.
 export async function decideScientificWork(payload: {
   user_id: number;
   id_trabajo: number;
@@ -257,6 +280,7 @@ export async function decideScientificWork(payload: {
   }
 }
 
+// submitScientificWorkEvaluation submits reviewer scoring and qualitative feedback.
 export async function submitScientificWorkEvaluation(payload: {
   user_id: number;
   id_trabajo: number;
