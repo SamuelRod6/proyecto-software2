@@ -120,14 +120,18 @@ export default function ConversacionScreen(): JSX.Element {
       return;
     }
     if (!user?.id || !conversacionId) return;
+
+    const cuerpoNormalizado = cuerpo.trim();
+    const cuerpoAEnviar = cuerpoNormalizado || (adjunto ? " " : "");
+
     setSending(true);
     setError("");
     const res = await sendMensaje(
       Number(conversacionId),
       user.id,
-      cuerpo.trim(),
+      cuerpoAEnviar,
       adjunto?.url,
-      adjunto?.nombre
+      adjunto?.nombre,
     );
     setSending(false);
     if (res.status === 201) {

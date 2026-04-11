@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	mensajesservice "project/backend/internal/mensajes/service"
 	notifRepo "project/backend/internal/notifications/repo"
 	"project/backend/internal/shared/httperror"
+	"project/backend/internal/shared/uploadpath"
 	"project/backend/prisma/db"
 )
 
@@ -87,19 +89,29 @@ func (h *Handler) UploadAdjuntoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Validate MIME type
+	// Validate MIME type using both sniffed bytes and normalized header value.
 	allowedTypes := map[string]bool{
 		"image/jpeg":      true,
 		"image/png":       true,
 		"application/pdf": true,
 	}
+
+	peek := make([]byte, 512)
+	n, _ := file.Read(peek)
+	detectedType := http.DetectContentType(peek[:n])
+	_, _ = file.Seek(0, io.SeekStart)
+
 	contentType := header.Header.Get("Content-Type")
-	if !allowedTypes[contentType] {
+	if mediaType, _, parseErr := mime.ParseMediaType(contentType); parseErr == nil {
+		contentType = mediaType
+	}
+
+	if !allowedTypes[detectedType] && !allowedTypes[contentType] {
 		httperror.WriteJSON(w, http.StatusBadRequest, "tipo de archivo no permitido (jpeg, png, pdf)")
 		return
 	}
 
-	uploadDir := filepath.Join(".", "uploads", "mensajes")
+	uploadDir := uploadpath.UploadsDir("mensajes")
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		httperror.WriteJSON(w, http.StatusInternalServerError, "error al crear directorio de uploads")
 		return
@@ -200,8 +212,8 @@ func (h *Handler) sendMensaje(w http.ResponseWriter, r *http.Request) {
 		httperror.WriteJSON(w, http.StatusBadRequest, "json inválido")
 		return
 	}
-	if req.Cuerpo == "" {
-		httperror.WriteJSON(w, http.StatusBadRequest, "cuerpo del mensaje requerido")
+	if strings.TrimSpace(req.Cuerpo) == "" && strings.TrimSpace(req.AdjuntoURL) == "" {
+		httperror.WriteJSON(w, http.StatusBadRequest, "debe enviar cuerpo del mensaje o adjunto")
 		return
 	}
 	msg, err := h.svc.SendMensaje(r.Context(), req)

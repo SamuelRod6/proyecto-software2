@@ -18,6 +18,7 @@ import (
 	roles "project/backend/internal/roles/service"
 	sesioneshandler "project/backend/internal/sesiones/handler"
 	smtphandler "project/backend/internal/shared/smtp"
+	"project/backend/internal/shared/uploadpath"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
 
@@ -139,7 +140,7 @@ func main() {
 	http.Handle("/api/mensajes/conversaciones/", mensajesHandler)
 	http.HandleFunc("/api/mensajes/usuarios/buscar", mensajesHandler.SearchUsuariosHandler)
 	http.HandleFunc("/api/mensajes/adjuntos", mensajesHandler.UploadAdjuntoHandler)
-	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
+	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadpath.UploadsDir()))))
 
 	port := os.Getenv("PORT")
 	if port == "" {

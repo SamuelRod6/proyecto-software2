@@ -14,6 +14,7 @@ import (
 	notificationsrepo "project/backend/internal/notifications/repo"
 	notificationsrv "project/backend/internal/notifications/service"
 	sharedsmtp "project/backend/internal/shared/smtp"
+	"project/backend/internal/shared/uploadpath"
 	"project/backend/internal/trabajos/dto"
 	"project/backend/internal/trabajos/repo"
 	"project/backend/internal/trabajos/validation"
@@ -371,7 +372,7 @@ func (s *Service) GetVersionFile(ctx context.Context, versionID, userID int) (*d
 }
 
 func savePDF(trabajoID, eventID, userID, version int, file dto.UploadedFile) (string, error) {
-	baseDir := filepath.Join("..", "uploads", "trabajos-cientificos", fmt.Sprintf("evento_%d", eventID), fmt.Sprintf("usuario_%d", userID), fmt.Sprintf("trabajo_%d", trabajoID))
+	baseDir := uploadpath.UploadsDir("trabajos-cientificos", fmt.Sprintf("evento_%d", eventID), fmt.Sprintf("usuario_%d", userID), fmt.Sprintf("trabajo_%d", trabajoID))
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {
 		return "", err
 	}

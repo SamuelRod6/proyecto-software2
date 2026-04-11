@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getApiBaseUrl } from "../utils/env";
 
 export interface ParticipanteApi {
   id_usuario: number;
@@ -123,8 +124,23 @@ export async function removeParticipante(conversacionId: number, idUsuario: numb
 export async function uploadAdjunto(file: File): Promise<{ url: string; nombre: string }> {
   const form = new FormData();
   form.append("file", file);
-  const response = await axios.post<{ url: string; nombre: string }>("/api/mensajes/adjuntos", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  const response = await axios.post<{ url: string; nombre: string }>(
+    "/api/mensajes/adjuntos",
+    form,
+  );
   return response.data;
+}
+
+export function resolveAdjuntoUrl(adjuntoUrl?: string): string {
+  if (!adjuntoUrl) return "";
+  if (/^https?:\/\//i.test(adjuntoUrl)) return adjuntoUrl;
+
+  const apiBase = getApiBaseUrl();
+  if (!apiBase) return adjuntoUrl;
+
+  const backendBase = apiBase.replace(/\/api\/?$/, "").replace(/\/$/, "");
+  const normalizedPath = adjuntoUrl.startsWith("/")
+    ? adjuntoUrl
+    : `/${adjuntoUrl}`;
+  return `${backendBase}${normalizedPath}`;
 }
