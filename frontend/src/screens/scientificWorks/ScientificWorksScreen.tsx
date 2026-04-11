@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import Input from "../../components/ui/Input";
+import SelectInput from "../../components/ui/SelectorInput";
 import Loader from "../../components/ui/Loader";
 import EmptyState from "../../components/ui/EmptyState";
 import ErrorState from "../../components/ui/ErrorState";
@@ -66,8 +67,31 @@ export default function MyScientificWorksScreen(): JSX.Element {
   const [newVersionFile, setNewVersionFile] = useState<File | null>(null);
   const [compareFrom, setCompareFrom] = useState("");
   const [compareTo, setCompareTo] = useState("");
+  const [creatingWork, setCreatingWork] = useState(false);
+  const [uploadingVersion, setUploadingVersion] = useState(false);
+  const [comparingVersions, setComparingVersions] = useState(false);
+  const [workQuery, setWorkQuery] = useState("");
+  const [workStateFilter, setWorkStateFilter] = useState("");
 
   const summaryWords = useMemo(() => countWords(summary), [summary]);
+  const workStateOptions = [
+    { value: "", label: "Todos los estados" },
+    { value: "RECIBIDO", label: "RECIBIDO" },
+    { value: "ACTUALIZADO", label: "ACTUALIZADO" },
+    { value: "ACEPTADO", label: "ACEPTADO" },
+    { value: "RECHAZADO", label: "RECHAZADO" },
+  ];
+
+  const filteredWorks = useMemo(() => {
+    const q = workQuery.trim().toLowerCase();
+    return works.filter((work) => {
+      const matchesQuery = !q || [work.titulo, work.resumen, work.estado, String(work.version_actual)]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q));
+      const matchesState = !workStateFilter || work.estado === workStateFilter;
+      return matchesQuery && matchesState;
+    });
+  }, [works, workQuery, workStateFilter]);
 
   // loadData fetches current user works and available events for submission.
     async function loadData() {
@@ -162,29 +186,34 @@ export default function MyScientificWorksScreen(): JSX.Element {
     payload.append("descripcion_cambios", "Versión inicial del trabajo científico");
     payload.append("archivo", file);
 
-    const res = await createScientificWork(payload);
-    if (res.status >= 400) {
+    setCreatingWork(true);
+    try {
+      const res = await createScientificWork(payload);
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo registrar el trabajo científico.",
+          status: "error",
+        });
+        return;
+      }
+
       showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo registrar el trabajo científico.",
-        status: "error",
+        title: "Trabajo recibido",
+        message: "El trabajo científico fue registrado correctamente.",
+        status: "success",
       });
-      return;
+
+      setCreateOpen(false);
+      setEventId("");
+      setTitle("");
+      setSummary("");
+      setAcknowledged(false);
+      setFile(null);
+      await loadData();
+    } finally {
+      setCreatingWork(false);
     }
-
-    showToast({
-      title: "Trabajo recibido",
-      message: "El trabajo científico fue registrado correctamente.",
-      status: "success",
-    });
-
-    setCreateOpen(false);
-    setEventId("");
-    setTitle("");
-    setSummary("");
-    setAcknowledged(false);
-    setFile(null);
-    await loadData();
   }
 
   // handleUploadVersion registers a new PDF version with a change description.
@@ -213,49 +242,59 @@ export default function MyScientificWorksScreen(): JSX.Element {
     payload.append("descripcion_cambios", changeDescription.trim());
     payload.append("archivo", newVersionFile);
 
-    const res = await uploadScientificWorkVersion(payload);
-    if (res.status >= 400) {
+    setUploadingVersion(true);
+    try {
+      const res = await uploadScientificWorkVersion(payload);
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo cargar la nueva versión.",
+          status: "error",
+        });
+        return;
+      }
+
       showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo cargar la nueva versión.",
-        status: "error",
+        title: "Versión cargada",
+        message: "La nueva versión fue registrada correctamente.",
+        status: "success",
       });
-      return;
+
+      setVersionOpen(false);
+      setChangeDescription("");
+      setNewVersionFile(null);
+      await loadData();
+      await openHistory(selectedWork);
+    } finally {
+      setUploadingVersion(false);
     }
-
-    showToast({
-      title: "Versión cargada",
-      message: "La nueva versión fue registrada correctamente.",
-      status: "success",
-    });
-
-    setVersionOpen(false);
-    setChangeDescription("");
-    setNewVersionFile(null);
-    await loadData();
-    await openHistory(selectedWork);
   }
 
   // handleCompareVersions requests a semantic diff summary between two version numbers.
   async function handleCompareVersions() {
     if (!authUser?.id || !selectedWork) return;
-    const res = await compareScientificWorkVersions(
-      selectedWork.id_trabajo,
-      authUser.id,
-      Number(compareFrom),
-      Number(compareTo),
-    );
+    setComparingVersions(true);
+    try {
+      const res = await compareScientificWorkVersions(
+        selectedWork.id_trabajo,
+        authUser.id,
+        Number(compareFrom),
+        Number(compareTo),
+      );
 
-    if (res.status >= 400) {
-      showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo comparar las versiones.",
-        status: "error",
-      });
-      return;
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo comparar las versiones.",
+          status: "error",
+        });
+        return;
+      }
+
+      setComparison(res.data as ScientificWorkCompare);
+    } finally {
+      setComparingVersions(false);
     }
-
-    setComparison(res.data as ScientificWorkCompare);
   }
 
   // handleDownload downloads a selected version as a local PDF file.
@@ -319,15 +358,32 @@ export default function MyScientificWorksScreen(): JSX.Element {
         </Button>
       </header>
 
-      {works.length === 0 ? (
+      <div className="rounded-xl border border-slate-700 bg-slate-800 p-4 grid gap-3 md:grid-cols-[1.5fr_0.8fr]">
+        <Input
+          label="Buscar trabajo"
+          placeholder="Título, resumen o estado"
+          value={workQuery}
+          onChange={(e) => setWorkQuery(e.target.value)}
+        />
+        <SelectInput
+          value={workStateFilter}
+          onChange={(value) => setWorkStateFilter(Array.isArray(value) ? value[0] ?? "" : value)}
+          options={workStateOptions}
+          inputLabel="Estado"
+          placeholder="Todos los estados"
+          allowCustom={false}
+        />
+      </div>
+
+      {filteredWorks.length === 0 ? (
         <EmptyState
           title="Aún no has enviado trabajos científicos"
-          description="Cuando registres un trabajo, lo mostraremos en esta sección."
+          description={works.length === 0 ? "Cuando registres un trabajo, lo mostraremos en esta sección." : "No hay trabajos que coincidan con los filtros actuales."}
           animationData={emptyAnimation}
         />
       ) : (
         <div className="grid gap-4">
-            {works.map((work) => (
+            {filteredWorks.map((work) => (
               <article
                 key={work.id_trabajo}
                 className="rounded-xl border border-slate-700 bg-slate-800 p-5"
@@ -369,21 +425,17 @@ export default function MyScientificWorksScreen(): JSX.Element {
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Enviar trabajo científico">
         <div className="space-y-4">
-          <label className="block space-y-1 text-sm">
-            <span className="text-slate-200">Evento</span>
-            <select
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-              value={eventId}
-              onChange={(e) => setEventId(e.target.value)}
-            >
-              <option value="">Selecciona un evento</option>
-              {events.map((event) => (
-                <option key={event.id_evento} value={event.id_evento}>
-                  {event.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectInput
+            value={eventId}
+            onChange={(value) => setEventId(Array.isArray(value) ? value[0] ?? "" : value)}
+            options={[
+              { value: "", label: "Selecciona un evento" },
+              ...events.map((event) => ({ value: String(event.id_evento), label: event.nombre })),
+            ]}
+            inputLabel="Evento"
+            placeholder="Selecciona un evento"
+            allowCustom={false}
+          />
 
           <Input
             label="Título"
@@ -418,14 +470,20 @@ export default function MyScientificWorksScreen(): JSX.Element {
             </span>
           </label>
 
-          <label className="block space-y-1 text-sm">
+          <label className="block space-y-2 text-sm">
             <span className="text-slate-200">Archivo PDF</span>
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-            />
+            <div className="flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800 px-3 py-2">
+              <label className="inline-flex cursor-pointer items-center rounded-md bg-slate-700 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600 transition">
+                Seleccionar archivo
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="sr-only"
+                />
+              </label>
+              <span className="text-xs text-slate-300 truncate">{file?.name || "Ningún archivo seleccionado"}</span>
+            </div>
             <span className="text-xs text-slate-400">Máximo 10 MB.</span>
           </label>
 
@@ -433,7 +491,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
             <Button variant="ghost" onClick={() => setCreateOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateWork}>
+            <Button onClick={handleCreateWork} loading={creatingWork} loadingText="Enviando..." disabled={!eventId || !title || !summary || !file || !acknowledged}>
               Enviar trabajo
             </Button>
           </div>
@@ -454,21 +512,27 @@ export default function MyScientificWorksScreen(): JSX.Element {
             maxLength={300}
           />
 
-          <label className="block space-y-1 text-sm">
+          <label className="block space-y-2 text-sm">
             <span className="text-slate-200">Nuevo PDF</span>
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={(e) => setNewVersionFile(e.target.files?.[0] ?? null)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-            />
+            <div className="flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800 px-3 py-2">
+              <label className="inline-flex cursor-pointer items-center rounded-md bg-slate-700 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600 transition">
+                Seleccionar archivo
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setNewVersionFile(e.target.files?.[0] ?? null)}
+                  className="sr-only"
+                />
+              </label>
+              <span className="text-xs text-slate-300 truncate">{newVersionFile?.name || "Ningún archivo seleccionado"}</span>
+            </div>
           </label>
 
           <div className="flex justify-end gap-3">
             <Button variant="ghost" onClick={() => setVersionOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleUploadVersion}>
+            <Button onClick={handleUploadVersion} loading={uploadingVersion} loadingText="Guardando..." disabled={!newVersionFile || changeDescription.trim().length < 10}>
               Guardar versión
             </Button>
           </div>
@@ -502,41 +566,31 @@ export default function MyScientificWorksScreen(): JSX.Element {
           <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 space-y-3">
             <h3 className="text-slate-100 font-medium">Comparar versiones</h3>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="block space-y-1 text-sm">
-                <span className="text-slate-200">Desde</span>
-                <select
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-                  value={compareFrom}
-                  onChange={(e) => setCompareFrom(e.target.value)}
-                >
-                  <option value="">Selecciona versión</option>
-                  {versions.map((version) => (
-                    <option key={`from-${version.id_version}`} value={version.numero_version}>
-                      Versión {version.numero_version}
-                    </option>
-                  ))}
-                </select>
-              </label> 
+              <SelectInput
+                value={compareFrom}
+                onChange={(value) => setCompareFrom(Array.isArray(value) ? value[0] ?? "" : value)}
+                options={[
+                  { value: "", label: "Selecciona versión" },
+                  ...versions.map((version) => ({ value: String(version.numero_version), label: `Versión ${version.numero_version}` })),
+                ]}
+                inputLabel="Desde"
+                allowCustom={false}
+              />
 
-              <label className="block space-y-1 text-sm">
-                <span className="text-slate-200">Hasta</span>
-                <select
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-                  value={compareTo}
-                  onChange={(e) => setCompareTo(e.target.value)}
-                >
-                  <option value="">Selecciona versión</option>
-                  {versions.map((version) => (
-                    <option key={`to-${version.id_version}`} value={version.numero_version}>
-                      Versión {version.numero_version}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SelectInput
+                value={compareTo}
+                onChange={(value) => setCompareTo(Array.isArray(value) ? value[0] ?? "" : value)}
+                options={[
+                  { value: "", label: "Selecciona versión" },
+                  ...versions.map((version) => ({ value: String(version.numero_version), label: `Versión ${version.numero_version}` })),
+                ]}
+                inputLabel="Hasta"
+                allowCustom={false}
+              />
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleCompareVersions}>
+              <Button onClick={handleCompareVersions} loading={comparingVersions} loadingText="Comparando..." disabled={!compareFrom || !compareTo}>
                 Comparar
               </Button>
             </div>

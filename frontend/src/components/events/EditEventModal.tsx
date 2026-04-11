@@ -13,10 +13,8 @@ import { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import DayPickerSingle from "../ui/DayPickerSingle";
 import BackArrow from "../ui/BackArrow";
-import { useLoader } from "../../contexts/Loader/LoaderContext";
 import { useToast } from "../../contexts/Toast/ToastContext";
 import { useModal } from "../../contexts/Modal/ModalContext";
-import { useNavigate } from "react-router-dom";
 import Modal from "../ui/Modal";
 import DateRangePicker from "../ui/DateRangePicker";
 import SelectInput from "../ui/SelectorInput";
@@ -54,7 +52,6 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
       }
     }, [open, event]);
   const { dispatch: modalDispatch } = useModal();
-  const navigate = useNavigate();
   const [name, setName] = useState(event.nombre);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: parseDate(event.fecha_inicio),
@@ -65,7 +62,7 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
   const [page2, setPage2] = useState(false);
   const [closeDate, setCloseDate] = useState(parseDate(event.fecha_cierre_inscripcion));
   const [disabledRanges, setDisabledRanges] = useState<{ from: Date; to: Date }[]>([]);
-  const { showLoader, hideLoader } = useLoader();
+  const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -115,10 +112,24 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
     };
   }
 
+  const initialPayload = {
+    id_evento: event.id_evento,
+    nombre: event.nombre,
+    fecha_inicio: formatDateWithTime(parseDate(event.fecha_inicio), 0, 0),
+    fecha_fin: formatDateWithTime(parseDate(event.fecha_fin), 23, 59),
+    ubicacion: `${event.ubicacion.split(", ")[0] || ""}, ${event.ubicacion.split(", ")[1] || ""}`,
+    fecha_cierre_inscripcion: formatDateWithTime(parseDate(event.fecha_cierre_inscripcion), 23, 59),
+  };
+
+  const currentPayload = getEventPayload();
+  const hasChanges =
+    !!currentPayload &&
+    JSON.stringify(currentPayload) !== JSON.stringify(initialPayload);
+
   // handleSubmit submits event updates and refreshes parent view on success.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    showLoader();
+    setSubmitting(true);
     try {
       const payload = getEventPayload();
       if (!payload) {
@@ -138,7 +149,6 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
         });
         if (onUpdate) onUpdate();
         modalDispatch({ type: 'CLOSE_MODAL' });
-        navigate('/events');
       } else {
         showToast({
           title: "Error al actualizar evento",
@@ -154,7 +164,7 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
         status: "error",
       });
     } finally {
-      hideLoader();
+      setSubmitting(false);
     }
   };
 
@@ -240,9 +250,12 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
         ) : (
           <div className="flex flex-col md:flex-row gap-8 md:gap-10">
             <div className="flex-1 flex flex-col gap-6 justify-center items-center">
-              <label className="block mb-2 text-slate-300 font-medium text-lg">
-                Fecha de cierre de inscripciones
-              </label>
+              <div className="w-full flex items-center gap-2 mb-2">
+                <BackArrow onClick={() => setPage2(false)} />
+                <label className="text-slate-300 font-medium text-lg">
+                  Fecha de cierre de inscripciones
+                </label>
+              </div>
               <div className="w-full bg-[#e3e8f0] rounded-xl p-5 flex items-center justify-center">
                 <DayPickerSingle
                   selected={closeDate}
@@ -259,11 +272,8 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
                 </p>
               </div>
             </div>
-            <div className="flex-1 flex flex-col gap-6 justify-center relative">
-              <div className="absolute left-0 top-0">
-                <BackArrow onClick={() => setPage2(false)} />
-              </div>
-              <div className="w-full">
+            <div className="flex-1 flex flex-col gap-4 md:gap-5 justify-between min-h-[560px]">
+              <div className="w-full flex-1">
                 <SessionList
                   sessions={sessions}
                   showEditButton={true}
@@ -273,12 +283,14 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
                   }}
                 />
               </div>
-              <div className="flex gap-4 mt-8">
+              <div className="flex gap-4 mt-auto pt-2">
                 <Button
                   type="button"
                   className="w-full"
-                  disabled={!closeDate || !name || !dateRange || !dateRange.from || !dateRange.to || !country || !city}
+                  disabled={!closeDate || !name || !dateRange || !dateRange.from || !dateRange.to || !country || !city || !hasChanges}
                   onClick={handleSubmit}
+                  loading={submitting}
+                  loadingText="Actualizando..."
                 >
                   Actualizar evento
                 </Button>

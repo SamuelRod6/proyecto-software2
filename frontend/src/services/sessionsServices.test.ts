@@ -62,6 +62,29 @@ describe("sessionsServices", () => {
     expect(mockedAxios.get).toHaveBeenCalledWith("/api/sesiones/ponibles?sesion_id=50");
   });
 
+  it("should normalize available speakers from payload wrappers", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        payload: [
+          { idUsuario: 7, name: "Laura" },
+          { id_usuario: 8, nombre: "Pedro", email: "pedro@test.com" },
+        ],
+      },
+    });
+
+    const result = await getAvailableSpeakers(61);
+
+    expect(result).toEqual({
+      status: 200,
+      data: [
+        { id_usuario: 7, nombre: "Laura", email: undefined },
+        { id_usuario: 8, nombre: "Pedro", email: "pedro@test.com" },
+      ],
+    });
+    expect(mockedAxios.get).toHaveBeenCalledWith("/api/sesiones/ponibles?sesion_id=61");
+  });
+
   it("should assign speakers to session", async () => {
     mockedAxios.post.mockResolvedValueOnce({ status: 204, data: null });
 

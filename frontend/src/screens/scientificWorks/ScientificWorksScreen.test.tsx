@@ -60,7 +60,9 @@ describe("ScientificWorksScreen", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Adjuntar trabajo" }));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "4" } });
+    const eventCombobox = screen.getAllByRole("combobox")[1];
+    fireEvent.mouseDown(eventCombobox);
+    fireEvent.click(screen.getByText("Congreso Andino"));
     fireEvent.change(screen.getByLabelText("Título"), {
       target: { value: "Trabajo 2026" },
     });

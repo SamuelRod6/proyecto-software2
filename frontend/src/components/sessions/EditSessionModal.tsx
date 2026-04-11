@@ -19,6 +19,23 @@ import TimeRangePicker from '../ui/TimeRangePicker';
 import { useToast } from '../../contexts/Toast/ToastContext';
 import {updateSession, assignSpeakersToSession, removeSpeakerFromSession, getAvailableSpeakers } from '../../services/sessionsServices';
 
+const parseSpeakerId = (value: any): number | null => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const normalizeSpeaker = (speaker: any) => {
+  const id = parseSpeakerId(
+    speaker?.id_usuario ?? speaker?.idUsuario ?? speaker?.id ?? speaker?.usuario_id ?? speaker?.usuarioId,
+  );
+  if (!id) return null;
+  return {
+    id_usuario: id,
+    nombre: speaker?.nombre ?? speaker?.name ?? `Usuario ${id}`,
+    email: speaker?.email,
+  };
+};
+
 interface EditSessionModalProps {
   open: boolean;
   onClose: () => void;
@@ -63,6 +80,23 @@ const getHHmm = (value?: string): string => {
   return `${hh}:${mm}`;
 };
 
+const buildSessionSignature = (params: {
+  titulo: string;
+  descripcion: string;
+  fecha?: Date;
+  horaInicio: string;
+  horaFin: string;
+  ubicacion: string;
+  speakerIds: number[];
+}): string => {
+  const { titulo, descripcion, fecha, horaInicio, horaFin, ubicacion, speakerIds } = params;
+  const normalizedDate = fecha
+    ? `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+    : '';
+  const normalizedSpeakers = [...speakerIds].sort((a, b) => a - b).join(',');
+  return [titulo.trim(), descripcion.trim(), normalizedDate, horaInicio, horaFin, ubicacion.trim(), normalizedSpeakers].join('|');
+};
+
 // EditSessionModal edits session metadata and reconciles speaker assignments.
 const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, session, event, onSessionUpdated }) => {
   const [titulo, setTitulo] = useState(session.titulo || '');
@@ -75,6 +109,7 @@ const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, sess
   const [ponentesSeleccionados, setPonentesSeleccionados] = useState<(number | null)[]> ([null]);
   const [initialSpeakerIds, setIintialSpeakerIds] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
+  const [initialSignature, setInitialSignature] = useState('');
   const [errors, setErrors] = useState<{titulo?: string; fechaHora?: string; ponentes?: string;}>({});
   const { showToast } = useToast();
 
@@ -88,18 +123,35 @@ const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, sess
       setUbicacion(session.ubicacion || event?.ubicacion || '');
 
       const currentIds: number[] = Array.isArray(session.ponentes)
-        ? session.ponentes.map((p: any) => p.id_usuario).filter(Boolean)
+        ? session.ponentes
+            .map((p: any) => parseSpeakerId(p?.id_usuario ?? p?.idUsuario ?? p?.id))
+            .filter((id: number | null): id is number => id !== null)
         : [];
       
       setIintialSpeakerIds(currentIds);
       setPonentesSeleccionados(currentIds.length > 0 ? currentIds : [null]);
+      setInitialSignature(
+        buildSessionSignature({
+          titulo: session.titulo || '',
+          descripcion: session.descripcion || '',
+          fecha: session.fecha_inicio ? parseDisplayDateTime(session.fecha_inicio) : undefined,
+          horaInicio: getHHmm(session.fecha_inicio),
+          horaFin: session.fecha_fin ? getHHmm(session.fecha_fin) : '09:00',
+          ubicacion: session.ubicacion || event?.ubicacion || '',
+          speakerIds: currentIds,
+        }),
+      );
 
       (async () => {
         const res = await getAvailableSpeakers(session.id_sesion);
         const disponibles = res.status === 200 && Array.isArray(res.data) ? res.data : [];
 
         // Incluye los ya asignados para poder mantener/agregar correctamente
-        const asignadosActuales = Array.isArray(session.ponentes) ? session.ponentes : [];
+        const asignadosActuales = Array.isArray(session.ponentes)
+          ? session.ponentes
+              .map((p: any) => normalizeSpeaker(p))
+              .filter((p: any) => p !== null)
+          : [];
         const merged = [...disponibles];
 
         asignadosActuales.forEach((p: any) => {
@@ -220,6 +272,18 @@ const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, sess
     }
   };
 
+  const selectedSpeakerIds = ponentesSeleccionados.filter((id): id is number => id !== null);
+  const currentSignature = buildSessionSignature({
+    titulo,
+    descripcion,
+    fecha,
+    horaInicio,
+    horaFin,
+    ubicacion,
+    speakerIds: selectedSpeakerIds,
+  });
+  const hasChanges = currentSignature !== initialSignature;
+
   return (
     <Modal open={open} onClose={onClose} title="Editar Sesión">
       <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-center" onClick={e => e.stopPropagation()}>
@@ -329,7 +393,9 @@ const EditSessionModal: React.FC<EditSessionModalProps> = ({ open, onClose, sess
           <Button
             className="mt-4"
             onClick={handleUpdateSession}
-            disabled={!titulo || !fecha || !horaInicio || !horaFin || titulo.length > 100}
+            disabled={!titulo || !fecha || !horaInicio || !horaFin || titulo.length > 100 || !hasChanges}
+            loading={saving}
+            loadingText="Actualizando..."
           >
             Actualizar Sesión
           </Button>

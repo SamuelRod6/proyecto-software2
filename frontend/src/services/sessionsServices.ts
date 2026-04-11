@@ -11,6 +11,35 @@ Designed by: Equipo 2 - Arcadian
 
 import axios from 'axios';
 
+export interface AvailableSpeaker {
+  id_usuario: number;
+  nombre: string;
+  email?: string;
+}
+
+function normalizeAvailableSpeakers(raw: any): AvailableSpeaker[] {
+  const source = Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw?.payload)
+      ? raw.payload
+      : Array.isArray(raw?.data)
+        ? raw.data
+        : [];
+
+  return source
+    .map((item: any) => {
+      const idRaw = item?.id_usuario ?? item?.idUsuario ?? item?.id ?? item?.usuario_id ?? item?.usuarioId;
+      const parsedId = Number(idRaw);
+      if (!Number.isFinite(parsedId) || parsedId <= 0) return null;
+      return {
+        id_usuario: parsedId,
+        nombre: item?.nombre ?? item?.name ?? `Usuario ${parsedId}`,
+        email: item?.email,
+      };
+    })
+    .filter((item: AvailableSpeaker | null): item is AvailableSpeaker => item !== null);
+}
+
 // getEventDetail retrieves event information used to constrain session scheduling.
 export async function getEventDetail(eventoId: number): Promise<{ status: number; data: any }> {
   try {
@@ -41,7 +70,7 @@ export async function createSession(eventoId: number, data: any): Promise<{ stat
 export async function getAvailableSpeakers(eventoId: number): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.get(`/api/sesiones/ponibles?sesion_id=${eventoId}`);
-    return { status: response.status, data: response.data };
+    return { status: response.status, data: normalizeAvailableSpeakers(response.data) };
   } catch (error: any) {
     if (error.response) {
       return { status: error.response.status, data: error.response.data };

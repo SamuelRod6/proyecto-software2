@@ -1,6 +1,7 @@
 import React, { createContext, useReducer, useCallback, useEffect } from 'react';
 import { useAuth } from '../Auth/Authcontext';
 import { useToast } from '../Toast/ToastContext';
+import { useLoader } from '../Loader/LoaderContext';
 import { notificationReducer, initialState, NotificationState, Notification } from './reducer';
 import {
 	fetchNotifications,
@@ -48,8 +49,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 	const [state, dispatch] = useReducer(notificationReducer, initialState);
 	const { user } = useAuth();
 	const { showToast } = useToast();
+	const { showLoader, hideLoader } = useLoader();
 	const [loading, setLoading] = React.useState(false);
 	const [error, setError] = React.useState<string | null>(null);
+	const [hasLoadedOnce, setHasLoadedOnce] = React.useState(false);
 
 	// Function to fetch notifications and update state
 	const refreshNotifications = useCallback(async () => {
@@ -57,7 +60,11 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 			dispatch(refreshNotificationsAction([]));
 			return;
 		}
-		setLoading(true);
+		const initialLoad = !hasLoadedOnce;
+		if (initialLoad) {
+			setLoading(true);
+			showLoader();
+		}
 		setError(null);
 		try {
 			const data = await fetchNotifications(user.id);
@@ -71,6 +78,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       }));
       const merged = [...local, ...(Array.isArray(data) ? data : [])];
       dispatch(refreshNotificationsAction(merged));
+			setHasLoadedOnce(true);
 		} catch (err: any) {
 			setError('Error al cargar notificaciones');
 			const local = user?.id
@@ -89,10 +97,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 				message: err?.message || "No se pudieron cargar las notificaciones.",
 				status: "error",
 			});
+			setHasLoadedOnce(true);
 		} finally {
-			setLoading(false);
+			if (initialLoad) {
+				setLoading(false);
+				hideLoader();
+			}
 		}
-	}, [user, showToast]);
+	}, [user, showToast, hasLoadedOnce, showLoader, hideLoader]);
 
 	// Fetch notifications on mount and set up polling every 5 minutos
 	useEffect(() => {

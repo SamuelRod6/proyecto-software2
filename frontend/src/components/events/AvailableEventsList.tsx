@@ -9,7 +9,6 @@ Term: Enero - Marzo 2026
 Designed by: Equipo 2 - Arcadian
 */
 
-import { useModal } from '../../contexts/Modal/ModalContext';
 import React, { useState } from "react";
 // components
 import EventDetailModal from "./EventDetailModal";
@@ -93,6 +92,8 @@ const AvailableEventsList: React.FC<Props> = ({
             onInscribir && onInscribir(selectedEvento);
             setSelectedEvento(null);
           }}
+          requireModalContext={false}
+          showManagementActions={false}
         />
       )}
     </>

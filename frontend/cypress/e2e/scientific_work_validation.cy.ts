@@ -52,7 +52,11 @@ describe("Scientific works validation", () => {
     cy.contains("button", "Adjuntar trabajo").click();
     cy.contains("Enviar trabajo científico").should("be.visible");
 
-    cy.get("select").select("3");
+    cy.contains("label", "Evento")
+      .parent()
+      .find(".react-select__control")
+      .click();
+    cy.contains(".react-select__option", "Congreso de Salud").click();
     cy.get('input[placeholder="Solo letras y espacios"]').type("Trabajo 2027");
     cy.get('textarea[placeholder="Describe objetivos, metodología, resultados y conclusiones."]').type(summary, {
       parseSpecialCharSequences: false,

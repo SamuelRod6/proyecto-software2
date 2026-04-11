@@ -16,8 +16,6 @@ import EventCreateModal from "./EventCreateModal";
 const mockCreateEvent = jest.fn();
 const mockFetchFechasOcupadas = jest.fn();
 const mockShowToast = jest.fn();
-const mockShowLoader = jest.fn();
-const mockHideLoader = jest.fn();
 
 jest.mock("../../services/eventsServices", () => ({
   createEvent: (...args: unknown[]) => mockCreateEvent(...args),
@@ -26,10 +24,6 @@ jest.mock("../../services/eventsServices", () => ({
 
 jest.mock("../../contexts/Toast/ToastContext", () => ({
   useToast: () => ({ showToast: mockShowToast }),
-}));
-
-jest.mock("../../contexts/Loader/LoaderContext", () => ({
-  useLoader: () => ({ showLoader: mockShowLoader, hideLoader: mockHideLoader }),
 }));
 
 jest.mock("../ui/DateRangePicker", () => ({
@@ -103,7 +97,5 @@ describe("EventCreateModal", () => {
       }),
     );
     expect(onClose).toHaveBeenCalled();
-    expect(mockShowLoader).toHaveBeenCalled();
-    expect(mockHideLoader).toHaveBeenCalled();
   });
 });

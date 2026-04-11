@@ -170,14 +170,18 @@ const {
 						 {onToggleInscripcion && (
 							 <ToggleIconButton
 								 open={!inscripciones_abiertas}
-								 onClick={() => {
+								 onClick={(e) => {
+									 e.stopPropagation();
 									 setShowConfirm(inscripciones_abiertas ? "cerrar" : "abrir");
 								 }}
 								 title={inscripciones_abiertas ? "Cerrar inscripciones" : "Abrir inscripciones"}
 							 />
 						 )}
 						 {onDelete && (
-							 <DeleteIconButton onClick={() => { onDelete(id_evento); }} />
+							 <DeleteIconButton onClick={(e) => {
+								 e.stopPropagation();
+								 onDelete(id_evento);
+							 }} />
 						 )}
 					 </div>
 				 )}

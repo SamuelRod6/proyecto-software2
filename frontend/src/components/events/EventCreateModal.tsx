@@ -13,8 +13,6 @@ import { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import DayPickerSingle from "../ui/DayPickerSingle";
 import BackArrow from "../ui/BackArrow";
-// contexts
-import { useLoader } from "../../contexts/Loader/LoaderContext";
 import { useToast } from "../../contexts/Toast/ToastContext";
 // components
 import Modal from "../ui/Modal";
@@ -45,9 +43,8 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	const [page2, setPage2] = useState(false);
 	const [closeDate, setCloseDate] = useState<Date | undefined>(undefined);
 	const [disabledRanges, setDisabledRanges] = useState<{ from: Date; to: Date }[]>([]);
+	const [creatingEvent, setCreatingEvent] = useState(false);
 
-	// UI feedback contexts.
-	const { showLoader, hideLoader } = useLoader();
 	const { showToast } = useToast();
 
 	// Load occupied ranges when modal opens to prevent overlaps.
@@ -129,7 +126,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	// handleSubmit validates and sends create event request.
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		showLoader();
+		setCreatingEvent(true);
 		try {
 			const payload = getEventPayload();
 			if (!payload) {
@@ -169,7 +166,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 				status: "error",
 			});
 		} finally {
-			hideLoader();
+			setCreatingEvent(false);
 		}
 	};
 
@@ -293,6 +290,8 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 									disabled={
 										!closeDate || !name || !dateRange || !dateRange.from || !dateRange.to || !country || !city
 									}
+									loading={creatingEvent}
+									loadingText="Creando..."
 								>
 									Crear evento
 								</Button>
