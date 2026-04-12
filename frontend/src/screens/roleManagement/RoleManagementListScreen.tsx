@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "../../contexts/Toast/ToastContext";
 import Modal from "../../components/ui/Modal";
 import SelectInput, { OptionType } from "../../components/ui/SelectorInput";
@@ -37,6 +37,27 @@ type PermissionRow = {
 
 const PAGE_SIZE = 10;
 
+function toText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return fallback;
+}
+
+function toRoles(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map(String);
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((role) => role.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 function normalizeUsers(payload: unknown): UserRoleRow[] {
   const root = (payload as { payload?: unknown })?.payload ?? payload;
   const list = Array.isArray(root)
@@ -49,21 +70,12 @@ function normalizeUsers(payload: unknown): UserRoleRow[] {
   return list.map((item, index) => {
     const record = item as Record<string, unknown>;
     const rawRoles =
-      (record.roles as unknown) ??
-      record.role ??
-      record.rol ??
-      record.nombre_rol ??
-      "";
-    const rolesArray = Array.isArray(rawRoles)
-      ? rawRoles.map((r) => String(r))
-      : String(rawRoles)
-          .split(",")
-          .map((r) => r.trim())
-          .filter(Boolean);
+      record.roles ?? record.role ?? record.rol ?? record.nombre_rol;
+    const rolesArray = toRoles(rawRoles);
     return {
       id: Number(record.id ?? record.id_usuario ?? index + 1),
-      name: String(record.name ?? record.nombre ?? record.email ?? "Usuario"),
-      email: String(record.email ?? record.correo ?? ""),
+      name: toText(record.name ?? record.nombre ?? record.email, "Usuario"),
+      email: toText(record.email ?? record.correo, ""),
       roles: rolesArray,
     };
   });
@@ -82,8 +94,8 @@ function normalizeRoles(payload: unknown): RoleRow[] {
     const record = item as Record<string, unknown>;
     return {
       id: Number(record.id ?? record.id_rol ?? record.idRol ?? 0),
-      name: String(record.name ?? record.nombre_rol ?? ""),
-      description: String(record.description ?? record.descripcion ?? ""),
+      name: toText(record.name ?? record.nombre_rol),
+      description: toText(record.description ?? record.descripcion),
     };
   });
 }
@@ -101,8 +113,8 @@ function normalizePermissions(payload: unknown): PermissionRow[] {
     const record = item as Record<string, unknown>;
     return {
       id: Number(record.id ?? record.id_permiso ?? index + 1),
-      name: String(record.name ?? record.nombre_permiso ?? "Permiso"),
-      resource: String(record.resource ?? record.recurso ?? ""),
+      name: toText(record.name ?? record.nombre_permiso, "Permiso"),
+      resource: toText(record.resource ?? record.recurso),
     };
   });
 }
@@ -116,10 +128,12 @@ function extractTotal(payload: unknown): number {
 
 const arrayEqual = (a: string[], b: string[]) => {
   if (a.length !== b.length) return false;
-  const sortedA = [...a].sort();
-  const sortedB = [...b].sort();
+  const sortedA = [...a].sort((left, right) => left.localeCompare(right));
+  const sortedB = [...b].sort((left, right) => left.localeCompare(right));
   return sortedA.every((value, index) => value === sortedB[index]);
 };
+
+const normalizeRoleName = (value: string): string => value.trim().toUpperCase();
 
 export default function RoleManagementListScreen(): JSX.Element {
   const [rows, setRows] = useState<UserRoleRow[]>([]);
@@ -130,6 +144,7 @@ export default function RoleManagementListScreen(): JSX.Element {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRoleRow | null>(null);
+  const [detailsUser, setDetailsUser] = useState<UserRoleRow | null>(null);
   const [roleOptions, setRoleOptions] = useState<OptionType[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
@@ -158,6 +173,8 @@ export default function RoleManagementListScreen(): JSX.Element {
     [],
   );
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("");
 
   const { showToast } = useToast();
 
@@ -166,6 +183,40 @@ export default function RoleManagementListScreen(): JSX.Element {
   const canUpdate = Boolean(
     selectedUser && !arrayEqual(selectedRoles, selectedUser.roles),
   );
+
+  const roleNameOptions = useMemo(
+    () => roleOptions.map((option) => String(option.value)),
+    [roleOptions],
+  );
+
+  const roleNameSet = useMemo(
+    () => new Set(roleNameOptions.map(normalizeRoleName)),
+    [roleNameOptions],
+  );
+
+  const roleByName = useMemo(() => {
+    const map = new Map<string, RoleRow>();
+    roleRows.forEach((role) => map.set(normalizeRoleName(role.name), role));
+    return map;
+  }, [roleRows]);
+
+  const filteredRows = useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    const roleFilter = normalizeRoleName(userRoleFilter);
+
+    return rows.filter((row) => {
+      const matchesQuery =
+        !query ||
+        row.name.toLowerCase().includes(query) ||
+        row.email.toLowerCase().includes(query);
+
+      const matchesRole =
+        !roleFilter ||
+        row.roles.some((role) => normalizeRoleName(role) === roleFilter);
+
+      return matchesQuery && matchesRole;
+    });
+  }, [rows, userRoleFilter, userSearch]);
 
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
@@ -267,6 +318,43 @@ export default function RoleManagementListScreen(): JSX.Element {
 
   const handleUpdateRole = async () => {
     if (!selectedUser) return;
+
+    if (selectedRoles.length === 0) {
+      showToast({
+        title: "Validación",
+        message: "Debes asignar al menos un rol al usuario.",
+        status: "error",
+      });
+      return;
+    }
+
+    const invalidRoles = selectedRoles.filter(
+      (role) => !roleNameSet.has(normalizeRoleName(role)),
+    );
+    if (invalidRoles.length > 0) {
+      showToast({
+        title: "Validación",
+        message: `Roles inválidos: ${invalidRoles.join(", ")}.`,
+        status: "error",
+      });
+      return;
+    }
+
+    const rolesWithoutPermissions = selectedRoles.filter((roleName) => {
+      const role = roleByName.get(normalizeRoleName(roleName));
+      if (!role) return false;
+      const permissions = rolePermissionsMap[role.id] ?? [];
+      return permissions.length === 0;
+    });
+
+    if (rolesWithoutPermissions.length > 0) {
+      showToast({
+        title: "Validación",
+        message: `Los roles ${rolesWithoutPermissions.join(", ")} no tienen permisos configurados.`,
+        status: "error",
+      });
+      return;
+    }
 
     setIsUpdating(true);
 
@@ -466,6 +554,185 @@ export default function RoleManagementListScreen(): JSX.Element {
       : permission.name,
   }));
 
+  const getUserValidation = (row: UserRoleRow): JSX.Element => {
+    const invalidRowRoles = row.roles.filter(
+      (role) => !roleNameSet.has(normalizeRoleName(role)),
+    );
+    if (invalidRowRoles.length > 0) {
+      return (
+        <span className="text-red-400">
+          Roles inválidos: {invalidRowRoles.join(", ")}
+        </span>
+      );
+    }
+
+    const rowRolesWithoutPermissions = row.roles.filter((roleName) => {
+      const role = roleByName.get(normalizeRoleName(roleName));
+      if (!role) return false;
+      return (rolePermissionsMap[role.id] ?? []).length === 0;
+    });
+
+    if (rowRolesWithoutPermissions.length > 0) {
+      return (
+        <span className="text-amber-300">
+          Sin permisos: {rowRolesWithoutPermissions.join(", ")}
+        </span>
+      );
+    }
+
+    return <span className="text-emerald-300">OK</span>;
+  };
+
+  const renderUsersBody = (): JSX.Element[] => {
+    if (isLoading) {
+      return [
+        <tr key="loading-users">
+          <td className="px-4 py-6 text-center" colSpan={5}>
+            Cargando usuarios...
+          </td>
+        </tr>,
+      ];
+    }
+
+    if (error) {
+      return [
+        <tr key="users-error">
+          <td className="px-4 py-6 text-center" colSpan={5}>
+            {error}
+          </td>
+        </tr>,
+      ];
+    }
+
+    if (filteredRows.length === 0) {
+      return [
+        <tr key="users-empty">
+          <td className="px-4 py-6 text-center" colSpan={5}>
+            Sin usuarios para los filtros aplicados.
+          </td>
+        </tr>,
+      ];
+    }
+
+    return filteredRows.map((row) => (
+      <tr key={row.id}>
+        <td className="px-4 py-3">{row.name}</td>
+        <td className="px-4 py-3">{row.email || "-"}</td>
+        <td className="px-4 py-3">
+          <button
+            className="text-[#F5E427] hover:underline"
+            onClick={() => openRoleModal(row)}
+          >
+            {row.roles.length > 0 ? row.roles.join(", ") : "Sin roles"}
+          </button>
+        </td>
+        <td className="px-4 py-3 text-xs">{getUserValidation(row)}</td>
+        <td className="px-4 py-3">
+          <div className="flex gap-3">
+            <button
+              className="text-slate-300 hover:text-[#F5E427]"
+              onClick={() => setDetailsUser(row)}
+            >
+              Detalles
+            </button>
+            <button
+              className="text-[#F5E427] hover:underline"
+              onClick={() => openRoleModal(row)}
+            >
+              Editar roles
+            </button>
+          </div>
+        </td>
+      </tr>
+    ));
+  };
+
+  const renderRolePermissionsCell = (roleId: number): string => {
+    const rolePermissions = rolePermissionsMap[roleId] ?? [];
+    if (rolePermissions.length === 0) return "Sin permisos";
+    return rolePermissions
+      .map((permission) =>
+        permission.resource
+          ? `${permission.name} - ${permission.resource}`
+          : permission.name,
+      )
+      .join(", ");
+  };
+
+  const renderRolesBody = (): JSX.Element[] => {
+    if (rolesSectionLoading) {
+      return [
+        <tr key="roles-loading">
+          <td className="px-4 py-6 text-center" colSpan={4}>
+            Cargando roles...
+          </td>
+        </tr>,
+      ];
+    }
+
+    if (roleRows.length === 0) {
+      return [
+        <tr key="roles-empty">
+          <td className="px-4 py-6 text-center" colSpan={4}>
+            Sin roles.
+          </td>
+        </tr>,
+      ];
+    }
+
+    return roleRows.map((role) => (
+      <tr key={role.id}>
+        <td className="px-4 py-3">{role.name}</td>
+        <td className="px-4 py-3">{role.description || "-"}</td>
+        <td className="px-4 py-3">{renderRolePermissionsCell(role.id)}</td>
+        <td className="px-4 py-3">
+          <div className="flex gap-2">
+            <button
+              className="text-[#F5E427] hover:underline"
+              onClick={() => openEditRole(role)}
+            >
+              Editar
+            </button>
+            <button
+              className="text-slate-300 hover:text-red-400"
+              onClick={() => handleDeleteRole(role)}
+            >
+              Eliminar
+            </button>
+            <button
+              className="text-slate-300 hover:text-[#F5E427]"
+              onClick={() => void openPermissionsModal(role)}
+            >
+              Editar permisos
+            </button>
+          </div>
+        </td>
+      </tr>
+    ));
+  };
+
+  const getRoleStatusBadge = (roleName: string): JSX.Element => {
+    const role = roleByName.get(normalizeRoleName(roleName));
+    const permissionsCount = role
+      ? (rolePermissionsMap[role.id] ?? []).length
+      : 0;
+    const invalid = !roleNameSet.has(normalizeRoleName(roleName));
+
+    if (invalid) {
+      return <span className="text-red-400 text-xs">Inválido</span>;
+    }
+
+    if (permissionsCount === 0) {
+      return <span className="text-amber-300 text-xs">Sin permisos</span>;
+    }
+
+    return (
+      <span className="text-emerald-300 text-xs">
+        {permissionsCount} permisos
+      </span>
+    );
+  };
+
   return (
     <section className="space-y-10 bg-slate-900 min-h-screen px-4 py-8">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -479,6 +746,45 @@ export default function RoleManagementListScreen(): JSX.Element {
         </div>
       </header>
 
+      <div className="rounded-xl border border-slate-700 bg-slate-800/80 p-4 grid gap-3 md:grid-cols-[1.4fr_1fr]">
+        <div>
+          <label
+            htmlFor="role-users-search"
+            className="block mb-1 text-slate-300 font-medium"
+          >
+            Buscar por nombre o correo
+          </label>
+          <input
+            id="role-users-search"
+            value={userSearch}
+            onChange={(event) => setUserSearch(event.target.value)}
+            className="w-full rounded border border-slate-600 bg-slate-800 text-slate-200 px-3 py-2"
+            placeholder="Ejemplo: maria o correo@dominio.com"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="role-users-filter"
+            className="block mb-1 text-slate-300 font-medium"
+          >
+            Filtrar por rol
+          </label>
+          <select
+            id="role-users-filter"
+            value={userRoleFilter}
+            onChange={(event) => setUserRoleFilter(event.target.value)}
+            className="w-full rounded border border-slate-600 bg-slate-800 text-slate-200 px-3 py-2"
+          >
+            <option value="">Todos los roles</option>
+            {roleNameOptions.map((roleName) => (
+              <option key={roleName} value={roleName}>
+                {roleName}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800/80">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-900 text-slate-200">
@@ -486,45 +792,12 @@ export default function RoleManagementListScreen(): JSX.Element {
               <th className="px-4 py-3 font-semibold">Usuario</th>
               <th className="px-4 py-3 font-semibold">Correo</th>
               <th className="px-4 py-3 font-semibold">Roles</th>
+              <th className="px-4 py-3 font-semibold">Validación</th>
+              <th className="px-4 py-3 font-semibold">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700 text-slate-300">
-            {isLoading ? (
-              <tr>
-                <td className="px-4 py-6 text-center" colSpan={3}>
-                  Cargando usuarios...
-                </td>
-              </tr>
-            ) : error ? (
-              <tr>
-                <td className="px-4 py-6 text-center" colSpan={3}>
-                  {error}
-                </td>
-              </tr>
-            ) : rows.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-center" colSpan={3}>
-                  Sin usuarios.
-                </td>
-              </tr>
-            ) : (
-              rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3">{row.name}</td>
-                  <td className="px-4 py-3">{row.email || "-"}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      className="text-[#F5E427] hover:underline"
-                      onClick={() => openRoleModal(row)}
-                    >
-                      {row.roles.length > 0
-                        ? row.roles.join(", ")
-                        : "Sin roles"}
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
+            {renderUsersBody()}
           </tbody>
         </table>
       </div>
@@ -570,63 +843,54 @@ export default function RoleManagementListScreen(): JSX.Element {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700 text-slate-300">
-              {rolesSectionLoading ? (
-                <tr>
-                  <td className="px-4 py-6 text-center" colSpan={4}>
-                    Cargando roles...
-                  </td>
-                </tr>
-              ) : roleRows.length === 0 ? (
-                <tr>
-                  <td className="px-4 py-6 text-center" colSpan={4}>
-                    Sin roles.
-                  </td>
-                </tr>
-              ) : (
-                roleRows.map((role) => (
-                  <tr key={role.id}>
-                    <td className="px-4 py-3">{role.name}</td>
-                    <td className="px-4 py-3">{role.description || "-"}</td>
-                    <td className="px-4 py-3">
-                      {(rolePermissionsMap[role.id] ?? []).length > 0
-                        ? (rolePermissionsMap[role.id] ?? [])
-                            .map((permission) =>
-                              permission.resource
-                                ? `${permission.name} - ${permission.resource}`
-                                : permission.name,
-                            )
-                            .join(", ")
-                        : "Sin permisos"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          className="text-[#F5E427] hover:underline"
-                          onClick={() => openEditRole(role)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          className="text-slate-300 hover:text-red-400"
-                          onClick={() => handleDeleteRole(role)}
-                        >
-                          Eliminar
-                        </button>
-                        <button
-                          className="text-slate-300 hover:text-[#F5E427]"
-                          onClick={() => void openPermissionsModal(role)}
-                        >
-                          Editar permisos
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              {renderRolesBody()}
             </tbody>
           </table>
         </div>
       </div>
+
+      <Modal
+        open={Boolean(detailsUser)}
+        onClose={() => setDetailsUser(null)}
+        title="Detalle de usuario"
+        className="max-w-lg w-full"
+      >
+        <div className="space-y-3 text-sm text-slate-300">
+          <p>
+            <span className="text-slate-100 font-semibold">Nombre:</span>{" "}
+            {detailsUser?.name}
+          </p>
+          <p>
+            <span className="text-slate-100 font-semibold">Correo:</span>{" "}
+            {detailsUser?.email || "-"}
+          </p>
+          <div>
+            <p className="text-slate-100 font-semibold">Roles actuales</p>
+            {detailsUser?.roles.length ? (
+              <ul className="mt-2 space-y-2">
+                {detailsUser.roles.map((roleName, index) => (
+                  <li
+                    key={`${roleName}-${index}`}
+                    className="rounded border border-slate-700 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-slate-200">{roleName}</span>
+                      {getRoleStatusBadge(roleName)}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-slate-400">Sin roles asignados.</p>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="ghost" onClick={() => setDetailsUser(null)}>
+              Cerrar
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={Boolean(roleToDelete)}
@@ -639,7 +903,7 @@ export default function RoleManagementListScreen(): JSX.Element {
             ¿Eliminar el rol{" "}
             <span className="text-slate-100 font-semibold">
               {roleToDelete?.name}
-            </span>
+            </span>{" "}
             ? Esta accion no se puede deshacer.
           </p>
           <div className="flex justify-end gap-3">
@@ -705,10 +969,14 @@ export default function RoleManagementListScreen(): JSX.Element {
       >
         <div className="space-y-4">
           <div>
-            <label className="block mb-1 text-slate-300 font-medium">
+            <label
+              htmlFor="role-name-input"
+              className="block mb-1 text-slate-300 font-medium"
+            >
               Nombre
             </label>
             <input
+              id="role-name-input"
               value={roleName}
               onChange={(event) => setRoleName(event.target.value)}
               className="w-full rounded border border-slate-600 bg-slate-800 text-slate-200 px-3 py-2"
@@ -716,10 +984,14 @@ export default function RoleManagementListScreen(): JSX.Element {
             />
           </div>
           <div>
-            <label className="block mb-1 text-slate-300 font-medium">
+            <label
+              htmlFor="role-description-input"
+              className="block mb-1 text-slate-300 font-medium"
+            >
               Descripción
             </label>
             <input
+              id="role-description-input"
               value={roleDescription}
               onChange={(event) => setRoleDescription(event.target.value)}
               className="w-full rounded border border-slate-600 bg-slate-800 text-slate-200 px-3 py-2"
@@ -757,7 +1029,7 @@ export default function RoleManagementListScreen(): JSX.Element {
             <SelectInput
               value={selectedPermissionIds.map(String)}
               onChange={(value) => {
-                const values = (value as string[]).map((item) => Number(item));
+                const values = (value as string[]).map(Number);
                 setSelectedPermissionIds(
                   values.filter((item) => Number.isFinite(item)),
                 );

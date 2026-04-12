@@ -67,6 +67,10 @@ const SelectInput: React.FC<SelectInputProps> = ({
       ? [...options, { value: "otro", label: "Otro..." }]
       : options;
 
+  const resolvedMenuPortalTarget =
+    menuPortalTarget ??
+    (typeof document === "undefined" ? null : document.body);
+
   const selectedValue = isMulti
     ? finalOptions.filter(
         (opt) => Array.isArray(value) && value.includes(opt.value),
@@ -90,8 +94,8 @@ const SelectInput: React.FC<SelectInputProps> = ({
         isMulti={isMulti}
         isClearable={isClearable}
         closeMenuOnSelect={!isMulti}
-        menuPortalTarget={menuPortalTarget}
-        menuPosition={menuPortalTarget ? "fixed" : "absolute"}
+        menuPortalTarget={resolvedMenuPortalTarget}
+        menuPosition={resolvedMenuPortalTarget ? "fixed" : "absolute"}
         styles={customStyles}
       />
       {isOther && (
@@ -128,15 +132,11 @@ const customStyles: StylesConfig<OptionType, boolean> = {
   }),
   menuPortal: (provided) => ({
     ...provided,
-    zIndex: 50,
+    zIndex: 9999,
   }),
   option: (provided, state) => ({
     ...provided,
-    backgroundColor: state.isSelected
-      ? "#facc15"
-      : state.isFocused
-        ? "#334155"
-        : "#1e293b",
+    backgroundColor: getOptionBackground(state.isSelected, state.isFocused),
     color: state.isSelected ? "#1e293b" : "#e2e8f0",
     fontSize: "0.85rem",
   }),
@@ -187,5 +187,11 @@ const customStyles: StylesConfig<OptionType, boolean> = {
     ":hover": { color: "#e2e8f0" },
   }),
 };
+
+function getOptionBackground(isSelected: boolean, isFocused: boolean): string {
+  if (isSelected) return "#facc15";
+  if (isFocused) return "#334155";
+  return "#1e293b";
+}
 
 export default SelectInput;
