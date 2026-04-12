@@ -5,6 +5,8 @@ import {
   createScientificWork,
   decideScientificWork,
   downloadScientificWorkVersion,
+  downloadScientificWorkHistoryPDF,
+  getScientificWorkHistory,
   listScientificWorkEvaluations,
   listScientificWorkReviewers,
   listScientificWorkVersions,
@@ -176,6 +178,36 @@ describe("scientificWorkServices", () => {
     expect(mockedAxios.post).toHaveBeenCalledWith(
       "/api/trabajos-cientificos/comite/decision",
       payload,
+    );
+  });
+
+  it("should list work history with query params", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: [{ id_historial: 1 }] });
+
+    const result = await getScientificWorkHistory(4, 20, {
+      estado: "ACTUALIZADO",
+      tipo_cambio: "DECISION_COMITE",
+      q: "comite",
+      desde: "01/04/2026",
+      hasta: "10/04/2026",
+    });
+
+    expect(result).toEqual({ status: 200, data: [{ id_historial: 1 }] });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/historial?id_trabajo=4&user_id=20&estado=ACTUALIZADO&tipo_cambio=DECISION_COMITE&q=comite&desde=01%2F04%2F2026&hasta=10%2F04%2F2026",
+    );
+  });
+
+  it("should download work history as blob", async () => {
+    const blob = new Blob(["pdf"]);
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: blob });
+
+    const result = await downloadScientificWorkHistoryPDF(4, 20, { estado: "ACTUALIZADO" });
+
+    expect(result).toEqual({ status: 200, data: blob });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/historial/pdf?id_trabajo=4&user_id=20&estado=ACTUALIZADO",
+      { responseType: "blob" },
     );
   });
 

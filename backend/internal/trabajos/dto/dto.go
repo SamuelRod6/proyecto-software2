@@ -121,6 +121,17 @@ type EvaluationSummary struct {
 	Evaluaciones         []EvaluationItem `json:"evaluaciones"`
 }
 
+type WorkStatusHistoryItem struct {
+	IDHistorial    int    `json:"id_historial"`
+	IDTrabajo      int    `json:"id_trabajo"`
+	EstadoAnterior string `json:"estado_anterior"`
+	EstadoNuevo    string `json:"estado_nuevo"`
+	TipoCambio     string `json:"tipo_cambio"`
+	Nota           string `json:"nota"`
+	Actor          string `json:"actor"`
+	FechaCambio    string `json:"fecha_cambio"`
+}
+
 type DecisionRequest struct {
 	UserID           int    `json:"user_id"`
 	IDTrabajo        int    `json:"id_trabajo"`

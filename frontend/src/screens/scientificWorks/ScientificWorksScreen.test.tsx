@@ -5,6 +5,9 @@ const mockShowToast = jest.fn();
 const mockCreateScientificWork = jest.fn();
 const mockListScientificWorks = jest.fn();
 const mockGetEvents = jest.fn();
+const mockListScientificWorkVersions = jest.fn();
+const mockGetScientificWorkHistory = jest.fn();
+const mockDownloadScientificWorkHistoryPDF = jest.fn();
 
 jest.mock("../../contexts/Toast/ToastContext", () => ({
   useToast: () => ({ showToast: mockShowToast }),
@@ -18,9 +21,11 @@ jest.mock("../../services/scientificWorkServices", () => ({
   listScientificWorks: (...args: unknown[]) => mockListScientificWorks(...args),
   createScientificWork: (...args: unknown[]) => mockCreateScientificWork(...args),
   uploadScientificWorkVersion: jest.fn(),
-  listScientificWorkVersions: jest.fn(),
+  listScientificWorkVersions: (...args: unknown[]) => mockListScientificWorkVersions(...args),
   compareScientificWorkVersions: jest.fn(),
   downloadScientificWorkVersion: jest.fn(),
+  getScientificWorkHistory: (...args: unknown[]) => mockGetScientificWorkHistory(...args),
+  downloadScientificWorkHistoryPDF: (...args: unknown[]) => mockDownloadScientificWorkHistoryPDF(...args),
 }));
 
 jest.mock("../../services/eventsServices", () => ({
@@ -36,6 +41,9 @@ describe("ScientificWorksScreen", () => {
       data: [{ id_evento: 4, nombre: "Congreso Andino" }],
     });
     mockCreateScientificWork.mockResolvedValue({ status: 200, data: { ok: true } });
+    mockListScientificWorkVersions.mockResolvedValue({ status: 200, data: [] });
+    mockGetScientificWorkHistory.mockResolvedValue({ status: 200, data: [] });
+    mockDownloadScientificWorkHistoryPDF.mockResolvedValue({ status: 200, data: new Blob(["pdf"]) });
   });
 
   it("blocks work creation when the title contains numbers", async () => {
@@ -80,5 +88,38 @@ describe("ScientificWorksScreen", () => {
     });
 
     expect(mockCreateScientificWork).not.toHaveBeenCalled();
+  });
+
+  it("renders status change history in work history modal", async () => {
+    mockListScientificWorks.mockResolvedValueOnce({
+      status: 200,
+      data: [
+        {
+          id_trabajo: 20,
+          id_evento: 4,
+          id_usuario: 10,
+          titulo: "Trabajo de Prueba",
+          resumen: "Resumen de prueba",
+          version_actual: 1,
+          estado: "PENDIENTE_REVISION",
+          fecha_ultimo_envio: "11/04/2026",
+          archivo_actual: { id_version: 31 },
+        },
+      ],
+    });
+
+    render(<ScientificWorksScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Trabajo de Prueba")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Ver historial" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Historial de cambios de estado")).toBeInTheDocument();
+    });
+
+    expect(mockGetScientificWorkHistory).toHaveBeenCalledWith(20, 10, {});
   });
 });

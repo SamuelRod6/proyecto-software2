@@ -110,6 +110,20 @@ func (s *Service) CreateTrabajo(ctx context.Context, req dto.CreateTrabajoReques
 		return nil, err
 	}
 
+	actor := fmt.Sprintf("usuario %d", req.IDUsuario)
+	if user, findErr := s.repo.FindUserByID(ctx, req.IDUsuario); findErr == nil && user != nil && strings.TrimSpace(user.Nombre) != "" {
+		actor = user.Nombre
+	}
+	_ = s.repo.InsertTrabajoHistorial(
+		ctx,
+		trabajo.IDTrabajo,
+		trabajo.Estado,
+		"ACTUALIZADO",
+		"ENVIO_INICIAL",
+		"Versión inicial registrada.",
+		actor,
+	)
+
 	_, _ = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
 		UserID:  req.IDUsuario,
 		EventID: &req.IDEvento,
@@ -890,6 +904,20 @@ func (s *Service) DecideTrabajo(ctx context.Context, req dto.DecisionRequest) er
 		return err
 	}
 
+	actor := fmt.Sprintf("usuario %d", req.UserID)
+	if user, findErr := s.repo.FindUserByID(ctx, req.UserID); findErr == nil && user != nil && strings.TrimSpace(user.Nombre) != "" {
+		actor = user.Nombre
+	}
+	_ = s.repo.InsertTrabajoHistorial(
+		ctx,
+		req.IDTrabajo,
+		estadoAnterior,
+		req.DecisionComite,
+		"DECISION_COMITE",
+		req.ComentarioComite,
+		actor,
+	)
+
 	msg := fmt.Sprintf(notificationdto.MsgEstadoTrabajo, trabajo.Titulo, req.DecisionComite)
 	if req.ComentarioComite != "" {
 		msg = fmt.Sprintf(notificationdto.MsgEstadoTrabajoConComentario, trabajo.Titulo, req.DecisionComite, req.ComentarioComite)
@@ -916,4 +944,37 @@ func (s *Service) DecideTrabajo(ctx context.Context, req dto.DecisionRequest) er
 	}
 
 	return nil
+}
+
+func (s *Service) HistorialTrabajo(ctx context.Context, trabajoID, userID int, filters map[string]interface{}) ([]dto.WorkStatusHistoryItem, error) {
+	trabajo, err := s.repo.FindTrabajoByIDAndUser(ctx, trabajoID, userID)
+	if err != nil || trabajo == nil {
+		return nil, ErrSinAcceso
+	}
+
+	if filters == nil {
+		filters = make(map[string]interface{})
+	}
+	filters["id_trabajo"] = trabajo.IDTrabajo
+
+	rows, err := s.repo.ListTrabajoHistorial(ctx, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]dto.WorkStatusHistoryItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, dto.WorkStatusHistoryItem{
+			IDHistorial:    row.IDHistorial,
+			IDTrabajo:      row.IDTrabajo,
+			EstadoAnterior: row.EstadoAnterior,
+			EstadoNuevo:    row.EstadoNuevo,
+			TipoCambio:     row.TipoCambio,
+			Nota:           row.Nota,
+			Actor:          row.Actor,
+			FechaCambio:    formatDateTimeVE(row.FechaCambio),
+		})
+	}
+
+	return items, nil
 }
