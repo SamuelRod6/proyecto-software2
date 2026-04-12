@@ -3,8 +3,8 @@ package handler
 import (
 	"context"
 	"encoding/json"
-    "errors"
-    "fmt"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -16,7 +16,8 @@ import (
 	"project/backend/internal/trabajos/service"
 	"project/backend/internal/trabajos/validation"
 	"project/backend/prisma/db"
-    "golang.org/x/text/encoding/charmap"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 type Handler struct {
