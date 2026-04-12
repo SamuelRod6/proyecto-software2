@@ -27,7 +27,12 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const selectedNotif = notifications.find((n) => n.id === selectedId);
 
   return (
-    <Modal open={open} onClose={onClose} title="Notificaciones" className="max-w-5xl w-full">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Notificaciones"
+      className="max-w-5xl w-full"
+    >
       <div className="flex min-h-[420px] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
         <div className="w-1/3 min-w-[220px] max-w-[340px] flex flex-col border-r border-slate-700 bg-slate-900">
           <div className="px-5 py-4 border-b border-slate-700 bg-slate-800/80">
@@ -35,9 +40,14 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
               Bandeja
             </h3>
           </div>
-          <div className="flex-1 overflow-y-auto" style={{ maxHeight: "520px" }}>
+          <div
+            className="flex-1 overflow-y-auto"
+            style={{ maxHeight: "520px" }}
+          >
             {loading ? (
-              <div className="px-5 py-6 text-sm text-slate-400">Cargando...</div>
+              <div className="px-5 py-6 text-sm text-slate-400">
+                Cargando...
+              </div>
             ) : error ? (
               <div className="px-5 py-6 text-sm text-red-400">{error}</div>
             ) : orderedNotifications.length === 0 ? (
@@ -47,14 +57,28 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
             ) : (
               <div className="divide-y divide-slate-700">
                 {orderedNotifications.map((notif) => (
-                  <button
+                  <div
                     key={String(notif.id)}
-                    className={`w-full text-left px-5 py-3 flex items-center gap-2 transition-colors focus:outline-none ${
+                    role="button"
+                    tabIndex={0}
+                    className={`w-full text-left px-5 py-3 flex items-center gap-2 transition-colors focus:outline-none cursor-pointer ${
                       selectedId === notif.id
                         ? "bg-slate-800/80"
                         : "bg-slate-900"
                     }`}
                     onClick={() => {
+                      if (selectedId === notif.id) {
+                        setSelectedId(null);
+                        return;
+                      }
+                      setSelectedId(notif.id);
+                      if (!notif.read) {
+                        markAsRead(notif.id);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
                       if (selectedId === notif.id) {
                         setSelectedId(null);
                         return;
@@ -90,7 +114,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
                     >
                       ×
                     </button>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}

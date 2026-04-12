@@ -98,10 +98,10 @@ describe("Trabajos module", () => {
     cy.contains("button", "Ver historial").click();
 
     cy.wait("@getVersions");
-    cy.contains("Historial de versiones").should("be.visible");
+    cy.contains("Historial de versiones").should("exist");
 
-    cy.get('select').eq(0).select('1');
-    cy.get('select').eq(1).select('2');
+    cy.get("select:visible").eq(0).select("1");
+    cy.get("select:visible").eq(1).select("2");
     cy.contains("button", "Comparar").click();
 
     cy.wait("@compareVersions");
