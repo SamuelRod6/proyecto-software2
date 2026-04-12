@@ -1,3 +1,16 @@
+/*
+File: handler.go
+
+Contains:
+HTTP handler implementation for the Evento module.
+It centralizes request routing, input validation, service calls,
+response shaping, and error mapping for event endpoints.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package handler
 
 import (
@@ -15,6 +28,7 @@ import (
 	"project/backend/prisma/db"
 )
 
+// Internal constants used by this HTTP handler.
 const (
 	dateLayout      = "02/01/2006"
 	contentTypeKey  = "Content-Type"
@@ -22,20 +36,25 @@ const (
 	dbErrorMessage  = "db error"
 )
 
+// venezuelaLocation defines the fixed UTC-4 timezone used for event date display.
 var venezuelaLocation = time.FixedZone("VET", -4*60*60)
 
+// formatDateVE formats a time value as dd/mm/yyyy in Venezuela local time.
 func formatDateVE(t time.Time) string {
 	return t.In(venezuelaLocation).Format(dateLayout)
 }
 
+// formatDateTimeVE formats a time value as dd/mm/yyyy HH:MM in Venezuela local time.
 func formatDateTimeVE(t time.Time) string {
 	return t.In(venezuelaLocation).Format("02/01/2006 15:04")
 }
 
+// Handler serves HTTP requests for the Evento module.
 type Handler struct {
 	svc EventService
 }
 
+// EventService defines the business operations required by the HTTP handler.
 type EventService interface {
 	EnsureNombreUnico(ctx context.Context, nombre string) error
 	EnsureNoSolapamiento(ctx context.Context, start, end time.Time) error
@@ -49,14 +68,18 @@ type EventService interface {
 	GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error)
 }
 
+// New creates an HTTP handler wired with the concrete events service.
 func New(client *db.PrismaClient) http.Handler {
 	return &Handler{svc: service.New(client)}
 }
 
+// NewWithService creates a handler with a custom service implementation.
+// This constructor is mainly useful for tests and dependency injection.
 func NewWithService(svc EventService) *Handler {
 	return &Handler{svc: svc}
 }
 
+// ServeHTTP routes incoming requests by HTTP method.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -74,6 +97,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/*
+Endpoint: POST /api/eventos
+Creates a new event using the request JSON payload.
+
+Usage:
+	- Body: CreateEventoRequest
+	- Response: EventoResponse
+*/
 func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateEventoRequest
 
@@ -140,8 +171,18 @@ func (h *Handler) createEvento(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(res)
 }
 
+/*
+Endpoint: GET /api/eventos
+Returns either the event list or one detailed event.
+
+Usage:
+  - GET /api/eventos
+	  Returns a list of events.
+  - GET /api/eventos?evento_id=<id>
+	  Returns one event with sessions and speakers.
+*/
 func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
-	// Si viene el parámetro evento_id, retornar el detalle con sesiones y ponentes
+	// If evento_id is present, return detailed event data with sessions and speakers.
 	eventoIDStr := r.URL.Query().Get("evento_id")
 	if eventoIDStr != "" {
 		eventoID, err := strconv.Atoi(eventoIDStr)
@@ -156,7 +197,7 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 			httperror.WriteJSON(w, http.StatusNotFound, "Evento no encontrado")
 			return
 		}
-		// Obtener sesiones usando el tipo concreto
+		// Retrieve sessions through the concrete service type.
 		svc, ok := h.svc.(*service.Service)
 		if !ok {
 			httperror.WriteJSON(w, http.StatusInternalServerError, "Error interno de servicio")
@@ -226,6 +267,14 @@ func (h *Handler) listEventos(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(res)
 }
 
+/*
+Endpoint: PUT /api/eventos
+Updates an existing event using request JSON.
+
+Usage:
+	- Body: UpdateEventoRequest (id_evento is required)
+	- Response: EventoResponse
+*/
 func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 	var req dto.UpdateEventoRequest
 
@@ -294,6 +343,16 @@ func (h *Handler) updateEvento(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(res)
 }
 
+/*
+Endpoint: PATCH /api/eventos
+Dispatches registration state changes for an event.
+
+Usage:
+  - PATCH /api/eventos?action=cerrar&id=<id>
+	  Closes registrations for the event.
+  - PATCH /api/eventos?action=abrir&id=<id>
+	  Opens registrations for the event.
+*/
 func (h *Handler) patchEvento(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get("action")
 	idStr := r.URL.Query().Get("id")
@@ -319,6 +378,13 @@ func (h *Handler) patchEvento(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/*
+Endpoint: DELETE /api/eventos
+Performs logical deletion (cancellation) for an event.
+
+Usage:
+	- DELETE /api/eventos?id=<id>
+*/
 func (h *Handler) deleteEvento(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("id")
 	if idStr == "" {
@@ -344,6 +410,7 @@ func (h *Handler) deleteEvento(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// cerrarInscripciones closes event registrations and returns the updated event.
 func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
@@ -376,6 +443,7 @@ func (h *Handler) cerrarInscripciones(w http.ResponseWriter, r *http.Request, ev
 	_ = json.NewEncoder(w).Encode(res)
 }
 
+// abrirInscripciones opens event registrations and returns the updated event.
 func (h *Handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eventoID int) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
@@ -413,6 +481,8 @@ func (h *Handler) abrirInscripciones(w http.ResponseWriter, r *http.Request, eve
 	_ = json.NewEncoder(w).Encode(res)
 }
 
+// isInscripcionesAbiertas computes whether registrations are open at the
+// current time based on the manual flag and event date constraints.
 func isInscripcionesAbiertas(evento *db.EventoModel, now time.Time) bool {
 	if !evento.InscripcionesAbiertasManual {
 		return false
@@ -423,10 +493,20 @@ func isInscripcionesAbiertas(evento *db.EventoModel, now time.Time) bool {
 	return now.Before(evento.FechaCierreInscripcion)
 }
 
+// Svc exposes the underlying service used by the handler.
 func (h *Handler) Svc() EventService {
 	return h.svc
 }
 
+/*
+Endpoint: GET <configured-route-for-fechas-ocupadas>
+Returns occupied date ranges for existing events.
+
+Usage:
+	- Route is configured by the application router using
+		GetFechasOcupadasHandler(svc).
+	- Response: []RangoFechas
+*/
 func GetFechasOcupadasHandler(svc EventService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -441,6 +521,8 @@ func GetFechasOcupadasHandler(svc EventService) http.HandlerFunc {
 	}
 }
 
+// handleUpdateEventoError maps update errors to HTTP responses.
+// It returns true when an error was handled and a response was written.
 func handleUpdateEventoError(w http.ResponseWriter, err error) bool {
 	if err == nil {
 		return false

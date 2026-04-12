@@ -27,7 +27,7 @@ const Modal: React.FC<ModalProps> = ({
 				 }}
 			 />
 			 <div
-				 className={`relative z-10 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 w-full mx-4 ${className}`}
+				 className={`modal-surface relative z-10 bg-slate-800 rounded-xl shadow-2xl border border-slate-700 w-full mx-4 max-h-[92vh] overflow-hidden ${className}`}
 				 onClick={e => e.stopPropagation()}
 			 >
 				 <div className="flex items-center justify-between px-6 pt-6 pb-2 border-b border-slate-700">
@@ -42,7 +42,7 @@ const Modal: React.FC<ModalProps> = ({
 						 ×
 					 </button>
 				 </div>
-				 <div className="p-6">
+				 <div className="modal-scroll-content p-6 overflow-y-auto max-h-[calc(92vh-76px)]">
 					 {children}
 				 </div>
 			 </div>

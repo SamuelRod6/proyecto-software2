@@ -4,7 +4,7 @@ import { LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/outline";
 
 interface ToggleIconButtonProps {
     open: boolean; // true = inscripciones abiertas
-    onClick: () => void;
+	onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
     className?: string;
     title?: string;
     iconSize?: number;

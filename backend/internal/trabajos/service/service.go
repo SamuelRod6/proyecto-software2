@@ -1,3 +1,16 @@
+/*
+File: service.go
+
+Contains:
+Business service implementation for the Trabajos module.
+It orchestrates repository calls, applies validation,
+manages versions, and coordinates committee/reviewer workflows.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package service
 
 import (
@@ -35,6 +48,7 @@ var (
 
 var venezuelaLocation = time.FixedZone("VET", -4*60*60)
 
+// New creates a trabajos service with repository and notification dependencies.
 func New(client *db.PrismaClient) *Service {
 	workRepo := repo.New(client)
 	notificationRepo := notificationsrepo.NewNotificationRepository(client)
@@ -46,10 +60,12 @@ func New(client *db.PrismaClient) *Service {
 	}
 }
 
+// formatDateTimeVE formats timestamps for user-facing responses.
 func formatDateTimeVE(t time.Time) string {
 	return t.UTC().In(venezuelaLocation).Format("02/01/2006 15:04")
 }
 
+// nullableDescripcion extracts optional change description.
 func nullableDescripcion(value db.TrabajoCientificoVersionModel) string {
 	if v, ok := value.DescripcionCambios(); ok {
 		return v
@@ -57,6 +73,7 @@ func nullableDescripcion(value db.TrabajoCientificoVersionModel) string {
 	return ""
 }
 
+// CreateTrabajo validates and creates a new scientific work with initial PDF.
 func (s *Service) CreateTrabajo(ctx context.Context, req dto.CreateTrabajoRequest, file dto.UploadedFile) (*dto.TrabajoResponse, error) {
 	if err := validation.ValidateTitulo(req.Titulo); err != nil {
 		return nil, err
@@ -164,6 +181,7 @@ func (s *Service) CreateTrabajo(ctx context.Context, req dto.CreateTrabajoReques
 	}, nil
 }
 
+// ListTrabajosByUser returns works submitted by one user.
 func (s *Service) ListTrabajosByUser(ctx context.Context, userID int) ([]dto.TrabajoResponse, error) {
 	rows, err := s.repo.ListTrabajosByUser(ctx, userID)
 	if err != nil {
@@ -201,6 +219,7 @@ func (s *Service) ListTrabajosByUser(ctx context.Context, userID int) ([]dto.Tra
 	return out, nil
 }
 
+// AddVersion validates and stores a new version for an owned work.
 func (s *Service) AddVersion(ctx context.Context, req dto.AddVersionRequest, file dto.UploadedFile) (*dto.VersionResponse, error) {
 	if err := validation.ValidateDescripcionCambios(req.DescripcionCambios); err != nil {
 		return nil, err
@@ -270,6 +289,7 @@ func (s *Service) AddVersion(ctx context.Context, req dto.AddVersionRequest, fil
 	}, nil
 }
 
+// ListVersiones lists versions of a work when requester has access.
 func (s *Service) ListVersiones(ctx context.Context, trabajoID, userID int) ([]dto.VersionResponse, error) {
 	trabajo, err := s.repo.FindTrabajoByIDAndUser(ctx, trabajoID, userID)
 	if err != nil || trabajo == nil {
@@ -298,6 +318,7 @@ func (s *Service) ListVersiones(ctx context.Context, trabajoID, userID int) ([]d
 	return out, nil
 }
 
+// CompareVersiones builds a textual comparison summary between two versions.
 func (s *Service) CompareVersiones(ctx context.Context, trabajoID, userID, from, to int) (*dto.CompareVersionsResponse, error) {
 	trabajo, err := s.repo.FindTrabajoByIDAndUser(ctx, trabajoID, userID)
 	if err != nil || trabajo == nil {
@@ -351,6 +372,7 @@ func (s *Service) CompareVersiones(ctx context.Context, trabajoID, userID, from,
 	}, nil
 }
 
+// GetVersionFile validates access and returns version file metadata.
 func (s *Service) GetVersionFile(ctx context.Context, versionID, userID int) (*db.TrabajoCientificoVersionModel, error) {
 	version, err := s.repo.FindVersionByID(ctx, versionID)
 	if err != nil || version == nil {
@@ -385,6 +407,7 @@ func (s *Service) GetVersionFile(ctx context.Context, versionID, userID int) (*d
 	return version, nil
 }
 
+// savePDF writes one PDF version to storage path.
 func savePDF(trabajoID, eventID, userID, version int, file dto.UploadedFile) (string, error) {
 	baseDir := uploadpath.UploadsDir("trabajos-cientificos", fmt.Sprintf("evento_%d", eventID), fmt.Sprintf("usuario_%d", userID), fmt.Sprintf("trabajo_%d", trabajoID))
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {
@@ -399,6 +422,7 @@ func savePDF(trabajoID, eventID, userID, version int, file dto.UploadedFile) (st
 	return fullPath, nil
 }
 
+// DetectPDFContentType detects MIME type from content bytes.
 func DetectPDFContentType(content []byte) string {
 	sample := content
 	if len(sample) > 512 {
@@ -408,6 +432,7 @@ func DetectPDFContentType(content []byte) string {
 	return http.DetectContentType(sample)
 }
 
+// normalizeDecisionComite normalizes committee decision values.
 func normalizeDecisionComite(value string) string {
 	v := strings.ToUpper(strings.TrimSpace(value))
 	v = strings.ReplaceAll(v, "_", " ")
@@ -426,6 +451,7 @@ func normalizeDecisionComite(value string) string {
 	}
 }
 
+// normalizeRecomendacion normalizes reviewer recommendation values.
 func normalizeRecomendacion(value string) string {
 	v := strings.ToUpper(strings.TrimSpace(value))
 	v = strings.ReplaceAll(v, "_", " ")
@@ -553,6 +579,7 @@ func buildEvaluationItems(ctx context.Context, s *Service, rows []db.TrabajoEval
 	return out
 }
 
+// hasRoleOrAdmin verifies whether a user is admin or has a specific role.
 func (s *Service) hasRoleOrAdmin(ctx context.Context, userID int, roleName string) (bool, error) {
 	hasRole, err := s.repo.UserHasRole(ctx, userID, roleName)
 	if err != nil {
@@ -561,6 +588,7 @@ func (s *Service) hasRoleOrAdmin(ctx context.Context, userID int, roleName strin
 	if hasRole {
 		return true, nil
 	}
+	// ListTrabajosComite returns committee view rows with computed aggregates.
 
 	isAdmin, err := s.repo.UserHasRole(ctx, userID, "ADMIN")
 	if err != nil {
@@ -632,6 +660,7 @@ func (s *Service) ListTrabajosComite(ctx context.Context, f dto.TrabajoComiteFil
 	return out, nil
 }
 
+// ListRevisores returns reviewer candidates when requester has committee access.
 func (s *Service) ListRevisores(ctx context.Context, userID int) ([]dto.ReviewerListItem, error) {
 	hasRole, err := s.hasRoleOrAdmin(ctx, userID, "COMITE CIENTIFICO")
 	if err != nil {
@@ -658,6 +687,7 @@ func (s *Service) ListRevisores(ctx context.Context, userID int) ([]dto.Reviewer
 	return out, nil
 }
 
+// AssignReviewers assigns reviewers to a work after role and ownership checks.
 func (s *Service) AssignReviewers(ctx context.Context, req dto.AssignReviewersRequest) error {
 	if req.UserID <= 0 || req.IDTrabajo <= 0 || len(req.Revisores) == 0 {
 		return errors.New("datos de asignacion invalidos")
@@ -709,6 +739,7 @@ func (s *Service) AssignReviewers(ctx context.Context, req dto.AssignReviewersRe
 	return nil
 }
 
+// ListTrabajosAsignadosRevisor returns works assigned to one reviewer.
 func (s *Service) ListTrabajosAsignadosRevisor(ctx context.Context, userID int) ([]dto.TrabajoComiteItem, error) {
 	hasRole, err := s.repo.UserHasRole(ctx, userID, "REVISOR")
 	if err != nil {
@@ -778,6 +809,7 @@ func (s *Service) ListTrabajosAsignadosRevisor(ctx context.Context, userID int) 
 	return out, nil
 }
 
+// SubmitEvaluation stores reviewer evaluation for an assigned work.
 func (s *Service) SubmitEvaluation(ctx context.Context, req dto.SubmitEvaluationRequest) error {
 	if req.UserID <= 0 || req.IDTrabajo <= 0 {
 		return errors.New("datos de evaluacion invalidos")
@@ -850,6 +882,7 @@ func (s *Service) SubmitEvaluation(ctx context.Context, req dto.SubmitEvaluation
 	return nil
 }
 
+// ListEvaluacionesByTrabajo returns evaluation summary for committee members.
 func (s *Service) ListEvaluacionesByTrabajo(ctx context.Context, userID, trabajoID int) (*dto.EvaluationSummary, error) {
 	hasRole, err := s.hasRoleOrAdmin(ctx, userID, "COMITE CIENTIFICO")
 	if err != nil {
@@ -860,6 +893,7 @@ func (s *Service) ListEvaluacionesByTrabajo(ctx context.Context, userID, trabajo
 	}
 
 	trabajo, err := s.repo.FindTrabajoByID(ctx, trabajoID)
+// DecideTrabajo saves committee final decision and notifies relevant users.
 	if err != nil || trabajo == nil {
 		return nil, ErrTrabajoNoExiste
 	}

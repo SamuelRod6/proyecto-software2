@@ -1,3 +1,16 @@
+/*
+File: handler.go
+
+Contains:
+HTTP endpoint layer for the Sesiones module.
+It routes requests, validates endpoint parameters,
+and maps service responses to HTTP payloads.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package handler
 
 import (
@@ -16,10 +29,12 @@ type Handler struct {
 	svc *service.Service
 }
 
+// New creates a sessions handler using a Prisma client.
 func New(prismaClient interface{}) http.Handler {
 	return &Handler{svc: service.New(prismaClient.(*db.PrismaClient))}
 }
 
+// ServeHTTP dispatches requests by method and path/query combinations.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	path := strings.TrimPrefix(r.URL.Path, "/api/sesiones")
@@ -64,7 +79,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// PUT /api/sesiones?sesion_id={id}
+/*
+Endpoint: PUT /api/sesiones?sesion_id=<id>
+Updates one session by query identifier.
+*/
 func (h *Handler) ActualizarSesionPorQueryHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("sesion_id")
 	id, err := strconv.Atoi(idStr)
@@ -100,7 +118,10 @@ func (h *Handler) ActualizarSesionPorQueryHandler(w http.ResponseWriter, r *http
 	w.Write(data)
 }
 
-// DELETE /api/sesiones?sesion_id={id}
+/*
+Endpoint: DELETE /api/sesiones?sesion_id=<id>
+Performs logical deletion for one session.
+*/
 func (h *Handler) EliminarSesionPorQueryHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("sesion_id")
 	id, err := strconv.Atoi(idStr)
@@ -124,7 +145,10 @@ func (h *Handler) EliminarSesionPorQueryHandler(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// POST /api/sesiones/asignar-ponentes?sesion_id={id}
+/*
+Endpoint: POST /api/sesiones/asignar-ponentes?sesion_id=<id>
+Assigns one or more speakers to a session.
+*/
 func (h *Handler) AsignarPonentesPorQueryHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("sesion_id")
 	id, err := strconv.Atoi(idStr)
@@ -157,7 +181,10 @@ func (h *Handler) AsignarPonentesPorQueryHandler(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// POST /api/sesiones/quitar-ponente?sesion_id={id}&usuario={idUsuario}
+/*
+Endpoint: POST /api/sesiones/quitar-ponente?sesion_id=<id>&usuario=<idUsuario>
+Removes one speaker assignment from a session.
+*/
 func (h *Handler) QuitarPonentePorQueryHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("sesion_id")
 	id, err := strconv.Atoi(idStr)
@@ -191,7 +218,10 @@ func (h *Handler) QuitarPonentePorQueryHandler(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GET /api/sesiones/ponentes?sesion_id={id}
+/*
+Endpoint: GET /api/sesiones/ponentes?sesion_id=<id>
+Returns assigned speakers for a session.
+*/
 func (h *Handler) ListarPonentesPorQueryHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("sesion_id")
 	id, err := strconv.Atoi(idStr)
@@ -217,7 +247,10 @@ func (h *Handler) ListarPonentesPorQueryHandler(w http.ResponseWriter, r *http.R
 	w.Write(data)
 }
 
-// GET /api/sesiones/ponibles?sesion_id={id}
+/*
+Endpoint: GET /api/sesiones/ponibles?sesion_id=<id>
+Returns speaker candidates assignable to a session.
+*/
 func (h *Handler) ListarPonentesAsignablesPorQueryHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("sesion_id")
 	id, err := strconv.Atoi(idStr)
@@ -243,7 +276,10 @@ func (h *Handler) ListarPonentesAsignablesPorQueryHandler(w http.ResponseWriter,
 	w.Write(data)
 }
 
-// GET /api/sesiones?sesion_id={id}
+/*
+Endpoint: GET /api/sesiones?sesion_id=<id>
+Returns one session by query identifier.
+*/
 func (h *Handler) ObtenerSesionPorQueryHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := r.URL.Query().Get("sesion_id")
 	id, err := strconv.Atoi(idStr)
@@ -269,7 +305,10 @@ func (h *Handler) ObtenerSesionPorQueryHandler(w http.ResponseWriter, r *http.Re
 	w.Write(data)
 }
 
-// POST /api/sesiones?evento={id}
+/*
+Endpoint: POST /api/sesiones?evento=<id>
+Creates one session for the specified event.
+*/
 func (h *Handler) CrearSesionHandler(w http.ResponseWriter, r *http.Request) {
 	println("[Handler] Entrando a CrearSesionHandler")
 	eventoIDStr := r.URL.Query().Get("evento")
@@ -299,7 +338,10 @@ func (h *Handler) CrearSesionHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-// GET /api/sesiones?evento={id}
+/*
+Endpoint: GET /api/sesiones?evento=<id>
+Returns sessions for the specified event.
+*/
 func (h *Handler) ListarSesionesHandler(w http.ResponseWriter, r *http.Request) {
 	eventoIDStr := r.URL.Query().Get("evento")
 	eventoID, err := strconv.Atoi(eventoIDStr)
@@ -319,7 +361,10 @@ func (h *Handler) ListarSesionesHandler(w http.ResponseWriter, r *http.Request) 
 	w.Write(data)
 }
 
-// GET /api/sesiones/{id}
+/*
+Endpoint: GET /api/sesiones/{id}
+Returns one session by path identifier.
+*/
 func (h *Handler) ObtenerSesionHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/sesiones/")
 	id, err := strconv.Atoi(idStr)
@@ -339,7 +384,10 @@ func (h *Handler) ObtenerSesionHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-// PUT /api/sesiones/{id}
+/*
+Endpoint: PUT /api/sesiones/{id}
+Updates one session by path identifier.
+*/
 func (h *Handler) ActualizarSesionHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/sesiones/")
 	id, err := strconv.Atoi(idStr)
@@ -364,7 +412,10 @@ func (h *Handler) ActualizarSesionHandler(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(resp)
 }
 
-// DELETE /api/sesiones/{id}
+/*
+Endpoint: DELETE /api/sesiones/{id}
+Performs logical deletion by path identifier.
+*/
 func (h *Handler) EliminarSesionHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/sesiones/")
 	id, err := strconv.Atoi(idStr)
@@ -382,7 +433,10 @@ func (h *Handler) EliminarSesionHandler(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// POST /api/sesiones/asignar-ponentes/{id}
+/*
+Endpoint: POST /api/sesiones/asignar-ponentes/{id}
+Assigns speakers to a session by path identifier.
+*/
 func (h *Handler) AsignarPonentesHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/sesiones/asignar-ponentes/")
 	id, err := strconv.Atoi(idStr)
@@ -406,7 +460,10 @@ func (h *Handler) AsignarPonentesHandler(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// POST /api/sesiones/quitar-ponente/{id}?usuario={idUsuario}
+/*
+Endpoint: POST /api/sesiones/quitar-ponente/{id}?usuario=<idUsuario>
+Removes one speaker assignment using path and query identifiers.
+*/
 func (h *Handler) QuitarPonenteHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/sesiones/quitar-ponente/")
 	id, err := strconv.Atoi(idStr)
@@ -431,7 +488,10 @@ func (h *Handler) QuitarPonenteHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// GET /api/sesiones/ponentes/{id}
+/*
+Endpoint: GET /api/sesiones/ponentes/{id}
+Returns assigned speakers using path identifier.
+*/
 func (h *Handler) ListarPonentesHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/sesiones/ponentes/")
 	id, err := strconv.Atoi(idStr)
@@ -451,7 +511,10 @@ func (h *Handler) ListarPonentesHandler(w http.ResponseWriter, r *http.Request) 
 	w.Write(data)
 }
 
-// GET /api/sesiones/ponibles/{id}
+/*
+Endpoint: GET /api/sesiones/ponibles/{id}
+Returns assignable speaker candidates using path identifier.
+*/
 func (h *Handler) ListarPonentesAsignablesHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/sesiones/ponibles/")
 	id, err := strconv.Atoi(idStr)

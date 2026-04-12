@@ -150,12 +150,21 @@ export default function InscriptionCreateModal({
                         </p>
                         <label className="block text-sm text-slate-200">
                             Comprobante de pago (opcional)
-                            <input
-                                type="file"
-                                accept="image/*,.pdf"
-                                className="mt-2 block w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-                                onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
-                            />
+                            <div className="mt-2 flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800 px-3 py-2">
+                                <label className="inline-flex cursor-pointer items-center rounded-md bg-slate-700 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600 transition">
+                                    Seleccionar archivo
+                                    <input
+                                        type="file"
+                                        accept="image/*,.pdf"
+                                        aria-label="Comprobante de pago (opcional)"
+                                        className="sr-only"
+                                        onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+                                    />
+                                </label>
+                                <span className="text-xs text-slate-300 truncate">
+                                    {comprobante ? "Archivo adjunto" : "Ningún archivo seleccionado"}
+                                </span>
+                            </div>
                         </label>
 
                         <div className="flex gap-3">
@@ -190,6 +199,8 @@ export default function InscriptionCreateModal({
                                 className="w-full"
                                 disabled={loading}
                                 onClick={handleSubmit}
+                                loading={loading}
+                                loadingText="Confirmando..."
                             >
                                 Confirmar inscripción
                             </Button>

@@ -1,6 +1,18 @@
+/*
+File: ScientificWorksManagementScreen.tsx
+
+Contains:
+Committee and reviewer management workflow for scientific work assignment, evaluation, and decisions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useEffect, useMemo, useState } from "react";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
+import SelectInput from "../../components/ui/SelectorInput";
 import Loader from "../../components/ui/Loader";
 import EmptyState from "../../components/ui/EmptyState";
 import ErrorState from "../../components/ui/ErrorState";
@@ -21,12 +33,14 @@ import {
   submitScientificWorkEvaluation,
 } from "../../services/scientificWorkServices";
 
+// formatDecisionLabel normalizes API decision values for display.
 function formatDecisionLabel(value: string): string {
   return String(value || "PENDIENTE_REVISION")
     .replaceAll("_", " ")
     .trim();
 }
 
+// ScientificWorksManagementScreen provides committee/reviewer actions over submitted works.
 export default function ScientificWorksManagementScreen(): JSX.Element {
   const authUser = getStoredAuthUser();
   const { showToast } = useToast();
@@ -43,6 +57,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
   const [works, setWorks] = useState<ScientificWorkManagementItem[]>([]);
   const [reviewers, setReviewers] = useState<ScientificWorkReviewerItem[]>([]);
@@ -58,6 +73,9 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
   const [evaluationsOpen, setEvaluationsOpen] = useState(false);
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [evaluationOpen, setEvaluationOpen] = useState(false);
+  const [savingAssign, setSavingAssign] = useState(false);
+  const [savingDecision, setSavingDecision] = useState(false);
+  const [savingEvaluation, setSavingEvaluation] = useState(false);
 
   const [selectedReviewers, setSelectedReviewers] = useState<number[]>([]);
   const [decision, setDecision] = useState("PENDIENTE_REVISION");
@@ -79,9 +97,13 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  async function loadData() {
+  // loadData fetches works based on the current operating mode and filters.
+  async function loadData(opts?: { silent?: boolean }) {
     if (!authUser?.id) return;
-    setLoading(true);
+    const silent = opts?.silent ?? false;
+    if (!silent && !initialLoaded) {
+      setLoading(true);
+    }
     setError("");
 
     if (mode === "COMITE") {
@@ -107,6 +129,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
       }
     }
 
+    if (!initialLoaded) setInitialLoaded(true);
     setLoading(false);
   }
 
@@ -114,12 +137,22 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     await loadData();
   }
 
+  useEffect(() => {
+    if (mode !== "COMITE") return;
+    const timeoutId = window.setTimeout(() => {
+      void loadData({ silent: true });
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [query, autor, estado, mode]);
+
   function toggleReviewer(id: number) {
     setSelectedReviewers((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   }
 
+  // openAssignModal retrieves eligible reviewers for the selected work.
   async function openAssignModal(work: ScientificWorkManagementItem) {
     if (!authUser?.id) return;
     setSelectedWork(work);
@@ -139,6 +172,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setAssignOpen(true);
   }
 
+  // assignSelectedReviewers persists current multi-selection for reviewer assignment.
   async function assignSelectedReviewers() {
     if (!authUser?.id || !selectedWork) return;
 
@@ -151,29 +185,35 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
       return;
     }
 
-    const res = await assignScientificWorkReviewers({
-      user_id: authUser.id,
-      id_trabajo: selectedWork.id_trabajo,
-      revisores: selectedReviewers,
-    });
-
-    if (res.status >= 400) {
-      showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo asignar revisores.",
-        status: "error",
+    setSavingAssign(true);
+    try {
+      const res = await assignScientificWorkReviewers({
+        user_id: authUser.id,
+        id_trabajo: selectedWork.id_trabajo,
+        revisores: selectedReviewers,
       });
-      return;
-    }
 
-    showToast({
-      title: "Asignación exitosa",
-      message: "Los revisores fueron asignados correctamente.",
-      status: "success",
-    });
-    setAssignOpen(false);
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo asignar revisores.",
+          status: "error",
+        });
+        return;
+      }
+
+      showToast({
+        title: "Asignación exitosa",
+        message: "Los revisores fueron asignados correctamente.",
+        status: "success",
+      });
+      setAssignOpen(false);
+    } finally {
+      setSavingAssign(false);
+    }
   }
 
+  // openEvaluationsModal loads summary and detailed evaluations for a work.
   async function openEvaluationsModal(work: ScientificWorkManagementItem) {
     if (!authUser?.id) return;
     setSelectedWork(work);
@@ -214,32 +254,38 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setDecisionOpen(true);
   }
 
+  // submitDecision saves committee final decision and optional author comment.
   async function submitDecision() {
     if (!authUser?.id || !selectedWork) return;
 
-    const res = await decideScientificWork({
-      user_id: authUser.id,
-      id_trabajo: selectedWork.id_trabajo,
-      decision_comite: decision,
-      comentario_comite: decisionComment.trim(),
-    });
-
-    if (res.status >= 400) {
-      showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo registrar la decisión.",
-        status: "error",
+    setSavingDecision(true);
+    try {
+      const res = await decideScientificWork({
+        user_id: authUser.id,
+        id_trabajo: selectedWork.id_trabajo,
+        decision_comite: decision,
+        comentario_comite: decisionComment.trim(),
       });
-      return;
-    }
 
-    showToast({
-      title: "Decisión guardada",
-      message: "El estado del trabajo fue actualizado.",
-      status: "success",
-    });
-    setDecisionOpen(false);
-    await loadData();
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo registrar la decisión.",
+          status: "error",
+        });
+        return;
+      }
+
+      showToast({
+        title: "Decisión guardada",
+        message: "El estado del trabajo fue actualizado.",
+        status: "success",
+      });
+      setDecisionOpen(false);
+      await loadData();
+    } finally {
+      setSavingDecision(false);
+    }
   }
 
   function openEvaluationModal(work: ScientificWorkManagementItem) {
@@ -252,6 +298,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
     setEvaluationOpen(true);
   }
 
+  // submitEvaluation validates and stores a reviewer's scoring submission.
   async function submitEvaluation() {
     if (!authUser?.id || !selectedWork) return;
 
@@ -274,34 +321,40 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
       return;
     }
 
-    const res = await submitScientificWorkEvaluation({
-      user_id: authUser.id,
-      id_trabajo: selectedWork.id_trabajo,
-      recomendacion: recomendacion,
-      puntaje: parsedScore,
-      comentarios: "",
-      fortalezas: fortalezas.trim(),
-      debilidades: debilidades.trim(),
-      recomendaciones: recomendaciones.trim(),
-    });
-
-    if (res.status >= 400) {
-      showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo guardar la evaluación.",
-        status: "error",
+    setSavingEvaluation(true);
+    try {
+      const res = await submitScientificWorkEvaluation({
+        user_id: authUser.id,
+        id_trabajo: selectedWork.id_trabajo,
+        recomendacion: recomendacion,
+        puntaje: parsedScore,
+        comentarios: "",
+        fortalezas: fortalezas.trim(),
+        debilidades: debilidades.trim(),
+        recomendaciones: recomendaciones.trim(),
       });
-      return;
-    }
 
-    showToast({
-      title: "Evaluación registrada",
-      message: "Tu evaluación fue guardada correctamente.",
-      status: "success",
-    });
-    setEvaluationOpen(false);
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo guardar la evaluación.",
+          status: "error",
+        });
+        return;
+      }
+
+      showToast({
+        title: "Evaluación registrada",
+        message: "Tu evaluación fue guardada correctamente.",
+        status: "success",
+      });
+      setEvaluationOpen(false);
+    } finally {
+      setSavingEvaluation(false);
+    }
   }
 
+  // handleDownloadCurrentFile downloads the current exposed PDF file version.
   async function handleDownloadCurrentFile(work: ScientificWorkManagementItem) {
     if (!authUser?.id) return;
     if (!work.archivo_actual?.id_version) {
@@ -373,28 +426,11 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {canCommittee && (
-            <Button
-              variant={mode === "COMITE" ? "primary" : "ghost"}
-              onClick={() => setMode("COMITE")}
-            >
-              Vista Comité
-            </Button>
-          )}
-          {canReviewer && (
-            <Button
-              variant={mode === "REVISOR" ? "primary" : "ghost"}
-              onClick={() => setMode("REVISOR")}
-            >
-              Vista Revisor
-            </Button>
-          )}
-        </div>
+        <div className="text-xs text-slate-400">Modo: {mode === "COMITE" ? "Comité" : "Revisor"}</div>
       </header>
 
       {mode === "COMITE" && (
-        <div className="rounded-xl border border-slate-700 bg-slate-800 p-4 grid gap-3 md:grid-cols-4">
+        <div className="rounded-xl border border-slate-700 bg-slate-800 p-4 grid gap-3 md:grid-cols-[1.4fr_1fr_1fr]">
           <input
             className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
             placeholder="Buscar por título/resumen/autor"
@@ -407,18 +443,20 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
             value={autor}
             onChange={(e) => setAutor(e.target.value)}
           />
-          <select
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+          <SelectInput
+            className="w-full"
             value={estado}
-            onChange={(e) => setEstado(e.target.value)}
-          >
-            <option value="">Todos los estados</option>
-            <option value="RECIBIDO">RECIBIDO</option>
-            <option value="ACTUALIZADO">ACTUALIZADO</option>
-            <option value="ACEPTADO">ACEPTADO</option>
-            <option value="RECHAZADO">RECHAZADO</option>
-          </select>
-          <Button onClick={handleFilter}>Aplicar filtros</Button>
+            onChange={(value) => setEstado(Array.isArray(value) ? value[0] ?? "" : value)}
+            options={[
+              { value: "", label: "Todos los estados" },
+              { value: "RECIBIDO", label: "RECIBIDO" },
+              { value: "ACTUALIZADO", label: "ACTUALIZADO" },
+              { value: "ACEPTADO", label: "ACEPTADO" },
+              { value: "RECHAZADO", label: "RECHAZADO" },
+            ]}
+            placeholder="Todos los estados"
+            allowCustom={false}
+          />
         </div>
       )}
 
@@ -508,7 +546,9 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
             <Button variant="ghost" onClick={() => setAssignOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={assignSelectedReviewers}>Guardar asignación</Button>
+            <Button onClick={assignSelectedReviewers} loading={savingAssign} loadingText="Guardando..." disabled={selectedReviewers.length === 0}>
+              Guardar asignación
+            </Button>
           </div>
         </div>
       </Modal>
@@ -550,15 +590,16 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
       <Modal open={decisionOpen} onClose={() => setDecisionOpen(false)} title="Decisión final del comité">
         <div className="space-y-4">
           <p className="text-sm text-slate-300">{selectedWork?.titulo}</p>
-          <select
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+          <SelectInput
             value={decision}
-            onChange={(e) => setDecision(e.target.value)}
-          >
-            <option value="ACEPTADO">ACEPTADO</option>
-            <option value="RECHAZADO">RECHAZADO</option>
-            <option value="PENDIENTE_REVISION">PENDIENTE DE REVISIÓN</option>
-          </select>
+            onChange={(value) => setDecision(Array.isArray(value) ? value[0] ?? "" : value)}
+            options={[
+              { value: "ACEPTADO", label: "ACEPTADO" },
+              { value: "RECHAZADO", label: "RECHAZADO" },
+              { value: "PENDIENTE_REVISION", label: "PENDIENTE DE REVISIÓN" },
+            ]}
+            allowCustom={false}
+          />
           <textarea
             className="w-full min-h-[120px] rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
             placeholder="Comentario del comité para el autor (opcional)"
@@ -569,7 +610,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
             <Button variant="ghost" onClick={() => setDecisionOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={submitDecision}>Guardar decisión</Button>
+            <Button onClick={submitDecision} loading={savingDecision} loadingText="Guardando...">Guardar decisión</Button>
           </div>
         </div>
       </Modal>
@@ -577,27 +618,29 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
       <Modal open={evaluationOpen} onClose={() => setEvaluationOpen(false)} title="Registrar evaluación">
         <div className="space-y-4">
           <p className="text-sm text-slate-300">{selectedWork?.titulo}</p>
-          <select
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+          <SelectInput
             value={recomendacion}
-            onChange={(e) => setRecomendacion(e.target.value)}
-          >
-            <option value="ACEPTAR">ACEPTAR</option>
-            <option value="RECHAZAR">RECHAZAR</option>
-            <option value="PENDIENTE">PENDIENTE</option>
-          </select>
-          <select
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
+            onChange={(value) => setRecomendacion(Array.isArray(value) ? value[0] ?? "" : value)}
+            options={[
+              { value: "ACEPTAR", label: "ACEPTAR" },
+              { value: "RECHAZAR", label: "RECHAZAR" },
+              { value: "PENDIENTE", label: "PENDIENTE" },
+            ]}
+            allowCustom={false}
+          />
+          <SelectInput
             value={puntaje}
-            onChange={(e) => setPuntaje(e.target.value)}
-          >
-            <option value="">Selecciona una calificación (1-5)</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
+            onChange={(value) => setPuntaje(Array.isArray(value) ? value[0] ?? "" : value)}
+            options={[
+              { value: "", label: "Selecciona una calificación (1-5)" },
+              { value: "1", label: "1" },
+              { value: "2", label: "2" },
+              { value: "3", label: "3" },
+              { value: "4", label: "4" },
+              { value: "5", label: "5" },
+            ]}
+            allowCustom={false}
+          />
           <textarea
             className="w-full min-h-[120px] rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
             placeholder="Fortalezas"
@@ -620,7 +663,7 @@ export default function ScientificWorksManagementScreen(): JSX.Element {
             <Button variant="ghost" onClick={() => setEvaluationOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={submitEvaluation}>Guardar evaluación</Button>
+            <Button onClick={submitEvaluation} loading={savingEvaluation} loadingText="Guardando...">Guardar evaluación</Button>
           </div>
         </div>
       </Modal>

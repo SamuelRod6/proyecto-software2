@@ -1,3 +1,14 @@
+/*
+File: CreateSessionModal.tsx
+
+Contains:
+Two-step modal to create a session and assign at least one speaker.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React, { useState, useEffect, useContext } from 'react';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -5,10 +16,8 @@ import Input from '../ui/Input';
 import SelectorInput from '../ui/SelectorInput';
 import DayPickerSingle from '../ui/DayPickerSingle';
 import TimeRangePicker from '../ui/TimeRangePicker';
-import Loader from '../ui/Loader';
 
-import { createSession, getAvailableSpeakers, getEventDetail, assignSpeakersToSession } from '../../services/sessionsServices';
-import { useLoader } from '../../contexts/Loader/LoaderContext';
+import { createSession, getAvailableSpeakers, getEventDetail, assignSpeakersToSession, AvailableSpeaker } from '../../services/sessionsServices';
 import { useToast } from '../../contexts/Toast/ToastContext';
 
 interface CreateSessionModalProps {
@@ -18,6 +27,7 @@ interface CreateSessionModalProps {
   onSessionCreated: () => void;
 }
 
+// CreateSessionModal orchestrates session creation and mandatory speaker assignment.
 const CreateSessionModal: React.FC<CreateSessionModalProps> = ({ 
     event, 
     open,
@@ -31,19 +41,19 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
   const [horaFin, setHoraFin] = useState('09:00');
   // Dynamic speakers selection (segunda página)
   const [ponentesSeleccionados, setPonentesSeleccionados] = useState<(number | null)[]>([null]);
-  const [ponentesDisponibles, setPonentesDisponibles] = useState<any[]>([]);
+  const [ponentesDisponibles, setPonentesDisponibles] = useState<AvailableSpeaker[]>([]);
   const [createdSessionId, setCreatedSessionId] = useState<number | null>(null);
   const [showPonentePage, setShowPonentePage] = useState(false);
   const [ubicacion, setUbicacion] = useState(event?.ubicacion || '');
   const [eventoDetalle, setEventoDetalle] = useState<any>(null);
-  const { showLoader, hideLoader } = useLoader();
   const { showToast } = useToast();
+  const [creatingSession, setCreatingSession] = useState(false);
+  const [assigningSpeaker, setAssigningSpeaker] = useState(false);
+  const [loadingSpeakers, setLoadingSpeakers] = useState(false);
 
-    const [loadingData, setLoadingData] = useState(false);
-
-    // Solo cargar ponentes en la segunda página
+    // fetchPonentes loads available speakers after the session is created.
     const fetchPonentes = async (sessionId: number) => {
-      //setLoadingData(true);
+      setLoadingSpeakers(true);
       try {
         const res = await getAvailableSpeakers(sessionId);
         if (res.status !== 200) {
@@ -55,7 +65,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
           });
           return;
         }
-        setPonentesDisponibles(res.data || []);
+        setPonentesDisponibles(Array.isArray(res.data) ? res.data : []);
       } catch (err: any) {
         setPonentesDisponibles([]);
         showToast({
@@ -64,7 +74,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
           status: 'error',
         });
       } finally {
-        setLoadingData(false);
+        setLoadingSpeakers(false);
       }
     };
 
@@ -88,7 +98,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       setErrors({});
     }, [open, event.id]);
 
-  // Helper y validaciones
+  // buildDateTime combines selected day and HH:mm input into a single Date.
   const buildDateTime = (baseDate: Date, timeHHmm: string) => {
     const [h, m] = timeHHmm.split(":").map(Number);
     const result = new Date(baseDate);
@@ -96,6 +106,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     return result;
   };
 
+  // validateCreateForm enforces title and time-window constraints.
   const validateCreateForm = () => {
     const nextErrors: { titulo?: string; fechaHora?: string; general?: string } = {};
 
@@ -131,6 +142,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
     return Object.keys(nextErrors).length === 0;
   };
 
+  // parseEventDate accepts display dates (DD/MM/YYYY) and ISO-like strings.
   const parseEventDate = (value?: string): Date | undefined => {
     if (!value) return undefined;
 
@@ -150,13 +162,13 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
 
   const atStartOfDay = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-  // Primera página: crear sesión
+  // handleCreateSession submits step one and opens speaker assignment on success.
   const handleCreateSession = async () => {
 
     // Validar antes de enviar
     if (!validateCreateForm()) return;
 
-    showLoader();
+    setCreatingSession(true);
     try {
       const fechaInicio = new Date(fecha!);
       const [hIni, mIni] = horaInicio.split(':');
@@ -193,9 +205,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       if (res.status === 200 && res.data?.id_sesion) {
         setCreatedSessionId(res.data.id_sesion);
         setShowPonentePage(true);
-        setLoadingData(true);
         await fetchPonentes(res.data.id_sesion);
-        setLoadingData(false);
         showToast({
           title: 'Sesión creada',
           message: 'Ahora debes asignar un ponente.',
@@ -215,13 +225,13 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         status: 'error',
       });
     } finally {
-      hideLoader();
+      setCreatingSession(false);
     }
   };
 
-  // Segunda página: asignar ponente obligatorio
+  // handleAssignPonente persists selected speakers and closes the modal flow.
   const handleAssignPonente = async () => {
-    showLoader();
+    setAssigningSpeaker(true);
     try {
       const usuarios = ponentesSeleccionados.filter(
         (id, idx, arr) => id !== null && arr.indexOf(id) === idx
@@ -261,7 +271,7 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
         status: 'error',
       });
     } finally {
-      hideLoader();
+      setAssigningSpeaker(false);
     }
   };
 
@@ -271,12 +281,11 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
       onClose={onClose} 
       title={showPonentePage ? 'Asignar Ponente a Sesión' : 'Crear Sesión'}
     >
-      {loadingData ? (
-        <div className="flex justify-center items-center min-h-[300px]">
-          <Loader visible={true} />
-        </div>
-      ) : showPonentePage ? (
+      {showPonentePage ? (
         <div className="flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+          {loadingSpeakers && (
+            <p className="text-sm text-slate-400">Cargando ponentes disponibles...</p>
+          )}
           <div className="flex flex-col gap-2">
             {ponentesSeleccionados.map((selected, idx) => {
               const selectedIds = ponentesSeleccionados.filter((id, i) => id !== null && i !== idx);
@@ -285,19 +294,25 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
                 .map(p => ({ value: String(p.id_usuario), label: `${p.nombre} · ${p.email ?? "sin correo"}` }));
               return (
                 <div key={idx} className="flex items-center gap-2">
-                  {options.length > 0 && (
+                  <div className="flex-1">
                     <SelectorInput
                       inputLabel={idx === 0 ? 'Ponente principal' : `Ponente adicional ${idx}`}
                       placeholder={idx === 0 ? 'Escoge un ponente' : 'Escoge otro ponente'}
                       options={options}
                       value={selected !== null ? String(selected) : ''}
                       onChange={val => {
+                        const selectedValue = Array.isArray(val) ? val[0] ?? '' : val;
                         const newArr = [...ponentesSeleccionados];
-                        newArr[idx] = val === '' ? null : Number(val);
+                        newArr[idx] = selectedValue === '' ? null : Number(selectedValue);
                         setPonentesSeleccionados(newArr);
                       }}
                     />
-                  )}
+                    {options.length === 0 && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        No hay ponentes disponibles para seleccionar en este momento.
+                      </p>
+                    )}
+                  </div>
                   {idx > 0 && (
                     <Button
                       type="button"
@@ -337,12 +352,14 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
             className="mt-4"
             onClick={handleAssignPonente}
             disabled={!ponentesSeleccionados[0]}
+            loading={assigningSpeaker}
+            loadingText="Asignando..."
           >
             Asignar Ponente
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-center" onClick={e => e.stopPropagation()}>
+        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 items-start" onClick={e => e.stopPropagation()}>
           <div className="flex flex-col gap-4 min-w-[260px]">
             <div className="bg-white rounded-lg p-6 flex flex-col items-center shadow-md">
               <DayPickerSingle
@@ -385,7 +402,8 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
               )}
             </div>
           </div>
-          <div className="flex flex-col gap-4 flex-1 justify-center md:min-h-[520px]">
+          <div className="flex flex-col gap-4 flex-1 self-stretch md:min-h-[520px]">
+            <div className="flex flex-col gap-4">
             <Input 
               label="Título"
               value={titulo}
@@ -405,10 +423,13 @@ const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
               maxLength={300}
             />
             <Input label="Ubicación" value={ubicacion} disabled required />
+            </div>
             <Button
-              className="mt-4"
+              className="mt-auto self-center w-full md:w-56"
               onClick={handleCreateSession}
               disabled={!titulo || !fecha || !horaInicio || !horaFin || titulo.length > 100}
+              loading={creatingSession}
+              loadingText="Creando..."
             >
               Crear Sesión
             </Button>

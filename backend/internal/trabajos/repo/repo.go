@@ -1,3 +1,16 @@
+/*
+File: repo.go
+
+Contains:
+Persistence repository implementation for the Trabajos module.
+It provides data access for works, versions, committee filters,
+reviewer assignment, and evaluation records.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package repo
 
 import (
@@ -15,6 +28,7 @@ type Repository struct {
 	client *db.PrismaClient
 }
 
+// WorkStatusHistoryRow represents one row from the work history table.
 type WorkStatusHistoryRow struct {
 	IDHistorial    int       `json:"id_historial"`
 	IDTrabajo      int       `json:"id_trabajo"`
@@ -26,16 +40,20 @@ type WorkStatusHistoryRow struct {
 	FechaCambio    time.Time `json:"fecha_cambio"`
 }
 
+// New creates a trabajos repository with a Prisma client.
 func New(client *db.PrismaClient) *Repository {
 	return &Repository{client: client}
 }
 
+// FindEventoByID retrieves an event by identifier.
 func (r *Repository) FindEventoByID(ctx context.Context, id int) (*db.EventoModel, error) {
 	return r.client.Evento.FindUnique(
 		db.Evento.IDEvento.Equals(id),
 	).Exec(ctx)
 }
 
+// ExistsNormalizedTitleInEvent checks whether a normalized title already
+// exists in the target event.
 func (r *Repository) ExistsNormalizedTitleInEvent(ctx context.Context, eventID int, normalized string) (bool, error) {
 	row, err := r.client.TrabajoCientifico.FindFirst(
 		db.TrabajoCientifico.IDEvento.Equals(eventID),
@@ -49,6 +67,7 @@ func (r *Repository) ExistsNormalizedTitleInEvent(ctx context.Context, eventID i
 	return row != nil, nil
 }
 
+// CreateTrabajo creates a new scientific work record.
 func (r *Repository) CreateTrabajo(ctx context.Context, eventID, userID int, titulo, tituloNormalizado, resumen string) (*db.TrabajoCientificoModel, error) {
 	return r.client.TrabajoCientifico.CreateOne(
 		db.TrabajoCientifico.Titulo.Set(strings.TrimSpace(titulo)),
@@ -59,12 +78,14 @@ func (r *Repository) CreateTrabajo(ctx context.Context, eventID, userID int, tit
 	).Exec(ctx)
 }
 
+// FindTrabajoByID retrieves one work by ID.
 func (r *Repository) FindTrabajoByID(ctx context.Context, trabajoID int) (*db.TrabajoCientificoModel, error) {
 	return r.client.TrabajoCientifico.FindUnique(
 		db.TrabajoCientifico.IDTrabajo.Equals(trabajoID),
 	).Exec(ctx)
 }
 
+// FindTrabajoByIDAndUser retrieves one work by ID scoped to an owner user.
 func (r *Repository) FindTrabajoByIDAndUser(ctx context.Context, trabajoID, userID int) (*db.TrabajoCientificoModel, error) {
 	return r.client.TrabajoCientifico.FindFirst(
 		db.TrabajoCientifico.IDTrabajo.Equals(trabajoID),
@@ -72,6 +93,7 @@ func (r *Repository) FindTrabajoByIDAndUser(ctx context.Context, trabajoID, user
 	).Exec(ctx)
 }
 
+// ListTrabajosByUser lists works submitted by a user.
 func (r *Repository) ListTrabajosByUser(ctx context.Context, userID int) ([]db.TrabajoCientificoModel, error) {
 	return r.client.TrabajoCientifico.FindMany(
 		db.TrabajoCientifico.IDUsuario.Equals(userID),
@@ -80,6 +102,7 @@ func (r *Repository) ListTrabajosByUser(ctx context.Context, userID int) ([]db.T
 	).Exec(ctx)
 }
 
+// MarkVersionsAsNotCurrent sets EsActual=false for currently active versions.
 func (r *Repository) MarkVersionsAsNotCurrent(ctx context.Context, trabajoID int) error {
 	rows, err := r.client.TrabajoCientificoVersion.FindMany(
 		db.TrabajoCientificoVersion.IDTrabajo.Equals(trabajoID),
@@ -102,6 +125,7 @@ func (r *Repository) MarkVersionsAsNotCurrent(ctx context.Context, trabajoID int
 	return nil
 }
 
+// CreateVersion creates a new version row for a work.
 func (r *Repository) CreateVersion(
 	ctx context.Context,
 	trabajoID, numeroVersion int,
@@ -121,6 +145,7 @@ func (r *Repository) CreateVersion(
 	).Exec(ctx)
 }
 
+// UpdateTrabajoVersionActual updates version metadata in the work record.
 func (r *Repository) UpdateTrabajoVersionActual(ctx context.Context, trabajoID, version int) error {
 	_, err := r.client.TrabajoCientifico.FindUnique(
 		db.TrabajoCientifico.IDTrabajo.Equals(trabajoID),
@@ -131,6 +156,7 @@ func (r *Repository) UpdateTrabajoVersionActual(ctx context.Context, trabajoID, 
 	return err
 }
 
+// ListVersionesByTrabajo lists versions for one work.
 func (r *Repository) ListVersionesByTrabajo(ctx context.Context, trabajoID int) ([]db.TrabajoCientificoVersionModel, error) {
 	return r.client.TrabajoCientificoVersion.FindMany(
 		db.TrabajoCientificoVersion.IDTrabajo.Equals(trabajoID),
@@ -139,6 +165,7 @@ func (r *Repository) ListVersionesByTrabajo(ctx context.Context, trabajoID int) 
 	).Exec(ctx)
 }
 
+// FindVersionByTrabajoAndNumber retrieves a specific version by number.
 func (r *Repository) FindVersionByTrabajoAndNumber(ctx context.Context, trabajoID, numeroVersion int) (*db.TrabajoCientificoVersionModel, error) {
 	return r.client.TrabajoCientificoVersion.FindFirst(
 		db.TrabajoCientificoVersion.IDTrabajo.Equals(trabajoID),
@@ -146,6 +173,7 @@ func (r *Repository) FindVersionByTrabajoAndNumber(ctx context.Context, trabajoI
 	).Exec(ctx)
 }
 
+// FindCurrentVersion retrieves current version for a work.
 func (r *Repository) FindCurrentVersion(ctx context.Context, trabajoID int) (*db.TrabajoCientificoVersionModel, error) {
 	return r.client.TrabajoCientificoVersion.FindFirst(
 		db.TrabajoCientificoVersion.IDTrabajo.Equals(trabajoID),
@@ -153,12 +181,14 @@ func (r *Repository) FindCurrentVersion(ctx context.Context, trabajoID int) (*db
 	).Exec(ctx)
 }
 
+// FindVersionByID retrieves one version by ID.
 func (r *Repository) FindVersionByID(ctx context.Context, versionID int) (*db.TrabajoCientificoVersionModel, error) {
 	return r.client.TrabajoCientificoVersion.FindUnique(
 		db.TrabajoCientificoVersion.IDVersion.Equals(versionID),
 	).Exec(ctx)
 }
 
+// FindCommitteeUsers lists users that belong to scientific committee role.
 func (r *Repository) FindCommitteeUsers(ctx context.Context) ([]db.UsuarioModel, error) {
 	roleIDs := make([]int, 0, 2)
 
@@ -197,6 +227,7 @@ func (r *Repository) FindCommitteeUsers(ctx context.Context) ([]db.UsuarioModel,
 	return users, nil
 }
 
+// UserHasRole checks whether a user has a specific role name.
 func (r *Repository) UserHasRole(ctx context.Context, userID int, roleName string) (bool, error) {
 	roleName = strings.TrimSpace(roleName)
 	if roleName == "" {
@@ -228,6 +259,7 @@ func (r *Repository) UserHasRole(ctx context.Context, userID int, roleName strin
 	return false, nil
 }
 
+// ListTrabajosComite lists works for committee view using filter fields.
 func (r *Repository) ListTrabajosComite(ctx context.Context, f dto.TrabajoComiteFilter) ([]db.TrabajoCientificoModel, error) {
 	var (
 		rows []db.TrabajoCientificoModel
@@ -294,6 +326,7 @@ func (r *Repository) ListTrabajosComite(ctx context.Context, f dto.TrabajoComite
 	return filtered, nil
 }
 
+// ListRevisores lists users with reviewer role.
 func (r *Repository) ListRevisores(ctx context.Context) ([]db.UsuarioModel, error) {
 	role, err := r.client.Roles.FindFirst(
 		db.Roles.NombreRol.Equals("REVISOR"),
@@ -339,6 +372,7 @@ func (r *Repository) ListRevisores(ctx context.Context) ([]db.UsuarioModel, erro
 	return revisores, nil
 }
 
+// AssignReviewer assigns one reviewer to a work when missing.
 func (r *Repository) AssignReviewer(ctx context.Context, trabajoID, revisorID, asignadorID int) error {
 	existing, err := r.client.TrabajoRevisionAsignacion.FindFirst(
 		db.TrabajoRevisionAsignacion.IDTrabajo.Equals(trabajoID),
@@ -368,6 +402,7 @@ func (r *Repository) AssignReviewer(ctx context.Context, trabajoID, revisorID, a
 	return err
 }
 
+// ListTrabajosAsignadosRevisor lists works assigned to a reviewer.
 func (r *Repository) ListTrabajosAsignadosRevisor(ctx context.Context, userID int) ([]db.TrabajoCientificoModel, error) {
 	asignaciones, err := r.client.TrabajoRevisionAsignacion.FindMany(
 		db.TrabajoRevisionAsignacion.IDRevisor.Equals(userID),
@@ -416,6 +451,7 @@ func (r *Repository) ListTrabajosAsignadosRevisor(ctx context.Context, userID in
 	return works, nil
 }
 
+// UpsertEvaluacion creates or updates reviewer evaluation for a work.
 func (r *Repository) UpsertEvaluacion(ctx context.Context, req dto.SubmitEvaluationRequest) error {
 	recomendacion := strings.ToUpper(strings.TrimSpace(req.Recomendacion))
 	if recomendacion == "" {
@@ -471,6 +507,7 @@ func (r *Repository) UpsertEvaluacion(ctx context.Context, req dto.SubmitEvaluat
 	return err
 }
 
+// ListEvaluacionesByTrabajo lists evaluation rows for one work.
 func (r *Repository) ListEvaluacionesByTrabajo(ctx context.Context, trabajoID int) ([]db.TrabajoEvaluacionModel, error) {
 	return r.client.TrabajoEvaluacion.FindMany(
 		db.TrabajoEvaluacion.IDTrabajo.Equals(trabajoID),
@@ -479,6 +516,7 @@ func (r *Repository) ListEvaluacionesByTrabajo(ctx context.Context, trabajoID in
 	).Exec(ctx)
 }
 
+// UpdateDecisionComite updates final committee decision fields.
 func (r *Repository) UpdateDecisionComite(ctx context.Context, req dto.DecisionRequest) error {
 	decision := strings.ToUpper(strings.TrimSpace(req.DecisionComite))
 	if decision == "" {
@@ -552,12 +590,14 @@ func (r *Repository) ListTrabajoHistorial(ctx context.Context, filters map[strin
 	return rows, nil
 }
 
+// FindUserByID retrieves one user by ID.
 func (r *Repository) FindUserByID(ctx context.Context, userID int) (*db.UsuarioModel, error) {
 	return r.client.Usuario.FindUnique(
 		db.Usuario.IDUsuario.Equals(userID),
 	).Exec(ctx)
 }
 
+// FindAuthorAffiliation retrieves author affiliation for one event registration.
 func (r *Repository) FindAuthorAffiliation(ctx context.Context, eventID, userID int) (string, error) {
 	row, err := r.client.Inscripcion.FindFirst(
 		db.Inscripcion.IDEvento.Equals(eventID),
@@ -578,6 +618,7 @@ func (r *Repository) FindAuthorAffiliation(ctx context.Context, eventID, userID 
 	return strings.TrimSpace(row.Afiliacion), nil
 }
 
+// IsReviewerAssigned checks if a reviewer is assigned to the work.
 func (r *Repository) IsReviewerAssigned(ctx context.Context, trabajoID, reviewerID int) (bool, error) {
 	row, err := r.client.TrabajoRevisionAsignacion.FindFirst(
 		db.TrabajoRevisionAsignacion.IDTrabajo.Equals(trabajoID),

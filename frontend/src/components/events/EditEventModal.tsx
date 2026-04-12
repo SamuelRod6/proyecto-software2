@@ -1,11 +1,20 @@
+/*
+File: EditEventModal.tsx
+
+Contains:
+Modal component to edit event data, close date, and related sessions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import DayPickerSingle from "../ui/DayPickerSingle";
 import BackArrow from "../ui/BackArrow";
-import { useLoader } from "../../contexts/Loader/LoaderContext";
 import { useToast } from "../../contexts/Toast/ToastContext";
 import { useModal } from "../../contexts/Modal/ModalContext";
-import { useNavigate } from "react-router-dom";
 import Modal from "../ui/Modal";
 import DateRangePicker from "../ui/DateRangePicker";
 import SelectInput from "../ui/SelectorInput";
@@ -17,6 +26,7 @@ import { getEventDetail } from "../../services/sessionsServices";
 import EditSessionModal from "../sessions/EditSessionModal";
 import SessionList from "../sessions/SessionList";
 
+// EditEventModalProps controls visibility and refresh callback.
 interface EditEventModalProps {
   open: boolean;
   onClose: () => void;
@@ -24,11 +34,12 @@ interface EditEventModalProps {
   onUpdate?: () => void;
 }
 
+// EditEventModal handles event edition and session quick-access workflow.
 export default function EditEventModal({ open, onClose, event, onUpdate }: EditEventModalProps): JSX.Element {
     const [sessions, setSessions] = useState<any[]>([]);
     const [selectedSession, setSelectedSession] = useState<any | null>(null);
     const [showEditSessionModal, setShowEditSessionModal] = useState(false);
-    // Cargar sesiones del evento cuando se abre el modal o cambia el evento
+    // Load event sessions when modal opens or selected event changes.
     useEffect(() => {
       if (open && event?.id_evento) {
         getEventDetail(event.id_evento).then(({ status, data }) => {
@@ -41,7 +52,6 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
       }
     }, [open, event]);
   const { dispatch: modalDispatch } = useModal();
-  const navigate = useNavigate();
   const [name, setName] = useState(event.nombre);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: parseDate(event.fecha_inicio),
@@ -52,7 +62,7 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
   const [page2, setPage2] = useState(false);
   const [closeDate, setCloseDate] = useState(parseDate(event.fecha_cierre_inscripcion));
   const [disabledRanges, setDisabledRanges] = useState<{ from: Date; to: Date }[]>([]);
-  const { showLoader, hideLoader } = useLoader();
+  const [submitting, setSubmitting] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -72,12 +82,14 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
     }
   }, [open]);
 
+  // parseDate converts API dates (DD/MM/YYYY) into Date objects.
   function parseDate(dateStr: string): Date {
     if (!dateStr) return new Date();
     const [day, month, year] = dateStr.split("/");
     return new Date(Number(year), Number(month) - 1, Number(day));
   }
 
+  // formatDateWithTime builds API payload date strings.
   function formatDateWithTime(d: Date, hour: number, minute: number): string {
     const date = new Date(d);
     date.setHours(hour, minute, 0, 0);
@@ -85,6 +97,7 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
     return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
   }
 
+  // getEventPayload validates required fields and builds update payload.
   function getEventPayload() {
     if (!name || !dateRange || !dateRange.from || !dateRange.to || !country || !city || !closeDate) {
       return null;
@@ -99,9 +112,24 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
     };
   }
 
+  const initialPayload = {
+    id_evento: event.id_evento,
+    nombre: event.nombre,
+    fecha_inicio: formatDateWithTime(parseDate(event.fecha_inicio), 0, 0),
+    fecha_fin: formatDateWithTime(parseDate(event.fecha_fin), 23, 59),
+    ubicacion: `${event.ubicacion.split(", ")[0] || ""}, ${event.ubicacion.split(", ")[1] || ""}`,
+    fecha_cierre_inscripcion: formatDateWithTime(parseDate(event.fecha_cierre_inscripcion), 23, 59),
+  };
+
+  const currentPayload = getEventPayload();
+  const hasChanges =
+    !!currentPayload &&
+    JSON.stringify(currentPayload) !== JSON.stringify(initialPayload);
+
+  // handleSubmit submits event updates and refreshes parent view on success.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    showLoader();
+    setSubmitting(true);
     try {
       const payload = getEventPayload();
       if (!payload) {
@@ -121,7 +149,6 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
         });
         if (onUpdate) onUpdate();
         modalDispatch({ type: 'CLOSE_MODAL' });
-        navigate('/events');
       } else {
         showToast({
           title: "Error al actualizar evento",
@@ -137,7 +164,7 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
         status: "error",
       });
     } finally {
-      hideLoader();
+      setSubmitting(false);
     }
   };
 
@@ -223,9 +250,12 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
         ) : (
           <div className="flex flex-col md:flex-row gap-8 md:gap-10">
             <div className="flex-1 flex flex-col gap-6 justify-center items-center">
-              <label className="block mb-2 text-slate-300 font-medium text-lg">
-                Fecha de cierre de inscripciones
-              </label>
+              <div className="w-full flex items-center gap-2 mb-2">
+                <BackArrow onClick={() => setPage2(false)} />
+                <label className="text-slate-300 font-medium text-lg">
+                  Fecha de cierre de inscripciones
+                </label>
+              </div>
               <div className="w-full bg-[#e3e8f0] rounded-xl p-5 flex items-center justify-center">
                 <DayPickerSingle
                   selected={closeDate}
@@ -242,11 +272,8 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
                 </p>
               </div>
             </div>
-            <div className="flex-1 flex flex-col gap-6 justify-center relative">
-              <div className="absolute left-0 top-0">
-                <BackArrow onClick={() => setPage2(false)} />
-              </div>
-              <div className="w-full">
+            <div className="flex-1 flex flex-col gap-4 md:gap-5 justify-between min-h-[560px]">
+              <div className="w-full flex-1">
                 <SessionList
                   sessions={sessions}
                   showEditButton={true}
@@ -256,12 +283,14 @@ export default function EditEventModal({ open, onClose, event, onUpdate }: EditE
                   }}
                 />
               </div>
-              <div className="flex gap-4 mt-8">
+              <div className="flex gap-4 mt-auto pt-2">
                 <Button
                   type="button"
                   className="w-full"
-                  disabled={!closeDate || !name || !dateRange || !dateRange.from || !dateRange.to || !country || !city}
+                  disabled={!closeDate || !name || !dateRange || !dateRange.from || !dateRange.to || !country || !city || !hasChanges}
                   onClick={handleSubmit}
+                  loading={submitting}
+                  loadingText="Actualizando..."
                 >
                   Actualizar evento
                 </Button>

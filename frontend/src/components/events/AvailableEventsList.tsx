@@ -1,9 +1,20 @@
-import { useModal } from '../../contexts/Modal/ModalContext';
+/*
+File: AvailableEventsList.tsx
+
+Contains:
+List component for available events and quick enrollment actions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React, { useState } from "react";
 // components
 import EventDetailModal from "./EventDetailModal";
 import Button from "../ui/Button";
 
+// Evento defines the event shape consumed by this list.
 interface Evento {
     id_evento: number;
     nombre: string;
@@ -21,11 +32,14 @@ interface Props {
   canInscribir?: boolean;
 }
 
+// AvailableEventsList renders events available for enrollment and opens
+// event details in a modal when a row is selected.
 const AvailableEventsList: React.FC<Props> = ({
   eventos,
   onInscribir,
   canInscribir = true,
 }) => {
+	// selectedEvento controls detail modal visibility and content.
   const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
   return (
     <>
@@ -78,6 +92,8 @@ const AvailableEventsList: React.FC<Props> = ({
             onInscribir && onInscribir(selectedEvento);
             setSelectedEvento(null);
           }}
+          requireModalContext={false}
+          showManagementActions={false}
         />
       )}
     </>

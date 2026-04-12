@@ -1,3 +1,16 @@
+/*
+File: handler.go
+
+Contains:
+HTTP endpoint layer for the Trabajos module.
+It routes work/version/review endpoints, parses request input,
+and maps service responses to HTTP output.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package handler
 
 import (
@@ -24,10 +37,12 @@ type Handler struct {
 	svc *service.Service
 }
 
+// New creates a trabajos HTTP handler.
 func New(client *db.PrismaClient) http.Handler {
     return &Handler{svc: service.New(client)}
 }
 
+// ServeHTTP dispatches requests by method and sub-path.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     path := strings.TrimPrefix(r.URL.Path, "/api/trabajos-cientificos")
     path = strings.TrimPrefix(path, "/")
@@ -68,156 +83,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-func (h *Handler) createTrabajo(w http.ResponseWriter, r *http.Request) {
-    req, file, err := parseCreateRequest(r)
-    if err != nil {
-        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
-        return
-    }
-
-    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-    defer cancel()
-
-    res, err := h.svc.CreateTrabajo(ctx, req, file)
-    if err != nil {
-        status := http.StatusBadRequest
-        if err == service.ErrTrabajoDuplicado {
-            status = http.StatusConflict
-        }
-        httperror.WriteJSON(w, status, err.Error())
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(res)
-}
-
-func (h *Handler) listTrabajos(w http.ResponseWriter, r *http.Request) {
-    userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
-    if err != nil || userID <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
-        return
-    }
-
-    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-    defer cancel()
-
-    rows, err := h.svc.ListTrabajosByUser(ctx, userID)
-    if err != nil {
-        httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(rows)
-}
-
-func (h *Handler) addVersion(w http.ResponseWriter, r *http.Request) {
-    req, file, err := parseVersionRequest(r)
-    if err != nil {
-        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
-        return
-    }
-
-    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-    defer cancel()
-
-    res, err := h.svc.AddVersion(ctx, req, file)
-    if err != nil {
-        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(res)
-}
-
-func (h *Handler) listVersiones(w http.ResponseWriter, r *http.Request) {
-    trabajoID, err := strconv.Atoi(r.URL.Query().Get("id_trabajo"))
-    if err != nil || trabajoID <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "id_trabajo inválido")
-        return
-    }
-    userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
-    if err != nil || userID <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
-        return
-    }
-
-    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-    defer cancel()
-
-    rows, err := h.svc.ListVersiones(ctx, trabajoID, userID)
-    if err != nil {
-        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
-        return
-    }
-
-    w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(rows)
-}
-
-func (h *Handler) compareVersiones(w http.ResponseWriter, r *http.Request) {
-    trabajoID, err := strconv.Atoi(r.URL.Query().Get("id_trabajo"))
-    if err != nil || trabajoID <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "id_trabajo inválido")
-        return
-    }
-    userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
-    if err != nil || userID <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
-        return
-    }
-    from, err := strconv.Atoi(r.URL.Query().Get("from"))
-    if err != nil || from <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "from inválido")
-        return
-    }
-    to, err := strconv.Atoi(r.URL.Query().Get("to"))
-    if err != nil || to <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "to inválido")
-        return
-    }
-
-    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-    defer cancel()
-
-    res, err := h.svc.CompareVersiones(ctx, trabajoID, userID, from, to)
-    if err != nil {
-        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
-        return
-    }
-
-	w.Header().Set("Content-Type", "application/json")
-    _ = json.NewEncoder(w).Encode(res)
-}
-
-func (h *Handler) downloadArchivo(w http.ResponseWriter, r *http.Request) {
-    versionID, err := strconv.Atoi(r.URL.Query().Get("id_version"))
-    if err != nil || versionID <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "id_version inválido")
-        return
-    }
-    userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
-    if err != nil || userID <= 0 {
-        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
-        return
-    }
-
-    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-    defer cancel()
-
-    version, err := h.svc.GetVersionFile(ctx, versionID, userID)
-    if err != nil {
-        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
-        return
-    }
-
-    w.Header().Set("Content-Type", version.MimeType)
-    w.Header().Set("Content-Disposition", `attachment; filename="`+version.NombreArchivo+`"`)
-    http.ServeFile(w, r, version.RutaArchivo)
-}
-
+// parseCreateRequest parses multipart payload for create endpoint.
 func parseCreateRequest(r *http.Request) (dto.CreateTrabajoRequest, dto.UploadedFile, error) {
     var req dto.CreateTrabajoRequest
     var file dto.UploadedFile
@@ -259,6 +125,7 @@ func parseCreateRequest(r *http.Request) (dto.CreateTrabajoRequest, dto.Uploaded
     return req, file, nil
 }
 
+// parseVersionRequest parses multipart payload for version upload endpoint.
 func parseVersionRequest(r *http.Request) (dto.AddVersionRequest, dto.UploadedFile, error) {
     var req dto.AddVersionRequest
     var file dto.UploadedFile
@@ -297,6 +164,7 @@ func parseVersionRequest(r *http.Request) (dto.AddVersionRequest, dto.UploadedFi
     return req, file, nil
 }
 
+// parsePositiveInt parses and validates positive integer query values.
 func parsePositiveInt(value string) (int, error) {
     n, err := strconv.Atoi(value)
     if err != nil || n <= 0 {
@@ -343,6 +211,7 @@ func parseHistoryDate(value string) (time.Time, error) {
     return time.Time{}, errors.New("fecha inválida")
 }
 
+// writeServiceError maps service errors to HTTP responses.
 func writeServiceError(w http.ResponseWriter, err error) {
     switch {
     case errors.Is(err, service.ErrSinAcceso):
@@ -354,6 +223,184 @@ func writeServiceError(w http.ResponseWriter, err error) {
     }
 }
 
+/*
+Endpoint: POST /api/trabajos-cientificos
+Creates a new scientific work with initial PDF upload.
+*/
+func (h *Handler) createTrabajo(w http.ResponseWriter, r *http.Request) {
+    req, file, err := parseCreateRequest(r)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    res, err := h.svc.CreateTrabajo(ctx, req, file)
+    if err != nil {
+        status := http.StatusBadRequest
+        if err == service.ErrTrabajoDuplicado {
+            status = http.StatusConflict
+        }
+        httperror.WriteJSON(w, status, err.Error())
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(res)
+}
+
+/*
+Endpoint: GET /api/trabajos-cientificos?user_id=<id>
+Lists works submitted by the user.
+*/
+func (h *Handler) listTrabajos(w http.ResponseWriter, r *http.Request) {
+    userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
+    if err != nil || userID <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    rows, err := h.svc.ListTrabajosByUser(ctx, userID)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusInternalServerError, "db error")
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(rows)
+}
+
+/*
+Endpoint: POST /api/trabajos-cientificos/versiones
+Uploads a new version for an existing work.
+*/
+func (h *Handler) addVersion(w http.ResponseWriter, r *http.Request) {
+    req, file, err := parseVersionRequest(r)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    res, err := h.svc.AddVersion(ctx, req, file)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(res)
+}
+
+/*
+Endpoint: GET /api/trabajos-cientificos/versiones
+Lists all versions of a work.
+*/
+func (h *Handler) listVersiones(w http.ResponseWriter, r *http.Request) {
+    trabajoID, err := strconv.Atoi(r.URL.Query().Get("id_trabajo"))
+    if err != nil || trabajoID <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "id_trabajo inválido")
+        return
+    }
+    userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
+    if err != nil || userID <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    rows, err := h.svc.ListVersiones(ctx, trabajoID, userID)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(rows)
+}
+
+/*
+Endpoint: GET /api/trabajos-cientificos/versiones/comparar
+Compares two versions of a work.
+*/
+func (h *Handler) compareVersiones(w http.ResponseWriter, r *http.Request) {
+    trabajoID, err := strconv.Atoi(r.URL.Query().Get("id_trabajo"))
+    if err != nil || trabajoID <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "id_trabajo inválido")
+        return
+    }
+    userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
+    if err != nil || userID <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+    from, err := strconv.Atoi(r.URL.Query().Get("from"))
+    if err != nil || from <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "from inválido")
+        return
+    }
+    to, err := strconv.Atoi(r.URL.Query().Get("to"))
+    if err != nil || to <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "to inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    res, err := h.svc.CompareVersiones(ctx, trabajoID, userID, from, to)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
+	w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(res)
+}
+
+/*
+Endpoint: GET /api/trabajos-cientificos/archivo
+Downloads one version file.
+*/
+func (h *Handler) downloadArchivo(w http.ResponseWriter, r *http.Request) {
+    versionID, err := strconv.Atoi(r.URL.Query().Get("id_version"))
+    if err != nil || versionID <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "id_version inválido")
+        return
+    }
+    userID, err := strconv.Atoi(r.URL.Query().Get("user_id"))
+    if err != nil || userID <= 0 {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    version, err := h.svc.GetVersionFile(ctx, versionID, userID)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
+    w.Header().Set("Content-Type", version.MimeType)
+    w.Header().Set("Content-Disposition", `attachment; filename="`+version.NombreArchivo+`"`)
+    http.ServeFile(w, r, version.RutaArchivo)
+}
+
+/*
+Endpoint: GET /api/trabajos-cientificos/comite
+Lists works for committee view with filters.
+*/
 func (h *Handler) listTrabajosComite(w http.ResponseWriter, r *http.Request) {
     userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
     if err != nil {
@@ -391,6 +438,10 @@ func (h *Handler) listTrabajosComite(w http.ResponseWriter, r *http.Request) {
     _ = json.NewEncoder(w).Encode(rows)
 }
 
+/*
+Endpoint: GET /api/trabajos-cientificos/revisores
+Lists available reviewers.
+*/
 func (h *Handler) listRevisores(w http.ResponseWriter, r *http.Request) {
     userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
     if err != nil {
@@ -411,6 +462,10 @@ func (h *Handler) listRevisores(w http.ResponseWriter, r *http.Request) {
     _ = json.NewEncoder(w).Encode(rows)
 }
 
+/*
+Endpoint: POST /api/trabajos-cientificos/comite/asignar-revisores
+Assigns reviewers to a work.
+*/
 func (h *Handler) assignReviewers(w http.ResponseWriter, r *http.Request) {
     var req dto.AssignReviewersRequest
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -429,6 +484,10 @@ func (h *Handler) assignReviewers(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusNoContent)
 }
 
+/*
+Endpoint: GET /api/trabajos-cientificos/revisor/asignados
+Lists works assigned to a reviewer.
+*/
 func (h *Handler) listTrabajosRevisor(w http.ResponseWriter, r *http.Request) {
     userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
     if err != nil {
@@ -449,6 +508,10 @@ func (h *Handler) listTrabajosRevisor(w http.ResponseWriter, r *http.Request) {
     _ = json.NewEncoder(w).Encode(rows)
 }
 
+/*
+Endpoint: POST /api/trabajos-cientificos/revisor/evaluar
+Submits reviewer evaluation for a work.
+*/
 func (h *Handler) submitEvaluation(w http.ResponseWriter, r *http.Request) {
     var req dto.SubmitEvaluationRequest
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -467,6 +530,10 @@ func (h *Handler) submitEvaluation(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusNoContent)
 }
 
+/*
+Endpoint: GET /api/trabajos-cientificos/comite/evaluaciones
+Returns evaluation summary for one work.
+*/
 func (h *Handler) listEvaluacionesByTrabajo(w http.ResponseWriter, r *http.Request) {
     userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
     if err != nil {
@@ -492,6 +559,10 @@ func (h *Handler) listEvaluacionesByTrabajo(w http.ResponseWriter, r *http.Reque
     _ = json.NewEncoder(w).Encode(rows)
 }
 
+/*
+Endpoint: POST /api/trabajos-cientificos/comite/decision
+Stores final committee decision for a work.
+*/
 func (h *Handler) decideTrabajo(w http.ResponseWriter, r *http.Request) {
     var req dto.DecisionRequest
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

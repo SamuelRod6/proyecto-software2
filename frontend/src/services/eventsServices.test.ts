@@ -1,3 +1,14 @@
+/*
+File: eventsServices.test.ts
+
+Contains:
+Unit tests for event service API wrappers and error normalization.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import axios from "axios";
 import {
     createEvent,
@@ -17,6 +28,7 @@ describe("eventsServices", () => {
     });
 
     describe("getEvents", () => {
+        // Verifies successful retrieval and default network error mapping.
         it("should return events on success", async () => {
             const mockEvents = [
                 { id_evento: 1, nombre: "Event 1", fecha_inicio: "2023-01-01", fecha_fin: "2023-01-02", ubicacion: "Loc 1" }

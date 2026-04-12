@@ -1,3 +1,14 @@
+/*
+File: sessionsServices.test.ts
+
+Contains:
+Unit tests for session service wrappers and network error normalization.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import axios from "axios";
 import {
   assignSpeakersToSession,
@@ -16,6 +27,7 @@ describe("sessionsServices", () => {
     jest.clearAllMocks();
   });
 
+  // Covers success paths for CRUD-like calls and fallback behavior on network failures.
   it("should fetch event detail", async () => {
     mockedAxios.get.mockResolvedValueOnce({ status: 200, data: { id_evento: 4, sesiones: [] } });
 
@@ -48,6 +60,29 @@ describe("sessionsServices", () => {
 
     expect(result).toEqual({ status: 200, data: [{ id_usuario: 3, nombre: "Ana" }] });
     expect(mockedAxios.get).toHaveBeenCalledWith("/api/sesiones/ponibles?sesion_id=50");
+  });
+
+  it("should normalize available speakers from payload wrappers", async () => {
+    mockedAxios.get.mockResolvedValueOnce({
+      status: 200,
+      data: {
+        payload: [
+          { idUsuario: 7, name: "Laura" },
+          { id_usuario: 8, nombre: "Pedro", email: "pedro@test.com" },
+        ],
+      },
+    });
+
+    const result = await getAvailableSpeakers(61);
+
+    expect(result).toEqual({
+      status: 200,
+      data: [
+        { id_usuario: 7, nombre: "Laura", email: undefined },
+        { id_usuario: 8, nombre: "Pedro", email: "pedro@test.com" },
+      ],
+    });
+    expect(mockedAxios.get).toHaveBeenCalledWith("/api/sesiones/ponibles?sesion_id=61");
   });
 
   it("should assign speakers to session", async () => {

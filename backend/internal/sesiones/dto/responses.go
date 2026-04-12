@@ -1,3 +1,16 @@
+/*
+File: responses.go
+
+Contains:
+Response DTO definitions for the Sesiones module.
+It centralizes payload structures returned for sessions,
+assigned speakers, and assignable speakers.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package dto
 
 // SesionResponse represents the response payload for a session.

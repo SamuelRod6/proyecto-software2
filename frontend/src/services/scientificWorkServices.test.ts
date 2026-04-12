@@ -1,3 +1,14 @@
+/*
+File: scientificWorkServices.test.ts
+
+Contains:
+Unit tests for scientific work service endpoints across participant, reviewer, and committee flows.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import axios from "axios";
 import {
   assignScientificWorkReviewers,
@@ -25,6 +36,7 @@ describe("scientificWorkServices", () => {
     jest.clearAllMocks();
   });
 
+  // Verifies endpoint mapping, query param building, and normalized fallback errors.
   it("should list works by user", async () => {
     mockedAxios.get.mockResolvedValueOnce({ status: 200, data: [{ id_trabajo: 1 }] });
 

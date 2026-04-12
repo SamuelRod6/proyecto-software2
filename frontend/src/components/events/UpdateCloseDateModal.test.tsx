@@ -1,6 +1,18 @@
+/*
+File: UpdateCloseDateModal.test.tsx
+
+Contains:
+Unit tests for close-date update modal behavior.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { fireEvent, render, screen } from "@testing-library/react";
 import UpdateCloseDateModal from "./UpdateCloseDateModal";
 
+// Toast mock used to verify user feedback paths.
 const mockShowToast = jest.fn();
 
 jest.mock("../../contexts/Toast/ToastContext", () => ({
@@ -16,6 +28,7 @@ jest.mock("../ui/DayPickerSingle", () => ({
   ),
 }));
 
+// UpdateCloseDateModal tests cover close-date change enablement behavior.
 describe("UpdateCloseDateModal", () => {
   beforeEach(() => {
     jest.clearAllMocks();

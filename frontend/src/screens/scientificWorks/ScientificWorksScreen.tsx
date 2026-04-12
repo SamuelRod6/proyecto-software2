@@ -1,7 +1,19 @@
+/*
+File: ScientificWorksScreen.tsx
+
+Contains:
+Participant workflow to submit scientific works, upload revisions, and compare versions.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useEffect, useMemo, useState } from "react";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
 import Input from "../../components/ui/Input";
+import SelectInput from "../../components/ui/SelectorInput";
 import Loader from "../../components/ui/Loader";
 import EmptyState from "../../components/ui/EmptyState";
 import ErrorState from "../../components/ui/ErrorState";
@@ -25,10 +37,19 @@ import {
 } from "../../services/scientificWorkServices";
 import { getEvents, Evento } from "../../services/eventsServices";
 
+// countWords computes summary length constraints used by client-side validation.
 function countWords(value: string): number {
   return value.trim() ? value.trim().split(/\s+/).length : 0;
 }
 
+function toApiDate(value: string): string {
+  if (!value.includes("-")) return value;
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
+}
+
+// MyScientificWorksScreen manages creation, versioning, and history inspection for a participant's works.
 export default function MyScientificWorksScreen(): JSX.Element {
   const authUser = getStoredAuthUser();
   const { showToast } = useToast();
@@ -66,8 +87,20 @@ export default function MyScientificWorksScreen(): JSX.Element {
   const [statusHistoryQuery, setStatusHistoryQuery] = useState("");
   const [statusHistoryDesde, setStatusHistoryDesde] = useState("");
   const [statusHistoryHasta, setStatusHistoryHasta] = useState("");
+  const [creatingWork, setCreatingWork] = useState(false);
+  const [uploadingVersion, setUploadingVersion] = useState(false);
+  const [comparingVersions, setComparingVersions] = useState(false);
+  const [workQuery, setWorkQuery] = useState("");
+  const [workStateFilter, setWorkStateFilter] = useState("");
 
   const summaryWords = useMemo(() => countWords(summary), [summary]);
+  const workStateOptions = [
+    { value: "", label: "Todos los estados" },
+    { value: "RECIBIDO", label: "RECIBIDO" },
+    { value: "ACTUALIZADO", label: "ACTUALIZADO" },
+    { value: "ACEPTADO", label: "ACEPTADO" },
+    { value: "RECHAZADO", label: "RECHAZADO" },
+  ];
 
   const statusHistoryFilters = useMemo<ScientificWorkHistoryFilters>(
     () => ({
@@ -85,6 +118,17 @@ export default function MyScientificWorksScreen(): JSX.Element {
       statusHistoryTypeFilter,
     ],
   );
+
+  const filteredWorks = useMemo(() => {
+    const q = workQuery.trim().toLowerCase();
+    return works.filter((work) => {
+      const matchesQuery = !q || [work.titulo, work.resumen, work.estado, String(work.version_actual)]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q));
+      const matchesState = !workStateFilter || work.estado === workStateFilter;
+      return matchesQuery && matchesState;
+    });
+  }, [works, workQuery, workStateFilter]);
 
   async function loadData() {
     if (!authUser?.id) return;
@@ -115,13 +159,6 @@ export default function MyScientificWorksScreen(): JSX.Element {
   useEffect(() => {
     void loadData();
   }, []);
-
-  function toApiDate(value: string): string {
-    if (!value.includes("-")) return value;
-    const [year, month, day] = value.split("-");
-    if (!year || !month || !day) return value;
-    return `${day}/${month}/${year}`;
-  }
 
   async function loadStatusHistory(workId: number, filtersOverride?: ScientificWorkHistoryFilters) {
     if (!authUser?.id) return;
@@ -193,12 +230,12 @@ export default function MyScientificWorksScreen(): JSX.Element {
     }
 
     const blob = data as Blob;
-    const url = window.URL.createObjectURL(blob);
+    const url = globalThis.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `historial_trabajo_cientifico_${statusHistoryWorkId}.pdf`;
     link.click();
-    window.URL.revokeObjectURL(url);
+    globalThis.URL.revokeObjectURL(url);
   }
 
   function handlePrintStatusHistory() {
@@ -228,7 +265,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
             )
             .join("");
 
-    printWindow.document.write(`
+    const html = `
       <html>
         <head>
           <title>Historial de cambios de estado</title>
@@ -256,12 +293,15 @@ export default function MyScientificWorksScreen(): JSX.Element {
           </table>
         </body>
       </html>
-    `);
+    `;
+    printWindow.document.open();
+    printWindow.document.documentElement.innerHTML = html;
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
   }
 
+  // handleCreateWork validates fields and submits the initial scientific work version.
   async function handleCreateWork() {
     if (!authUser?.id) return;
 
@@ -303,31 +343,37 @@ export default function MyScientificWorksScreen(): JSX.Element {
     payload.append("descripcion_cambios", "Versión inicial del trabajo científico");
     payload.append("archivo", file);
 
-    const res = await createScientificWork(payload);
-    if (res.status >= 400) {
+    setCreatingWork(true);
+    try {
+      const res = await createScientificWork(payload);
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo registrar el trabajo científico.",
+          status: "error",
+        });
+        return;
+      }
+
       showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo registrar el trabajo científico.",
-        status: "error",
+        title: "Trabajo recibido",
+        message: "El trabajo científico fue registrado correctamente.",
+        status: "success",
       });
-      return;
+
+      setCreateOpen(false);
+      setEventId("");
+      setTitle("");
+      setSummary("");
+      setAcknowledged(false);
+      setFile(null);
+      await loadData();
+    } finally {
+      setCreatingWork(false);
     }
-
-    showToast({
-      title: "Trabajo recibido",
-      message: "El trabajo científico fue registrado correctamente.",
-      status: "success",
-    });
-
-    setCreateOpen(false);
-    setEventId("");
-    setTitle("");
-    setSummary("");
-    setAcknowledged(false);
-    setFile(null);
-    await loadData();
   }
 
+  // handleUploadVersion registers a new PDF version with a change description.
   async function handleUploadVersion() {
     if (!authUser?.id || !selectedWork) return;
     if (!newVersionFile) {
@@ -353,50 +399,62 @@ export default function MyScientificWorksScreen(): JSX.Element {
     payload.append("descripcion_cambios", changeDescription.trim());
     payload.append("archivo", newVersionFile);
 
-    const res = await uploadScientificWorkVersion(payload);
-    if (res.status >= 400) {
+    setUploadingVersion(true);
+    try {
+      const res = await uploadScientificWorkVersion(payload);
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo cargar la nueva versión.",
+          status: "error",
+        });
+        return;
+      }
+
       showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo cargar la nueva versión.",
-        status: "error",
+        title: "Versión cargada",
+        message: "La nueva versión fue registrada correctamente.",
+        status: "success",
       });
-      return;
+
+      setVersionOpen(false);
+      setChangeDescription("");
+      setNewVersionFile(null);
+      await loadData();
+      await openHistory(selectedWork);
+    } finally {
+      setUploadingVersion(false);
     }
-
-    showToast({
-      title: "Versión cargada",
-      message: "La nueva versión fue registrada correctamente.",
-      status: "success",
-    });
-
-    setVersionOpen(false);
-    setChangeDescription("");
-    setNewVersionFile(null);
-    await loadData();
-    await openHistory(selectedWork);
   }
 
+  // handleCompareVersions requests a semantic diff summary between two version numbers.
   async function handleCompareVersions() {
     if (!authUser?.id || !selectedWork) return;
-    const res = await compareScientificWorkVersions(
-      selectedWork.id_trabajo,
-      authUser.id,
-      Number(compareFrom),
-      Number(compareTo),
-    );
+    setComparingVersions(true);
+    try {
+      const res = await compareScientificWorkVersions(
+        selectedWork.id_trabajo,
+        authUser.id,
+        Number(compareFrom),
+        Number(compareTo),
+      );
 
-    if (res.status >= 400) {
-      showToast({
-        title: "Error",
-        message: res.data?.message || "No se pudo comparar las versiones.",
-        status: "error",
-      });
-      return;
+      if (res.status >= 400) {
+        showToast({
+          title: "Error",
+          message: res.data?.message || "No se pudo comparar las versiones.",
+          status: "error",
+        });
+        return;
+      }
+
+      setComparison(res.data as ScientificWorkCompare);
+    } finally {
+      setComparingVersions(false);
     }
-
-    setComparison(res.data as ScientificWorkCompare);
   }
 
+  // handleDownload downloads a selected version as a local PDF file.
   async function handleDownload(versionId: number) {
     if (!authUser?.id) return;
     const res = await downloadScientificWorkVersion(versionId, authUser.id);
@@ -410,12 +468,56 @@ export default function MyScientificWorksScreen(): JSX.Element {
     }
 
     const blob = res.data as Blob;
-    const url = window.URL.createObjectURL(blob);
+    const url = globalThis.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `trabajo_v${versionId}.pdf`;
     link.click();
-    window.URL.revokeObjectURL(url);
+    globalThis.URL.revokeObjectURL(url);
+  }
+
+  let statusHistoryContent: JSX.Element;
+  if (statusHistoryLoading) {
+    statusHistoryContent = (
+      <div className="flex justify-center py-8">
+        <Loader visible={true} />
+      </div>
+    );
+  } else if (statusHistoryError) {
+    statusHistoryContent = <p className="text-sm text-red-400">{statusHistoryError}</p>;
+  } else {
+    statusHistoryContent = (
+      <table className="min-w-full text-sm text-slate-200">
+        <thead className="bg-slate-700/50 text-slate-100">
+          <tr>
+            <th className="px-3 py-2 text-left">Fecha</th>
+            <th className="px-3 py-2 text-left">Estado anterior</th>
+            <th className="px-3 py-2 text-left">Estado nuevo</th>
+            <th className="px-3 py-2 text-left">Tipo de cambio</th>
+            <th className="px-3 py-2 text-left">Comentario</th>
+          </tr>
+        </thead>
+        <tbody>
+          {statusHistoryItems.length === 0 ? (
+            <tr>
+              <td className="px-3 py-3 text-slate-400" colSpan={5}>
+                No hay cambios para los filtros seleccionados.
+              </td>
+            </tr>
+          ) : (
+            statusHistoryItems.map((item) => (
+              <tr key={item.id_historial} className="border-b border-slate-700/60">
+                <td className="px-3 py-2">{item.fecha_cambio}</td>
+                <td className="px-3 py-2">{item.estado_anterior || "-"}</td>
+                <td className="px-3 py-2">{item.estado_nuevo}</td>
+                <td className="px-3 py-2">{item.tipo_cambio || "-"}</td>
+                <td className="px-3 py-2">{item.nota || ""}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    );
   }
 
   if (loading) {
@@ -457,15 +559,32 @@ export default function MyScientificWorksScreen(): JSX.Element {
         </Button>
       </header>
 
-      {works.length === 0 ? (
+      <div className="rounded-xl border border-slate-700 bg-slate-800 p-4 grid gap-3 md:grid-cols-[1.5fr_0.8fr]">
+        <Input
+          label="Buscar trabajo"
+          placeholder="Título, resumen o estado"
+          value={workQuery}
+          onChange={(e) => setWorkQuery(e.target.value)}
+        />
+        <SelectInput
+          value={workStateFilter}
+          onChange={(value) => setWorkStateFilter(Array.isArray(value) ? value[0] ?? "" : value)}
+          options={workStateOptions}
+          inputLabel="Estado"
+          placeholder="Todos los estados"
+          allowCustom={false}
+        />
+      </div>
+
+      {filteredWorks.length === 0 ? (
         <EmptyState
           title="Aún no has enviado trabajos científicos"
-          description="Cuando registres un trabajo, lo mostraremos en esta sección."
+          description={works.length === 0 ? "Cuando registres un trabajo, lo mostraremos en esta sección." : "No hay trabajos que coincidan con los filtros actuales."}
           animationData={emptyAnimation}
         />
       ) : (
         <div className="grid gap-4">
-            {works.map((work) => (
+            {filteredWorks.map((work) => (
               <article
                 key={work.id_trabajo}
                 className="rounded-xl border border-slate-700 bg-slate-800 p-5"
@@ -507,21 +626,17 @@ export default function MyScientificWorksScreen(): JSX.Element {
 
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Enviar trabajo científico">
         <div className="space-y-4">
-          <label className="block space-y-1 text-sm">
-            <span className="text-slate-200">Evento</span>
-            <select
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-              value={eventId}
-              onChange={(e) => setEventId(e.target.value)}
-            >
-              <option value="">Selecciona un evento</option>
-              {events.map((event) => (
-                <option key={event.id_evento} value={event.id_evento}>
-                  {event.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectInput
+            value={eventId}
+            onChange={(value) => setEventId(Array.isArray(value) ? value[0] ?? "" : value)}
+            options={[
+              { value: "", label: "Selecciona un evento" },
+              ...events.map((event) => ({ value: String(event.id_evento), label: event.nombre })),
+            ]}
+            inputLabel="Evento"
+            placeholder="Selecciona un evento"
+            allowCustom={false}
+          />
 
           <Input
             label="Título"
@@ -556,14 +671,21 @@ export default function MyScientificWorksScreen(): JSX.Element {
             </span>
           </label>
 
-          <label className="block space-y-1 text-sm">
+          <label htmlFor="create-work-file" className="block space-y-2 text-sm">
             <span className="text-slate-200">Archivo PDF</span>
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-            />
+            <div className="flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800 px-3 py-2">
+              <label className="inline-flex cursor-pointer items-center rounded-md bg-slate-700 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600 transition">
+                <span>Seleccionar archivo</span>
+                <input
+                  id="create-work-file"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="sr-only"
+                />
+              </label>
+              <span className="text-xs text-slate-300 truncate">{file?.name || "Ningún archivo seleccionado"}</span>
+            </div>
             <span className="text-xs text-slate-400">Máximo 10 MB.</span>
           </label>
 
@@ -571,7 +693,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
             <Button variant="ghost" onClick={() => setCreateOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateWork}>
+            <Button onClick={handleCreateWork} loading={creatingWork} loadingText="Enviando..." disabled={!eventId || !title || !summary || !file || !acknowledged}>
               Enviar trabajo
             </Button>
           </div>
@@ -592,21 +714,28 @@ export default function MyScientificWorksScreen(): JSX.Element {
             maxLength={300}
           />
 
-          <label className="block space-y-1 text-sm">
+          <label htmlFor="new-version-file" className="block space-y-2 text-sm">
             <span className="text-slate-200">Nuevo PDF</span>
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={(e) => setNewVersionFile(e.target.files?.[0] ?? null)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-            />
+            <div className="flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800 px-3 py-2">
+              <label className="inline-flex cursor-pointer items-center rounded-md bg-slate-700 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600 transition">
+                <span>Seleccionar archivo</span>
+                <input
+                  id="new-version-file"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setNewVersionFile(e.target.files?.[0] ?? null)}
+                  className="sr-only"
+                />
+              </label>
+              <span className="text-xs text-slate-300 truncate">{newVersionFile?.name || "Ningún archivo seleccionado"}</span>
+            </div>
           </label>
 
           <div className="flex justify-end gap-3">
             <Button variant="ghost" onClick={() => setVersionOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleUploadVersion}>
+            <Button onClick={handleUploadVersion} loading={uploadingVersion} loadingText="Guardando..." disabled={!newVersionFile || changeDescription.trim().length < 10}>
               Guardar versión
             </Button>
           </div>
@@ -640,41 +769,31 @@ export default function MyScientificWorksScreen(): JSX.Element {
           <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 space-y-3">
             <h3 className="text-slate-100 font-medium">Comparar versiones</h3>
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="block space-y-1 text-sm">
-                <span className="text-slate-200">Desde</span>
-                <select
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-                  value={compareFrom}
-                  onChange={(e) => setCompareFrom(e.target.value)}
-                >
-                  <option value="">Selecciona versión</option>
-                  {versions.map((version) => (
-                    <option key={`from-${version.id_version}`} value={version.numero_version}>
-                      Versión {version.numero_version}
-                    </option>
-                  ))}
-                </select>
-              </label> 
+              <SelectInput
+                value={compareFrom}
+                onChange={(value) => setCompareFrom(Array.isArray(value) ? value[0] ?? "" : value)}
+                options={[
+                  { value: "", label: "Selecciona versión" },
+                  ...versions.map((version) => ({ value: String(version.numero_version), label: `Versión ${version.numero_version}` })),
+                ]}
+                inputLabel="Desde"
+                allowCustom={false}
+              />
 
-              <label className="block space-y-1 text-sm">
-                <span className="text-slate-200">Hasta</span>
-                <select
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100"
-                  value={compareTo}
-                  onChange={(e) => setCompareTo(e.target.value)}
-                >
-                  <option value="">Selecciona versión</option>
-                  {versions.map((version) => (
-                    <option key={`to-${version.id_version}`} value={version.numero_version}>
-                      Versión {version.numero_version}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SelectInput
+                value={compareTo}
+                onChange={(value) => setCompareTo(Array.isArray(value) ? value[0] ?? "" : value)}
+                options={[
+                  { value: "", label: "Selecciona versión" },
+                  ...versions.map((version) => ({ value: String(version.numero_version), label: `Versión ${version.numero_version}` })),
+                ]}
+                inputLabel="Hasta"
+                allowCustom={false}
+              />
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleCompareVersions}>
+              <Button onClick={handleCompareVersions} loading={comparingVersions} loadingText="Comparando..." disabled={!compareFrom || !compareTo}>
                 Comparar
               </Button>
             </div>
@@ -725,68 +844,33 @@ export default function MyScientificWorksScreen(): JSX.Element {
                 onChange={(e) => setStatusHistoryQuery(e.target.value)}
                 placeholder="Comentario o estado"
               />
-              <label className="flex flex-col gap-1 text-sm text-slate-200">
-                Fecha desde
+              <div className="flex flex-col gap-1 text-sm text-slate-200">
+                <label htmlFor="status-history-desde">Fecha desde</label>
                 <input
+                  id="status-history-desde"
                   type="date"
                   className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
                   value={statusHistoryDesde}
                   onChange={(event) => setStatusHistoryDesde(event.target.value)}
                 />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-slate-200">
-                Fecha hasta
+              </div>
+              <div className="flex flex-col gap-1 text-sm text-slate-200">
+                <label htmlFor="status-history-hasta">Fecha hasta</label>
                 <input
+                  id="status-history-hasta"
                   type="date"
                   className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
                   value={statusHistoryHasta}
                   onChange={(event) => setStatusHistoryHasta(event.target.value)}
                 />
-              </label>
+              </div>
               <div className="flex items-end">
                 <Button onClick={handleSearchStatusHistory}>Aplicar filtros</Button>
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              {statusHistoryLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader visible={true} />
-                </div>
-              ) : statusHistoryError ? (
-                <p className="text-sm text-red-400">{statusHistoryError}</p>
-              ) : (
-                <table className="min-w-full text-sm text-slate-200">
-                  <thead className="bg-slate-700/50 text-slate-100">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Fecha</th>
-                      <th className="px-3 py-2 text-left">Estado anterior</th>
-                      <th className="px-3 py-2 text-left">Estado nuevo</th>
-                      <th className="px-3 py-2 text-left">Tipo de cambio</th>
-                      <th className="px-3 py-2 text-left">Comentario</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {statusHistoryItems.length === 0 ? (
-                      <tr>
-                        <td className="px-3 py-3 text-slate-400" colSpan={5}>
-                          No hay cambios para los filtros seleccionados.
-                        </td>
-                      </tr>
-                    ) : (
-                      statusHistoryItems.map((item) => (
-                        <tr key={item.id_historial} className="border-b border-slate-700/60">
-                          <td className="px-3 py-2">{item.fecha_cambio}</td>
-                          <td className="px-3 py-2">{item.estado_anterior || "-"}</td>
-                          <td className="px-3 py-2">{item.estado_nuevo}</td>
-                          <td className="px-3 py-2">{item.tipo_cambio || "-"}</td>
-                          <td className="px-3 py-2">{item.nota || ""}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              )}
+              {statusHistoryContent}
             </div>
           </div>
         </div>
