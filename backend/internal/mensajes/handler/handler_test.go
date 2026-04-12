@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -225,6 +228,19 @@ func TestSendMensaje(t *testing.T) {
 		}
 	})
 
+	t.Run("success with attachment only", func(t *testing.T) {
+		svc := &mockMensajesService{
+			msg: &mensajesdto.MensajeResponse{IDMensaje: 2, AdjuntoURL: strPtr("/uploads/mensajes/file.pdf"), AdjuntoNombre: strPtr("file.pdf")},
+		}
+		body := `{"id_conversacion":1,"id_remitente":2,"cuerpo":"","adjunto_url":"/uploads/mensajes/file.pdf","adjunto_nombre":"file.pdf"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/mensajes/conversaciones/1/mensajes", strings.NewReader(body))
+		rr := httptest.NewRecorder()
+		newTestHandler(svc).ServeHTTP(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d", rr.Code)
+		}
+	})
+
 	t.Run("service error", func(t *testing.T) {
 		svc := &mockMensajesService{msgErr: errors.New("db error")}
 		body := `{"id_conversacion":1,"id_remitente":2,"cuerpo":"Hola"}`
@@ -418,4 +434,72 @@ func TestServeHTTP_NotFound(t *testing.T) {
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", rr.Code)
 	}
+}
+
+func TestUploadAdjuntoHandler(t *testing.T) {
+	t.Run("success png upload", func(t *testing.T) {
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		part, err := writer.CreateFormFile("file", "sample.png")
+		if err != nil {
+			t.Fatalf("create form file: %v", err)
+		}
+
+		pngHeader := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
+		if _, err := part.Write(pngHeader); err != nil {
+			t.Fatalf("write file: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("close writer: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/mensajes/adjuntos", &body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		rr := httptest.NewRecorder()
+
+		newTestHandler(&mockMensajesService{}).UploadAdjuntoHandler(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d", rr.Code)
+		}
+
+		var resp map[string]string
+		if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+			t.Fatalf("decode response: %v", err)
+		}
+		if resp["url"] == "" {
+			t.Fatal("expected upload url in response")
+		}
+
+		t.Cleanup(func() {
+			_ = os.Remove("." + resp["url"])
+		})
+	})
+
+	t.Run("reject unsupported file type", func(t *testing.T) {
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		part, err := writer.CreateFormFile("file", "sample.txt")
+		if err != nil {
+			t.Fatalf("create form file: %v", err)
+		}
+		if _, err := part.Write([]byte("hello")); err != nil {
+			t.Fatalf("write file: %v", err)
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("close writer: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/mensajes/adjuntos", &body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		rr := httptest.NewRecorder()
+
+		newTestHandler(&mockMensajesService{}).UploadAdjuntoHandler(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d", rr.Code)
+		}
+	})
+}
+
+func strPtr(v string) *string {
+	return &v
 }

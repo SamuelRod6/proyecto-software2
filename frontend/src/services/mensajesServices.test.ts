@@ -1,14 +1,24 @@
 import axios from "axios";
+import { getApiBaseUrl } from "../utils/env";
 import {
   fetchConversaciones,
   fetchMensajes,
   createConversacion,
   sendMensaje,
   searchUsuarios,
+  uploadAdjunto,
+  resolveAdjuntoUrl,
 } from "./mensajesServices";
 
 jest.mock("axios");
+jest.mock("../utils/env", () => ({
+  getApiBaseUrl: jest.fn(),
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockedGetApiBaseUrl = getApiBaseUrl as jest.MockedFunction<
+  typeof getApiBaseUrl
+>;
 
 describe("mensajesServices", () => {
   describe("fetchConversaciones", () => {
@@ -155,6 +165,45 @@ describe("mensajesServices", () => {
       mockedAxios.get.mockRejectedValueOnce(new Error("Network Error"));
       const result = await searchUsuarios("x");
       expect(result.status).toBe(500);
+    });
+  });
+
+  describe("uploadAdjunto", () => {
+    it("uploads form data without forcing content-type", async () => {
+      const file = new File(["pdf-data"], "archivo.pdf", {
+        type: "application/pdf",
+      });
+      mockedAxios.post.mockResolvedValueOnce({
+        status: 201,
+        data: { url: "/uploads/mensajes/abc.pdf", nombre: "archivo.pdf" },
+      });
+
+      const result = await uploadAdjunto(file);
+
+      expect(result).toEqual({
+        url: "/uploads/mensajes/abc.pdf",
+        nombre: "archivo.pdf",
+      });
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        "/api/mensajes/adjuntos",
+        expect.any(FormData),
+      );
+    });
+  });
+
+  describe("resolveAdjuntoUrl", () => {
+    it("returns absolute url for relative upload paths", () => {
+      mockedGetApiBaseUrl.mockReturnValue("http://localhost:8080/api");
+      expect(resolveAdjuntoUrl("/uploads/mensajes/file.pdf")).toBe(
+        "http://localhost:8080/uploads/mensajes/file.pdf",
+      );
+    });
+
+    it("keeps absolute urls unchanged", () => {
+      mockedGetApiBaseUrl.mockReturnValue("http://localhost:8080/api");
+      expect(resolveAdjuntoUrl("https://cdn.example.com/file.pdf")).toBe(
+        "https://cdn.example.com/file.pdf",
+      );
     });
   });
 });

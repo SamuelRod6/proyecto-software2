@@ -45,12 +45,77 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
   // selectedNotif resolves the active item for right-side detail panel.
   const selectedNotif = notifications.find((n) => n.id === selectedId);
 
+  let listContent: JSX.Element;
+  if (loading) {
+    listContent = <div className="px-5 py-6 text-sm text-slate-400">Cargando...</div>;
+  } else if (error) {
+    listContent = <div className="px-5 py-6 text-sm text-red-400">{error}</div>;
+  } else if (orderedNotifications.length === 0) {
+    listContent = <div className="px-5 py-6 text-sm text-slate-400">No hay notificaciones.</div>;
+  } else {
+    listContent = (
+      <div className="divide-y divide-slate-700">
+        {orderedNotifications.map((notif) => (
+          <div
+            key={String(notif.id)}
+            className={`w-full px-5 py-3 flex items-center gap-2 transition-colors ${
+              selectedId === notif.id ? "bg-slate-800/80" : "bg-slate-900"
+            }`}
+          >
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 text-left focus:outline-none"
+              onClick={() => {
+                if (selectedId === notif.id) {
+                  setSelectedId(null);
+                  return;
+                }
+                setSelectedId(notif.id);
+                if (!notif.read) {
+                  markAsRead(notif.id);
+                }
+              }}
+            >
+              {!notif.read && <span className="w-2 h-2 bg-red-500 rounded-full mr-2" />}
+              <span
+                className={`font-semibold truncate flex-1 ${
+                  notif.read ? "text-slate-400" : "text-white"
+                }`}
+                title={notif.title || notif.type}
+              >
+                {notif.title || notif.type}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="ml-2 text-slate-400 hover:text-slate-200"
+              aria-label="Quitar notificacion"
+              onClick={() => {
+                if (selectedId === notif.id) {
+                  setSelectedId(null);
+                }
+                removeNotification(notif.id);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (loading && notifications.length === 0) {
     return null;
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Notificaciones" className="max-w-5xl w-full">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Notificaciones"
+      className="max-w-5xl w-full"
+    >
       <div className="flex min-h-[420px] overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
         <div className="w-1/3 min-w-[220px] max-w-[340px] flex flex-col border-r border-slate-700 bg-slate-900">
           <div className="px-5 py-4 border-b border-slate-700 bg-slate-800/80">
@@ -59,76 +124,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
             </h3>
           </div>
           <div className="flex-1 overflow-y-auto" style={{ maxHeight: "520px" }}>
-            {error ? (
-              <div className="px-5 py-6 text-sm text-red-400">{error}</div>
-            ) : orderedNotifications.length === 0 ? (
-              <div className="px-5 py-6 text-sm text-slate-400">
-                No hay notificaciones.
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-700">
-                {orderedNotifications.map((notif) => (
-                  <div
-                    key={String(notif.id)}
-                    className={`w-full text-left px-5 py-3 flex items-center gap-2 transition-colors focus:outline-none cursor-pointer ${
-                      selectedId === notif.id
-                        ? "bg-slate-800/80"
-                        : "bg-slate-900"
-                    }`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      if (selectedId === notif.id) {
-                        setSelectedId(null);
-                        return;
-                      }
-                      setSelectedId(notif.id);
-                      if (!notif.read) {
-                        markAsRead(notif.id);
-                      }
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter" && event.key !== " ") return;
-                      event.preventDefault();
-                      if (selectedId === notif.id) {
-                        setSelectedId(null);
-                        return;
-                      }
-                      setSelectedId(notif.id);
-                      if (!notif.read) {
-                        markAsRead(notif.id);
-                      }
-                    }}
-                  >
-                    {!notif.read && (
-                      <span className="w-2 h-2 bg-red-500 rounded-full mr-2" />
-                    )}
-                    <span
-                      className={`font-semibold truncate flex-1 ${
-                        notif.read ? "text-slate-400" : "text-white"
-                      }`}
-                      title={notif.title || notif.type}
-                    >
-                      {notif.title || notif.type}
-                    </span>
-                    <button
-                      type="button"
-                      className="ml-2 text-slate-400 hover:text-slate-200"
-                      aria-label="Quitar notificacion"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (selectedId === notif.id) {
-                          setSelectedId(null);
-                        }
-                        removeNotification(notif.id);
-                      }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            {listContent}
           </div>
         </div>
 

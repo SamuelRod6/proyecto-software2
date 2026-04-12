@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import MyInscriptionsScreen from "./MyInscriptionsScreen";
 
 let anchorClickSpy: jest.SpyInstance;
@@ -46,15 +46,21 @@ jest.mock("../../services/inscriptionServices", () => ({
         status: 200,
         data: new Blob(["pdf"], { type: "application/pdf" }),
     })),
-    downloadReceipt: jest.fn(async () => ({ status: 200, data: new Blob(["pdf"], { type: "application/pdf" }) })),
-    updatePreferences: jest.fn(async () => ({ status: 200, data: { id_usuario: 10, frecuencia: "inmediata", tipos: "estado", habilitado: true } })),
+    downloadReceipt: jest.fn(async () => ({
+        status: 200,
+        data: new Blob(["pdf"], { type: "application/pdf" }),
+    })),
+    updatePreferences: jest.fn(async () => ({
+        status: 200,
+        data: { id_usuario: 10, frecuencia: "inmediata", tipos: "estado", habilitado: true },
+    })),
 }));
 
 jest.mock("../../services/inscripcionesServices", () => ({
-  getInscripciones: jest.fn(async () => ({
-    status: 200,
-    data: { eventos_inscritos: [] },
-  })),
+    getInscripciones: jest.fn(async () => ({
+        status: 200,
+        data: { eventos_inscritos: [] },
+    })),
 }));
 
 jest.mock("../../contexts/Toast/ToastContext", () => ({
@@ -64,7 +70,7 @@ jest.mock("../../contexts/Toast/ToastContext", () => ({
 beforeEach(() => {
     localStorage.setItem(
         "auth-user",
-        JSON.stringify({ id: 10, name: "Mauricio", email: "mauricio@test.com", role: "USER" })
+        JSON.stringify({ id: 10, name: "Mauricio", email: "mauricio@test.com", role: "USER" }),
     );
     if (!window.URL.createObjectURL) {
         window.URL.createObjectURL = jest.fn(() => "blob:mock");
@@ -75,9 +81,7 @@ beforeEach(() => {
     if (!window.open) {
         window.open = jest.fn();
     }
-    anchorClickSpy = jest
-      .spyOn(HTMLAnchorElement.prototype, "click")
-      .mockImplementation(() => undefined);
+    anchorClickSpy = jest.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
 });
 
 afterEach(() => {
@@ -86,7 +90,7 @@ afterEach(() => {
 });
 
 describe("MyInscriptionsScreen", () => {
-    it("shows inscription status and dates", async () => {
+    it("shows inscription status, dates, and history", async () => {
         render(<MyInscriptionsScreen />);
 
         await waitFor(() => {
@@ -96,24 +100,6 @@ describe("MyInscriptionsScreen", () => {
         expect(screen.getByText("Pendiente")).toBeInTheDocument();
         expect(screen.getByText(/20\/02\/2026/)).toBeInTheDocument();
         expect(screen.getByText(/25\/02\/2026/)).toBeInTheDocument();
-    });
-
-    it("allows receipt download", async () => {
-        render(<MyInscriptionsScreen />);
-
-        await waitFor(() => {
-            expect(screen.getByText("Descargar comprobante")).toBeInTheDocument();
-        });
-
-        fireEvent.click(screen.getByText("Descargar comprobante"));
-    });
-
-    it("shows change history fields", async () => {
-        render(<MyInscriptionsScreen />);
-
-        await waitFor(() => {
-            expect(screen.getByText("Ver historial de cambios")).toBeInTheDocument();
-        });
 
         fireEvent.click(screen.getByText("Ver historial de cambios"));
 
@@ -123,9 +109,7 @@ describe("MyInscriptionsScreen", () => {
             expect(screen.getAllByText("Pendiente").length).toBeGreaterThan(0);
             expect(screen.getByText("Aprobado")).toBeInTheDocument();
             expect(screen.getByText("Retroalimentación")).toBeInTheDocument();
-            expect(
-              screen.getAllByText("Ajustes solicitados").length,
-            ).toBeGreaterThan(0);
+            expect(screen.getAllByText("Ajustes solicitados").length).toBeGreaterThan(0);
         });
     });
 

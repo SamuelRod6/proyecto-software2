@@ -188,7 +188,34 @@ make dev server      # frontend local, API remoto en Koyeb (usa .env en raiz)
 
 ## Postman
 
-Importa `postman/collection.json` en Postman para probar `GET /api/hello`.
+Importa `postman/collection.json` en Postman para probar los modulos principales del API.
+
+Cobertura actual de la colección:
+- Auth (registro, login, recuperación y logout)
+- Users, Roles y Permissions
+- Eventos, Inscripciones, Registrations
+- Notifications, Paises, Sesiones
+- Trabajos cientificos (participante, revisor y comité)
+- Mensajes (conversaciones, mensajes, participantes, busqueda y adjuntos)
+- SMTP utilitario (`/api/smtp/send`, `/api/smtp/sandbox`)
+
+Variable de entorno usada por Postman:
+
+```text
+base_url = http://localhost:8080
+```
+
+## Rutas API (Resumen)
+
+Las rutas HTTP se registran en `backend/cmd/api/main.go`. Grupos principales:
+- `/api/auth/*`
+- `/api/users`, `/api/user/*`, `/api/roles*`, `/api/permissions*`, `/api/resources`
+- `/api/eventos*`, `/api/inscripciones*`, `/api/registrations*`
+- `/api/notifications*`
+- `/api/paises`, `/api/ciudades`, `/api/sesiones*`
+- `/api/trabajos-cientificos*`
+- `/api/mensajes/*`
+- `/api/smtp/*`
 
 ## CI (GitHub Actions)
 

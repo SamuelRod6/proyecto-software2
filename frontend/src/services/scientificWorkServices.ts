@@ -88,6 +88,25 @@ export interface ScientificWorkEvaluationSummary {
   evaluaciones: ScientificWorkEvaluationItem[];
 }
 
+export interface ScientificWorkHistoryItem {
+  id_historial: number;
+  id_trabajo: number;
+  estado_anterior: string;
+  estado_nuevo: string;
+  tipo_cambio: string;
+  nota: string;
+  actor: string;
+  fecha_cambio: string;
+}
+
+export interface ScientificWorkHistoryFilters {
+  estado?: string;
+  tipo_cambio?: string;
+  q?: string;
+  desde?: string;
+  hasta?: string;
+}
+
 // listScientificWorks returns works submitted by one user.
 export async function listScientificWorks(userId: number): Promise<{ status: number; data: any }> {
   try {
@@ -271,6 +290,58 @@ export async function decideScientificWork(payload: {
 }): Promise<{ status: number; data: any }> {
   try {
     const response = await axios.post("/api/trabajos-cientificos/comite/decision", payload);
+    return { status: response.status, data: response.data };
+  } catch (error: any) {
+    if (error.response) {
+      return { status: error.response.status, data: error.response.data };
+    }
+    return { status: 500, data: { message: "Error de red o desconocido" } };
+  }
+}
+
+export async function getScientificWorkHistory(
+  workId: number,
+  userId: number,
+  filters: ScientificWorkHistoryFilters = {},
+): Promise<{ status: number; data: any }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("id_trabajo", String(workId));
+    query.set("user_id", String(userId));
+    if (filters.estado?.trim()) query.set("estado", filters.estado.trim());
+    if (filters.tipo_cambio?.trim()) query.set("tipo_cambio", filters.tipo_cambio.trim());
+    if (filters.q?.trim()) query.set("q", filters.q.trim());
+    if (filters.desde?.trim()) query.set("desde", filters.desde.trim());
+    if (filters.hasta?.trim()) query.set("hasta", filters.hasta.trim());
+
+    const response = await axios.get(`/api/trabajos-cientificos/historial?${query.toString()}`);
+    return { status: response.status, data: response.data };
+  } catch (error: any) {
+    if (error.response) {
+      return { status: error.response.status, data: error.response.data };
+    }
+    return { status: 500, data: { message: "Error de red o desconocido" } };
+  }
+}
+
+export async function downloadScientificWorkHistoryPDF(
+  workId: number,
+  userId: number,
+  filters: ScientificWorkHistoryFilters = {},
+): Promise<{ status: number; data: any }> {
+  try {
+    const query = new URLSearchParams();
+    query.set("id_trabajo", String(workId));
+    query.set("user_id", String(userId));
+    if (filters.estado?.trim()) query.set("estado", filters.estado.trim());
+    if (filters.tipo_cambio?.trim()) query.set("tipo_cambio", filters.tipo_cambio.trim());
+    if (filters.q?.trim()) query.set("q", filters.q.trim());
+    if (filters.desde?.trim()) query.set("desde", filters.desde.trim());
+    if (filters.hasta?.trim()) query.set("hasta", filters.hasta.trim());
+
+    const response = await axios.get(`/api/trabajos-cientificos/historial/pdf?${query.toString()}`, {
+      responseType: "blob",
+    });
     return { status: response.status, data: response.data };
   } catch (error: any) {
     if (error.response) {

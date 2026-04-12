@@ -23,10 +23,14 @@ import { getStoredAuthUser } from "../../utils/accessControl";
 import {
   ScientificWorkCompare,
   ScientificWorkItem,
+  ScientificWorkHistoryFilters,
+  ScientificWorkHistoryItem,
   ScientificWorkVersion,
   compareScientificWorkVersions,
   createScientificWork,
+  downloadScientificWorkHistoryPDF,
   downloadScientificWorkVersion,
+  getScientificWorkHistory,
   listScientificWorkVersions,
   listScientificWorks,
   uploadScientificWorkVersion,
@@ -36,6 +40,13 @@ import { getEvents, Evento } from "../../services/eventsServices";
 // countWords computes summary length constraints used by client-side validation.
 function countWords(value: string): number {
   return value.trim() ? value.trim().split(/\s+/).length : 0;
+}
+
+function toApiDate(value: string): string {
+  if (!value.includes("-")) return value;
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
 }
 
 // MyScientificWorksScreen manages creation, versioning, and history inspection for a participant's works.
@@ -67,6 +78,15 @@ export default function MyScientificWorksScreen(): JSX.Element {
   const [newVersionFile, setNewVersionFile] = useState<File | null>(null);
   const [compareFrom, setCompareFrom] = useState("");
   const [compareTo, setCompareTo] = useState("");
+  const [statusHistoryWorkId, setStatusHistoryWorkId] = useState<number | null>(null);
+  const [statusHistoryItems, setStatusHistoryItems] = useState<ScientificWorkHistoryItem[]>([]);
+  const [statusHistoryLoading, setStatusHistoryLoading] = useState(false);
+  const [statusHistoryError, setStatusHistoryError] = useState("");
+  const [statusHistoryEstadoFilter, setStatusHistoryEstadoFilter] = useState("");
+  const [statusHistoryTypeFilter, setStatusHistoryTypeFilter] = useState("");
+  const [statusHistoryQuery, setStatusHistoryQuery] = useState("");
+  const [statusHistoryDesde, setStatusHistoryDesde] = useState("");
+  const [statusHistoryHasta, setStatusHistoryHasta] = useState("");
   const [creatingWork, setCreatingWork] = useState(false);
   const [uploadingVersion, setUploadingVersion] = useState(false);
   const [comparingVersions, setComparingVersions] = useState(false);
@@ -82,6 +102,23 @@ export default function MyScientificWorksScreen(): JSX.Element {
     { value: "RECHAZADO", label: "RECHAZADO" },
   ];
 
+  const statusHistoryFilters = useMemo<ScientificWorkHistoryFilters>(
+    () => ({
+      estado: statusHistoryEstadoFilter.trim() || undefined,
+      tipo_cambio: statusHistoryTypeFilter.trim() || undefined,
+      q: statusHistoryQuery.trim() || undefined,
+      desde: statusHistoryDesde ? toApiDate(statusHistoryDesde) : undefined,
+      hasta: statusHistoryHasta ? toApiDate(statusHistoryHasta) : undefined,
+    }),
+    [
+      statusHistoryDesde,
+      statusHistoryEstadoFilter,
+      statusHistoryHasta,
+      statusHistoryQuery,
+      statusHistoryTypeFilter,
+    ],
+  );
+
   const filteredWorks = useMemo(() => {
     const q = workQuery.trim().toLowerCase();
     return works.filter((work) => {
@@ -93,8 +130,7 @@ export default function MyScientificWorksScreen(): JSX.Element {
     });
   }, [works, workQuery, workStateFilter]);
 
-  // loadData fetches current user works and available events for submission.
-    async function loadData() {
+  async function loadData() {
     if (!authUser?.id) return;
     setLoading(true);
     setError("");
@@ -124,7 +160,27 @@ export default function MyScientificWorksScreen(): JSX.Element {
     void loadData();
   }, []);
 
-  // openHistory loads version history for the selected work and opens the modal.
+  async function loadStatusHistory(workId: number, filtersOverride?: ScientificWorkHistoryFilters) {
+    if (!authUser?.id) return;
+    setStatusHistoryLoading(true);
+    setStatusHistoryError("");
+
+    const { status, data } = await getScientificWorkHistory(
+      workId,
+      authUser.id,
+      filtersOverride ?? statusHistoryFilters,
+    );
+
+    if (status >= 400 || !Array.isArray(data)) {
+      setStatusHistoryItems([]);
+      setStatusHistoryError("No se pudo cargar el historial de cambios de estado.");
+    } else {
+      setStatusHistoryItems(data);
+    }
+
+    setStatusHistoryLoading(false);
+  }
+
   async function openHistory(work: ScientificWorkItem) {
     if (!authUser?.id) return;
     setSelectedWork(work);
@@ -141,7 +197,108 @@ export default function MyScientificWorksScreen(): JSX.Element {
     setComparison(null);
     setCompareFrom("");
     setCompareTo("");
+    setStatusHistoryWorkId(work.id_trabajo);
+    setStatusHistoryEstadoFilter("");
+    setStatusHistoryTypeFilter("");
+    setStatusHistoryQuery("");
+    setStatusHistoryDesde("");
+    setStatusHistoryHasta("");
+    await loadStatusHistory(work.id_trabajo, {});
     setHistoryOpen(true);
+  }
+
+  async function handleSearchStatusHistory() {
+    if (!statusHistoryWorkId) return;
+    await loadStatusHistory(statusHistoryWorkId);
+  }
+
+  async function handleDownloadStatusHistoryPDF() {
+    if (!statusHistoryWorkId || !authUser?.id) return;
+
+    const { status, data } = await downloadScientificWorkHistoryPDF(
+      statusHistoryWorkId,
+      authUser.id,
+      statusHistoryFilters,
+    );
+    if (status >= 400) {
+      showToast({
+        title: "Error",
+        message: "No se pudo descargar el historial de cambios en PDF.",
+        status: "error",
+      });
+      return;
+    }
+
+    const blob = data as Blob;
+    const url = globalThis.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `historial_trabajo_cientifico_${statusHistoryWorkId}.pdf`;
+    link.click();
+    globalThis.URL.revokeObjectURL(url);
+  }
+
+  function handlePrintStatusHistory() {
+    const printWindow = globalThis.open("", "_blank", "width=1000,height=700");
+    if (!printWindow) {
+      showToast({
+        title: "Error",
+        message: "No se pudo abrir la vista de impresión.",
+        status: "error",
+      });
+      return;
+    }
+
+    const rowsMarkup =
+      statusHistoryItems.length === 0
+        ? `<tr><td colspan="5">Sin resultados.</td></tr>`
+        : statusHistoryItems
+            .map(
+              (item) =>
+                `<tr>
+                  <td>${item.fecha_cambio}</td>
+                  <td>${item.estado_anterior || "-"}</td>
+                  <td>${item.estado_nuevo}</td>
+                  <td>${item.tipo_cambio || "-"}</td>
+                  <td>${item.nota || ""}</td>
+                </tr>`,
+            )
+            .join("");
+
+    const html = `
+      <html>
+        <head>
+          <title>Historial de cambios de estado</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 24px; color: #0f172a; }
+            h1 { font-size: 20px; margin-bottom: 10px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; text-align: left; }
+            th { background: #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <h1>Historial de cambios de estado</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Estado anterior</th>
+                <th>Estado nuevo</th>
+                <th>Tipo de cambio</th>
+                <th>Comentario</th>
+              </tr>
+            </thead>
+            <tbody>${rowsMarkup}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+    printWindow.document.open();
+    printWindow.document.documentElement.innerHTML = html;
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
   }
 
   // handleCreateWork validates fields and submits the initial scientific work version.
@@ -311,12 +468,56 @@ export default function MyScientificWorksScreen(): JSX.Element {
     }
 
     const blob = res.data as Blob;
-    const url = window.URL.createObjectURL(blob);
+    const url = globalThis.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `trabajo_v${versionId}.pdf`;
     link.click();
-    window.URL.revokeObjectURL(url);
+    globalThis.URL.revokeObjectURL(url);
+  }
+
+  let statusHistoryContent: JSX.Element;
+  if (statusHistoryLoading) {
+    statusHistoryContent = (
+      <div className="flex justify-center py-8">
+        <Loader visible={true} />
+      </div>
+    );
+  } else if (statusHistoryError) {
+    statusHistoryContent = <p className="text-sm text-red-400">{statusHistoryError}</p>;
+  } else {
+    statusHistoryContent = (
+      <table className="min-w-full text-sm text-slate-200">
+        <thead className="bg-slate-700/50 text-slate-100">
+          <tr>
+            <th className="px-3 py-2 text-left">Fecha</th>
+            <th className="px-3 py-2 text-left">Estado anterior</th>
+            <th className="px-3 py-2 text-left">Estado nuevo</th>
+            <th className="px-3 py-2 text-left">Tipo de cambio</th>
+            <th className="px-3 py-2 text-left">Comentario</th>
+          </tr>
+        </thead>
+        <tbody>
+          {statusHistoryItems.length === 0 ? (
+            <tr>
+              <td className="px-3 py-3 text-slate-400" colSpan={5}>
+                No hay cambios para los filtros seleccionados.
+              </td>
+            </tr>
+          ) : (
+            statusHistoryItems.map((item) => (
+              <tr key={item.id_historial} className="border-b border-slate-700/60">
+                <td className="px-3 py-2">{item.fecha_cambio}</td>
+                <td className="px-3 py-2">{item.estado_anterior || "-"}</td>
+                <td className="px-3 py-2">{item.estado_nuevo}</td>
+                <td className="px-3 py-2">{item.tipo_cambio || "-"}</td>
+                <td className="px-3 py-2">{item.nota || ""}</td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    );
   }
 
   if (loading) {
@@ -470,12 +671,13 @@ export default function MyScientificWorksScreen(): JSX.Element {
             </span>
           </label>
 
-          <label className="block space-y-2 text-sm">
+          <label htmlFor="create-work-file" className="block space-y-2 text-sm">
             <span className="text-slate-200">Archivo PDF</span>
             <div className="flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800 px-3 py-2">
               <label className="inline-flex cursor-pointer items-center rounded-md bg-slate-700 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600 transition">
-                Seleccionar archivo
+                <span>Seleccionar archivo</span>
                 <input
+                  id="create-work-file"
                   type="file"
                   accept="application/pdf"
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
@@ -512,12 +714,13 @@ export default function MyScientificWorksScreen(): JSX.Element {
             maxLength={300}
           />
 
-          <label className="block space-y-2 text-sm">
+          <label htmlFor="new-version-file" className="block space-y-2 text-sm">
             <span className="text-slate-200">Nuevo PDF</span>
             <div className="flex items-center gap-3 rounded-md border border-slate-700 bg-slate-800 px-3 py-2">
               <label className="inline-flex cursor-pointer items-center rounded-md bg-slate-700 px-3 py-1 text-xs font-medium text-slate-100 hover:bg-slate-600 transition">
-                Seleccionar archivo
+                <span>Seleccionar archivo</span>
                 <input
+                  id="new-version-file"
                   type="file"
                   accept="application/pdf"
                   onChange={(e) => setNewVersionFile(e.target.files?.[0] ?? null)}
@@ -607,6 +810,68 @@ export default function MyScientificWorksScreen(): JSX.Element {
                 </ul>
               </div>
             )}
+          </div>
+
+          <div className="rounded-lg border border-slate-700 bg-slate-900 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-slate-100 font-medium">Historial de cambios de estado</h3>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={handleDownloadStatusHistoryPDF}>
+                  Descargar PDF
+                </Button>
+                <Button variant="ghost" onClick={handlePrintStatusHistory}>
+                  Imprimir
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <Input
+                label="Estado"
+                value={statusHistoryEstadoFilter}
+                onChange={(e) => setStatusHistoryEstadoFilter(e.target.value)}
+                placeholder="Ejemplo: ACTUALIZADO"
+              />
+              <Input
+                label="Tipo de cambio"
+                value={statusHistoryTypeFilter}
+                onChange={(e) => setStatusHistoryTypeFilter(e.target.value)}
+                placeholder="Ejemplo: DECISION_COMITE"
+              />
+              <Input
+                label="Buscar"
+                value={statusHistoryQuery}
+                onChange={(e) => setStatusHistoryQuery(e.target.value)}
+                placeholder="Comentario o estado"
+              />
+              <div className="flex flex-col gap-1 text-sm text-slate-200">
+                <label htmlFor="status-history-desde">Fecha desde</label>
+                <input
+                  id="status-history-desde"
+                  type="date"
+                  className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                  value={statusHistoryDesde}
+                  onChange={(event) => setStatusHistoryDesde(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1 text-sm text-slate-200">
+                <label htmlFor="status-history-hasta">Fecha hasta</label>
+                <input
+                  id="status-history-hasta"
+                  type="date"
+                  className="rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                  value={statusHistoryHasta}
+                  onChange={(event) => setStatusHistoryHasta(event.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={handleSearchStatusHistory}>Aplicar filtros</Button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              {statusHistoryContent}
+            </div>
           </div>
         </div>
       </Modal>

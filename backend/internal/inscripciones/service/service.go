@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -28,6 +29,8 @@ type Service struct {
 	repo *repo.Repository
 }
 
+var sendConfirmationEmailFunc = sendConfirmationEmail
+
 func New(repository *repo.Repository) *Service {
 	return &Service{repo: repository}
 }
@@ -46,7 +49,8 @@ func (s *Service) CreateInscripcion(ctx context.Context, req dto.CreateInscripci
 		return 0, ErrEventoCerrado
 	}
 
-	if _, err := s.repo.FindUsuarioByID(ctx, req.IDUsuario); err != nil {
+	usuario, err := s.repo.FindUsuarioByID(ctx, req.IDUsuario)
+	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			return 0, ErrUsuarioNotFound
 		}
@@ -66,9 +70,39 @@ func (s *Service) CreateInscripcion(ctx context.Context, req dto.CreateInscripci
 
 	_ = s.repo.InsertHistorial(ctx, id, "", "Pendiente", "Confirmada", "system")
 	_ = s.repo.InsertNotificacion(ctx, req.IDUsuario, &id, "Confirmación de inscripción", "Tu inscripción fue registrada correctamente")
-	_ = sendConfirmationEmail(ctx, req.Email, req.NombreParticipante, evento.Nombre)
+
+	confirmationEmail := resolveConfirmationEmail(usuario.Email, req.Email)
+	if err := sendConfirmationEmailWithRetry(ctx, confirmationEmail, req.NombreParticipante, evento.Nombre, 3); err != nil {
+		fmt.Printf("[ERROR] no se pudo enviar confirmación de inscripción (usuario=%d, inscripcion=%d, email=%s): %v\n", req.IDUsuario, id, confirmationEmail, err)
+	}
 
 	return id, nil
+}
+
+func resolveConfirmationEmail(usuarioEmail, requestEmail string) string {
+	if strings.TrimSpace(usuarioEmail) != "" {
+		return strings.TrimSpace(usuarioEmail)
+	}
+	return strings.TrimSpace(requestEmail)
+}
+
+func sendConfirmationEmailWithRetry(ctx context.Context, to, nombre, evento string, maxAttempts int) error {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+
+	var lastErr error
+	for i := 1; i <= maxAttempts; i++ {
+		lastErr = sendConfirmationEmailFunc(ctx, to, nombre, evento)
+		if lastErr == nil {
+			return nil
+		}
+		if i < maxAttempts {
+			time.Sleep(300 * time.Millisecond)
+		}
+	}
+
+	return lastErr
 }
 
 func sendConfirmationEmail(ctx context.Context, to, nombre, evento string) error {
@@ -220,13 +254,10 @@ func (s *Service) UpdateEstado(ctx context.Context, req dto.UpdateEstadoRequest)
 
 	_ = s.repo.InsertHistorial(ctx, req.IDInscripcion, actual, newStatus, req.Nota, req.Actor)
 
-	pref, err := s.repo.GetPreferencias(ctx, rows[0].IDUsuario)
-	if err == nil && pref != nil && shouldSendStatusEmail(*pref, actual, newStatus) {
-		fecha := time.Now().Format("02/01/2006")
-		asunto, mensaje := buildStatusEmail(rows[0].Nombre, rows[0].EventoNombre, actual, newStatus, fecha, req.Nota)
-		_ = s.repo.InsertNotificacion(ctx, rows[0].IDUsuario, &req.IDInscripcion, asunto, mensaje)
-		_ = sendEmail(ctx, rows[0].Email, asunto, mensaje)
-	}
+	fecha := time.Now().Format("02/01/2006 15:04")
+	asunto, mensaje := buildStatusEmail(rows[0].Nombre, rows[0].EventoNombre, actual, newStatus, fecha, req.Nota)
+	_ = s.repo.InsertNotificacion(ctx, rows[0].IDUsuario, &req.IDInscripcion, asunto, mensaje)
+	_ = sendEmail(ctx, rows[0].Email, asunto, mensaje)
 
 	return nil
 }

@@ -1,6 +1,14 @@
 import React, { useState } from "react";
 import Select, { MultiValue, SingleValue, StylesConfig } from "react-select";
 
+/*
+File: SelectorInput.tsx
+
+Contains:
+Reusable react-select wrapper used across forms and modal workflows.
+Supports single/multi selection, optional free-text value, and menu portal rendering.
+*/
+
 export interface OptionType {
     value: string;
     label: string;
@@ -20,6 +28,7 @@ interface SelectInputProps {
   menuPortalTarget?: HTMLElement | null;
 }
 
+// SelectInput normalizes react-select behavior for the project's UI conventions.
 const SelectInput: React.FC<SelectInputProps> = ({
   value,
   onChange,
@@ -67,6 +76,10 @@ const SelectInput: React.FC<SelectInputProps> = ({
       ? [...options, { value: "otro", label: "Otro..." }]
       : options;
 
+  const resolvedMenuPortalTarget =
+    menuPortalTarget ??
+    (typeof document === "undefined" ? null : document.body);
+
   const selectedValue = isMulti
     ? finalOptions.filter(
         (opt) => Array.isArray(value) && value.includes(opt.value),
@@ -90,8 +103,8 @@ const SelectInput: React.FC<SelectInputProps> = ({
         isMulti={isMulti}
         isClearable={isClearable}
         closeMenuOnSelect={!isMulti}
-        menuPortalTarget={menuPortalTarget}
-        menuPosition={menuPortalTarget ? "fixed" : "absolute"}
+        menuPortalTarget={resolvedMenuPortalTarget}
+        menuPosition={resolvedMenuPortalTarget ? "fixed" : "absolute"}
         styles={customStyles}
       />
       {isOther && (
@@ -128,15 +141,11 @@ const customStyles: StylesConfig<OptionType, boolean> = {
   }),
   menuPortal: (provided) => ({
     ...provided,
-    zIndex: 50,
+    zIndex: 9999,
   }),
   option: (provided, state) => ({
     ...provided,
-    backgroundColor: state.isSelected
-      ? "#facc15"
-      : state.isFocused
-        ? "#334155"
-        : "#1e293b",
+    backgroundColor: getOptionBackground(state.isSelected, state.isFocused),
     color: state.isSelected ? "#1e293b" : "#e2e8f0",
     fontSize: "0.85rem",
   }),
@@ -187,5 +196,12 @@ const customStyles: StylesConfig<OptionType, boolean> = {
     ":hover": { color: "#e2e8f0" },
   }),
 };
+
+// getOptionBackground keeps option-state colors readable on dark backgrounds.
+function getOptionBackground(isSelected: boolean, isFocused: boolean): string {
+  if (isSelected) return "#facc15";
+  if (isFocused) return "#334155";
+  return "#1e293b";
+}
 
 export default SelectInput;

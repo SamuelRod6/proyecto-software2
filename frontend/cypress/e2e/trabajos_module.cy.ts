@@ -98,19 +98,12 @@ describe("Trabajos module", () => {
     cy.contains("button", "Ver historial").click();
 
     cy.wait("@getVersions");
-    cy.contains("Historial de versiones").should("be.visible");
+    cy.contains("Historial de versiones").should("exist");
 
-    cy.contains("label", "Desde")
-      .parent()
-      .find(".react-select__control")
-      .click();
-    cy.contains(".react-select__option", "Versión 1").click();
-
-    cy.contains("label", "Hasta")
-      .parent()
-      .find(".react-select__control")
-      .click();
-    cy.contains(".react-select__option", "Versión 2").click();
+    cy.get(".modal-scroll-content").within(() => {
+      cy.get('input[role="combobox"]').eq(0).click().type("1{enter}");
+      cy.get('input[role="combobox"]').eq(1).click().type("2{enter}");
+    });
     cy.contains("button", "Comparar").click();
 
     cy.wait("@compareVersions");

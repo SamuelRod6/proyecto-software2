@@ -26,6 +26,8 @@ import (
 	notificationdto "project/backend/internal/notifications/dto"
 	notificationsrepo "project/backend/internal/notifications/repo"
 	notificationsrv "project/backend/internal/notifications/service"
+	sharedsmtp "project/backend/internal/shared/smtp"
+	"project/backend/internal/shared/uploadpath"
 	"project/backend/internal/trabajos/dto"
 	"project/backend/internal/trabajos/repo"
 	"project/backend/internal/trabajos/validation"
@@ -124,6 +126,20 @@ func (s *Service) CreateTrabajo(ctx context.Context, req dto.CreateTrabajoReques
 	if err := s.repo.UpdateTrabajoVersionActual(ctx, trabajo.IDTrabajo, 1); err != nil {
 		return nil, err
 	}
+
+	actor := fmt.Sprintf("usuario %d", req.IDUsuario)
+	if user, findErr := s.repo.FindUserByID(ctx, req.IDUsuario); findErr == nil && user != nil && strings.TrimSpace(user.Nombre) != "" {
+		actor = user.Nombre
+	}
+	_ = s.repo.InsertTrabajoHistorial(
+		ctx,
+		trabajo.IDTrabajo,
+		trabajo.Estado,
+		"ACTUALIZADO",
+		"ENVIO_INICIAL",
+		"Versión inicial registrada.",
+		actor,
+	)
 
 	_, _ = s.notificationService.CreateNotification(ctx, notificationdto.CreateNotificationRequest{
 		UserID:  req.IDUsuario,
@@ -393,7 +409,7 @@ func (s *Service) GetVersionFile(ctx context.Context, versionID, userID int) (*d
 
 // savePDF writes one PDF version to storage path.
 func savePDF(trabajoID, eventID, userID, version int, file dto.UploadedFile) (string, error) {
-	baseDir := filepath.Join("..", "uploads", "trabajos-cientificos", fmt.Sprintf("evento_%d", eventID), fmt.Sprintf("usuario_%d", userID), fmt.Sprintf("trabajo_%d", trabajoID))
+	baseDir := uploadpath.UploadsDir("trabajos-cientificos", fmt.Sprintf("evento_%d", eventID), fmt.Sprintf("usuario_%d", userID), fmt.Sprintf("trabajo_%d", trabajoID))
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {
 		return "", err
 	}
@@ -450,6 +466,32 @@ func normalizeRecomendacion(value string) string {
 	default:
 		return "PENDIENTE"
 	}
+}
+
+func buildDecisionStatusEmail(titulo, estadoAnterior, estadoNuevo, fechaActualizacion, comentario string) (string, string) {
+	asunto := "Actualización de estado de trabajo científico"
+	mensaje := fmt.Sprintf(
+		"El estado de tu trabajo científico fue actualizado.\n\nTítulo: %s\nEstado anterior: %s\nNuevo estado: %s\nFecha de actualización: %s",
+		strings.TrimSpace(titulo),
+		strings.TrimSpace(estadoAnterior),
+		strings.TrimSpace(estadoNuevo),
+		strings.TrimSpace(fechaActualizacion),
+	)
+
+	if strings.TrimSpace(comentario) != "" {
+		mensaje += "\nComentario del comité: " + strings.TrimSpace(comentario)
+	}
+
+	return asunto, mensaje
+}
+
+func sendWorkStatusEmail(ctx context.Context, to, subject, body string) error {
+	_, err := sharedsmtp.SendEmail(ctx, sharedsmtp.SendEmailRequest{
+		ToEmail: to,
+		Subject: subject,
+		Text:    body,
+	})
+	return err
 }
 
 func findAuthorName(ctx context.Context, s *Service, userID int) string {
@@ -887,6 +929,7 @@ func (s *Service) DecideTrabajo(ctx context.Context, req dto.DecisionRequest) er
 	if err != nil || trabajo == nil {
 		return ErrTrabajoNoExiste
 	}
+	estadoAnterior := normalizeDecisionComite(trabajo.DecisionComite)
 
 	req.DecisionComite = normalizeDecisionComite(req.DecisionComite)
 	req.ComentarioComite = strings.TrimSpace(req.ComentarioComite)
@@ -894,6 +937,20 @@ func (s *Service) DecideTrabajo(ctx context.Context, req dto.DecisionRequest) er
 	if err := s.repo.UpdateDecisionComite(ctx, req); err != nil {
 		return err
 	}
+
+	actor := fmt.Sprintf("usuario %d", req.UserID)
+	if user, findErr := s.repo.FindUserByID(ctx, req.UserID); findErr == nil && user != nil && strings.TrimSpace(user.Nombre) != "" {
+		actor = user.Nombre
+	}
+	_ = s.repo.InsertTrabajoHistorial(
+		ctx,
+		req.IDTrabajo,
+		estadoAnterior,
+		req.DecisionComite,
+		"DECISION_COMITE",
+		req.ComentarioComite,
+		actor,
+	)
 
 	msg := fmt.Sprintf(notificationdto.MsgEstadoTrabajo, trabajo.Titulo, req.DecisionComite)
 	if req.ComentarioComite != "" {
@@ -907,5 +964,51 @@ func (s *Service) DecideTrabajo(ctx context.Context, req dto.DecisionRequest) er
 		Message: msg,
 	})
 
+	autor, findErr := s.repo.FindUserByID(ctx, trabajo.IDUsuario)
+	if findErr == nil && autor != nil && strings.TrimSpace(autor.Email) != "" {
+		fechaActualizacion := formatDateTimeVE(time.Now())
+		asunto, mensajeCorreo := buildDecisionStatusEmail(
+			trabajo.Titulo,
+			estadoAnterior,
+			req.DecisionComite,
+			fechaActualizacion,
+			req.ComentarioComite,
+		)
+		_ = sendWorkStatusEmail(ctx, autor.Email, asunto, mensajeCorreo)
+	}
+
 	return nil
+}
+
+func (s *Service) HistorialTrabajo(ctx context.Context, trabajoID, userID int, filters map[string]interface{}) ([]dto.WorkStatusHistoryItem, error) {
+	trabajo, err := s.repo.FindTrabajoByIDAndUser(ctx, trabajoID, userID)
+	if err != nil || trabajo == nil {
+		return nil, ErrSinAcceso
+	}
+
+	if filters == nil {
+		filters = make(map[string]interface{})
+	}
+	filters["id_trabajo"] = trabajo.IDTrabajo
+
+	rows, err := s.repo.ListTrabajoHistorial(ctx, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]dto.WorkStatusHistoryItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, dto.WorkStatusHistoryItem{
+			IDHistorial:    row.IDHistorial,
+			IDTrabajo:      row.IDTrabajo,
+			EstadoAnterior: row.EstadoAnterior,
+			EstadoNuevo:    row.EstadoNuevo,
+			TipoCambio:     row.TipoCambio,
+			Nota:           row.Nota,
+			Actor:          row.Actor,
+			FechaCambio:    formatDateTimeVE(row.FechaCambio),
+		})
+	}
+
+	return items, nil
 }

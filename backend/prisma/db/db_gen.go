@@ -329,13 +329,29 @@ model TrabajoCientifico {
   comentario_comite String?
   fecha_decision    DateTime?
 
-  evento       Evento                      @relation(fields: [id_evento], references: [id_evento])
-  usuario      Usuario                     @relation(fields: [id_usuario], references: [id_usuario])
-  versiones    TrabajoCientificoVersion[]
-  asignaciones TrabajoRevisionAsignacion[]
-  evaluaciones TrabajoEvaluacion[]
+  evento           Evento                       @relation(fields: [id_evento], references: [id_evento])
+  usuario          Usuario                      @relation(fields: [id_usuario], references: [id_usuario])
+  versiones        TrabajoCientificoVersion[]
+  asignaciones     TrabajoRevisionAsignacion[]
+  evaluaciones     TrabajoEvaluacion[]
+  historial_estado TrabajoCientificoHistorial[]
 
   @@unique([id_evento, titulo_normalizado])
+}
+
+model TrabajoCientificoHistorial {
+  id_historial    Int      @id @default(autoincrement())
+  id_trabajo      Int
+  estado_anterior String
+  estado_nuevo    String
+  tipo_cambio     String   @default("DECISION COMITE")
+  nota            String?
+  actor           String?
+  fecha_cambio    DateTime @default(now())
+
+  trabajo TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+
+  @@index([id_trabajo, fecha_cambio])
 }
 
 model TrabajoCientificoVersion {
@@ -506,6 +522,7 @@ func newClient() *PrismaClient {
 	c.SesionPonente = sesionPonenteActions{client: c}
 	c.SesionHistorial = sesionHistorialActions{client: c}
 	c.TrabajoCientifico = trabajoCientificoActions{client: c}
+	c.TrabajoCientificoHistorial = trabajoCientificoHistorialActions{client: c}
 	c.TrabajoCientificoVersion = trabajoCientificoVersionActions{client: c}
 	c.TrabajoRevisionAsignacion = trabajoRevisionAsignacionActions{client: c}
 	c.TrabajoEvaluacion = trabajoEvaluacionActions{client: c}
@@ -576,6 +593,8 @@ type PrismaClient struct {
 	SesionHistorial sesionHistorialActions
 	// TrabajoCientifico provides access to CRUD methods.
 	TrabajoCientifico trabajoCientificoActions
+	// TrabajoCientificoHistorial provides access to CRUD methods.
+	TrabajoCientificoHistorial trabajoCientificoHistorialActions
 	// TrabajoCientificoVersion provides access to CRUD methods.
 	TrabajoCientificoVersion trabajoCientificoVersionActions
 	// TrabajoRevisionAsignacion provides access to CRUD methods.
@@ -825,6 +844,19 @@ const (
 	TrabajoCientificoScalarFieldEnumDecisionComite    TrabajoCientificoScalarFieldEnum = "decision_comite"
 	TrabajoCientificoScalarFieldEnumComentarioComite  TrabajoCientificoScalarFieldEnum = "comentario_comite"
 	TrabajoCientificoScalarFieldEnumFechaDecision     TrabajoCientificoScalarFieldEnum = "fecha_decision"
+)
+
+type TrabajoCientificoHistorialScalarFieldEnum string
+
+const (
+	TrabajoCientificoHistorialScalarFieldEnumIDHistorial    TrabajoCientificoHistorialScalarFieldEnum = "id_historial"
+	TrabajoCientificoHistorialScalarFieldEnumIDTrabajo      TrabajoCientificoHistorialScalarFieldEnum = "id_trabajo"
+	TrabajoCientificoHistorialScalarFieldEnumEstadoAnterior TrabajoCientificoHistorialScalarFieldEnum = "estado_anterior"
+	TrabajoCientificoHistorialScalarFieldEnumEstadoNuevo    TrabajoCientificoHistorialScalarFieldEnum = "estado_nuevo"
+	TrabajoCientificoHistorialScalarFieldEnumTipoCambio     TrabajoCientificoHistorialScalarFieldEnum = "tipo_cambio"
+	TrabajoCientificoHistorialScalarFieldEnumNota           TrabajoCientificoHistorialScalarFieldEnum = "nota"
+	TrabajoCientificoHistorialScalarFieldEnumActor          TrabajoCientificoHistorialScalarFieldEnum = "actor"
+	TrabajoCientificoHistorialScalarFieldEnumFechaCambio    TrabajoCientificoHistorialScalarFieldEnum = "fecha_cambio"
 )
 
 type TrabajoCientificoVersionScalarFieldEnum string
@@ -1330,6 +1362,28 @@ const trabajoCientificoFieldAsignaciones trabajoCientificoPrismaFields = "asigna
 
 const trabajoCientificoFieldEvaluaciones trabajoCientificoPrismaFields = "evaluaciones"
 
+const trabajoCientificoFieldHistorialEstado trabajoCientificoPrismaFields = "historial_estado"
+
+type trabajoCientificoHistorialPrismaFields = prismaFields
+
+const trabajoCientificoHistorialFieldIDHistorial trabajoCientificoHistorialPrismaFields = "id_historial"
+
+const trabajoCientificoHistorialFieldIDTrabajo trabajoCientificoHistorialPrismaFields = "id_trabajo"
+
+const trabajoCientificoHistorialFieldEstadoAnterior trabajoCientificoHistorialPrismaFields = "estado_anterior"
+
+const trabajoCientificoHistorialFieldEstadoNuevo trabajoCientificoHistorialPrismaFields = "estado_nuevo"
+
+const trabajoCientificoHistorialFieldTipoCambio trabajoCientificoHistorialPrismaFields = "tipo_cambio"
+
+const trabajoCientificoHistorialFieldNota trabajoCientificoHistorialPrismaFields = "nota"
+
+const trabajoCientificoHistorialFieldActor trabajoCientificoHistorialPrismaFields = "actor"
+
+const trabajoCientificoHistorialFieldFechaCambio trabajoCientificoHistorialPrismaFields = "fecha_cambio"
+
+const trabajoCientificoHistorialFieldTrabajo trabajoCientificoHistorialPrismaFields = "trabajo"
+
 type trabajoCientificoVersionPrismaFields = prismaFields
 
 const trabajoCientificoVersionFieldIDVersion trabajoCientificoVersionPrismaFields = "id_version"
@@ -1530,6 +1584,10 @@ func NewMock() (*PrismaClient, *Mock, func(t *testing.T)) {
 		mock: m,
 	}
 
+	m.TrabajoCientificoHistorial = trabajoCientificoHistorialMock{
+		mock: m,
+	}
+
 	m.TrabajoCientificoVersion = trabajoCientificoVersionMock{
 		mock: m,
 	}
@@ -1599,6 +1657,8 @@ type Mock struct {
 	SesionHistorial sesionHistorialMock
 
 	TrabajoCientifico trabajoCientificoMock
+
+	TrabajoCientificoHistorial trabajoCientificoHistorialMock
 
 	TrabajoCientificoVersion trabajoCientificoVersionMock
 
@@ -2447,6 +2507,48 @@ func (m *trabajoCientificoMockExec) ReturnsMany(v []TrabajoCientificoModel) {
 }
 
 func (m *trabajoCientificoMockExec) Errors(err error) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query:   m.query,
+		WantErr: err,
+	})
+}
+
+type trabajoCientificoHistorialMock struct {
+	mock *Mock
+}
+
+type TrabajoCientificoHistorialMockExpectParam interface {
+	ExtractQuery() builder.Query
+	trabajoCientificoHistorialModel()
+}
+
+func (m *trabajoCientificoHistorialMock) Expect(query TrabajoCientificoHistorialMockExpectParam) *trabajoCientificoHistorialMockExec {
+	return &trabajoCientificoHistorialMockExec{
+		mock:  m.mock,
+		query: query.ExtractQuery(),
+	}
+}
+
+type trabajoCientificoHistorialMockExec struct {
+	mock  *Mock
+	query builder.Query
+}
+
+func (m *trabajoCientificoHistorialMockExec) Returns(v TrabajoCientificoHistorialModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoCientificoHistorialMockExec) ReturnsMany(v []TrabajoCientificoHistorialModel) {
+	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
+		Query: m.query,
+		Want:  &v,
+	})
+}
+
+func (m *trabajoCientificoHistorialMockExec) Errors(err error) {
 	*m.mock.Expectations = append(*m.mock.Expectations, mock.Expectation{
 		Query:   m.query,
 		WantErr: err,
@@ -3757,11 +3859,12 @@ type RawTrabajoCientificoModel struct {
 
 // RelationsTrabajoCientifico holds the relation data separately
 type RelationsTrabajoCientifico struct {
-	Evento       *EventoModel                     `json:"evento,omitempty"`
-	Usuario      *UsuarioModel                    `json:"usuario,omitempty"`
-	Versiones    []TrabajoCientificoVersionModel  `json:"versiones,omitempty"`
-	Asignaciones []TrabajoRevisionAsignacionModel `json:"asignaciones,omitempty"`
-	Evaluaciones []TrabajoEvaluacionModel         `json:"evaluaciones,omitempty"`
+	Evento          *EventoModel                      `json:"evento,omitempty"`
+	Usuario         *UsuarioModel                     `json:"usuario,omitempty"`
+	Versiones       []TrabajoCientificoVersionModel   `json:"versiones,omitempty"`
+	Asignaciones    []TrabajoRevisionAsignacionModel  `json:"asignaciones,omitempty"`
+	Evaluaciones    []TrabajoEvaluacionModel          `json:"evaluaciones,omitempty"`
+	HistorialEstado []TrabajoCientificoHistorialModel `json:"historial_estado,omitempty"`
 }
 
 func (r TrabajoCientificoModel) ComentarioComite() (value String, ok bool) {
@@ -3811,6 +3914,69 @@ func (r TrabajoCientificoModel) Evaluaciones() (value []TrabajoEvaluacionModel) 
 		panic("attempted to access evaluaciones but did not fetch it using the .With() syntax")
 	}
 	return r.RelationsTrabajoCientifico.Evaluaciones
+}
+
+func (r TrabajoCientificoModel) HistorialEstado() (value []TrabajoCientificoHistorialModel) {
+	if r.RelationsTrabajoCientifico.HistorialEstado == nil {
+		panic("attempted to access historialEstado but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoCientifico.HistorialEstado
+}
+
+// TrabajoCientificoHistorialModel represents the TrabajoCientificoHistorial model and is a wrapper for accessing fields and methods
+type TrabajoCientificoHistorialModel struct {
+	InnerTrabajoCientificoHistorial
+	RelationsTrabajoCientificoHistorial
+}
+
+// InnerTrabajoCientificoHistorial holds the actual data
+type InnerTrabajoCientificoHistorial struct {
+	IDHistorial    int      `json:"id_historial"`
+	IDTrabajo      int      `json:"id_trabajo"`
+	EstadoAnterior string   `json:"estado_anterior"`
+	EstadoNuevo    string   `json:"estado_nuevo"`
+	TipoCambio     string   `json:"tipo_cambio"`
+	Nota           *string  `json:"nota,omitempty"`
+	Actor          *string  `json:"actor,omitempty"`
+	FechaCambio    DateTime `json:"fecha_cambio"`
+}
+
+// RawTrabajoCientificoHistorialModel is a struct for TrabajoCientificoHistorial when used in raw queries
+type RawTrabajoCientificoHistorialModel struct {
+	IDHistorial    RawInt      `json:"id_historial"`
+	IDTrabajo      RawInt      `json:"id_trabajo"`
+	EstadoAnterior RawString   `json:"estado_anterior"`
+	EstadoNuevo    RawString   `json:"estado_nuevo"`
+	TipoCambio     RawString   `json:"tipo_cambio"`
+	Nota           *RawString  `json:"nota,omitempty"`
+	Actor          *RawString  `json:"actor,omitempty"`
+	FechaCambio    RawDateTime `json:"fecha_cambio"`
+}
+
+// RelationsTrabajoCientificoHistorial holds the relation data separately
+type RelationsTrabajoCientificoHistorial struct {
+	Trabajo *TrabajoCientificoModel `json:"trabajo,omitempty"`
+}
+
+func (r TrabajoCientificoHistorialModel) Nota() (value String, ok bool) {
+	if r.InnerTrabajoCientificoHistorial.Nota == nil {
+		return value, false
+	}
+	return *r.InnerTrabajoCientificoHistorial.Nota, true
+}
+
+func (r TrabajoCientificoHistorialModel) Actor() (value String, ok bool) {
+	if r.InnerTrabajoCientificoHistorial.Actor == nil {
+		return value, false
+	}
+	return *r.InnerTrabajoCientificoHistorial.Actor, true
+}
+
+func (r TrabajoCientificoHistorialModel) Trabajo() (value *TrabajoCientificoModel) {
+	if r.RelationsTrabajoCientificoHistorial.Trabajo == nil {
+		panic("attempted to access trabajo but did not fetch it using the .With() syntax")
+	}
+	return r.RelationsTrabajoCientificoHistorial.Trabajo
 }
 
 // TrabajoCientificoVersionModel represents the TrabajoCientificoVersion model and is a wrapper for accessing fields and methods
@@ -50656,6 +50822,8 @@ type trabajoCientificoQuery struct {
 	Asignaciones trabajoCientificoQueryAsignacionesRelations
 
 	Evaluaciones trabajoCientificoQueryEvaluacionesRelations
+
+	HistorialEstado trabajoCientificoQueryHistorialEstadoRelations
 }
 
 func (trabajoCientificoQuery) Not(params ...TrabajoCientificoWhereParam) trabajoCientificoDefaultParam {
@@ -56118,6 +56286,3300 @@ func (r trabajoCientificoQueryEvaluacionesRelations) Unlink(
 
 func (r trabajoCientificoQueryEvaluacionesTrabajoEvaluacion) Field() trabajoCientificoPrismaFields {
 	return trabajoCientificoFieldEvaluaciones
+}
+
+// base struct
+type trabajoCientificoQueryHistorialEstadoTrabajoCientificoHistorial struct{}
+
+type trabajoCientificoQueryHistorialEstadoRelations struct{}
+
+// TrabajoCientifico -> HistorialEstado
+//
+// @relation
+// @required
+func (trabajoCientificoQueryHistorialEstadoRelations) Some(
+	params ...TrabajoCientificoHistorialWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "historial_estado",
+			Fields: []builder.Field{
+				{
+					Name:   "some",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// TrabajoCientifico -> HistorialEstado
+//
+// @relation
+// @required
+func (trabajoCientificoQueryHistorialEstadoRelations) Every(
+	params ...TrabajoCientificoHistorialWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "historial_estado",
+			Fields: []builder.Field{
+				{
+					Name:   "every",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+// TrabajoCientifico -> HistorialEstado
+//
+// @relation
+// @required
+func (trabajoCientificoQueryHistorialEstadoRelations) None(
+	params ...TrabajoCientificoHistorialWhereParam,
+) trabajoCientificoDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoDefaultParam{
+		data: builder.Field{
+			Name: "historial_estado",
+			Fields: []builder.Field{
+				{
+					Name:   "none",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoCientificoQueryHistorialEstadoRelations) Fetch(
+
+	params ...TrabajoCientificoHistorialWhereParam,
+
+) trabajoCientificoToHistorialEstadoFindMany {
+	var v trabajoCientificoToHistorialEstadoFindMany
+
+	v.query.Operation = "query"
+	v.query.Method = "historial_estado"
+	v.query.Outputs = trabajoCientificoHistorialOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryHistorialEstadoRelations) Link(
+	params ...TrabajoCientificoHistorialWhereParam,
+) trabajoCientificoSetParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "historial_estado",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+
+					List:     true,
+					WrapList: true,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoQueryHistorialEstadoRelations) Unlink(
+	params ...TrabajoCientificoHistorialWhereParam,
+) trabajoCientificoSetParam {
+	var v trabajoCientificoSetParam
+
+	var fields []builder.Field
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+	v = trabajoCientificoSetParam{
+		data: builder.Field{
+			Name: "historial_estado",
+			Fields: []builder.Field{
+				{
+					Name:     "disconnect",
+					List:     true,
+					WrapList: true,
+					Fields:   builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoCientificoQueryHistorialEstadoTrabajoCientificoHistorial) Field() trabajoCientificoPrismaFields {
+	return trabajoCientificoFieldHistorialEstado
+}
+
+// TrabajoCientificoHistorial acts as a namespaces to access query methods for the TrabajoCientificoHistorial model
+var TrabajoCientificoHistorial = trabajoCientificoHistorialQuery{}
+
+// trabajoCientificoHistorialQuery exposes query functions for the trabajoCientificoHistorial model
+type trabajoCientificoHistorialQuery struct {
+
+	// IDHistorial
+	//
+	// @required
+	IDHistorial trabajoCientificoHistorialQueryIDHistorialInt
+
+	// IDTrabajo
+	//
+	// @required
+	IDTrabajo trabajoCientificoHistorialQueryIDTrabajoInt
+
+	// EstadoAnterior
+	//
+	// @required
+	EstadoAnterior trabajoCientificoHistorialQueryEstadoAnteriorString
+
+	// EstadoNuevo
+	//
+	// @required
+	EstadoNuevo trabajoCientificoHistorialQueryEstadoNuevoString
+
+	// TipoCambio
+	//
+	// @required
+	TipoCambio trabajoCientificoHistorialQueryTipoCambioString
+
+	// Nota
+	//
+	// @optional
+	Nota trabajoCientificoHistorialQueryNotaString
+
+	// Actor
+	//
+	// @optional
+	Actor trabajoCientificoHistorialQueryActorString
+
+	// FechaCambio
+	//
+	// @required
+	FechaCambio trabajoCientificoHistorialQueryFechaCambioDateTime
+
+	Trabajo trabajoCientificoHistorialQueryTrabajoRelations
+}
+
+func (trabajoCientificoHistorialQuery) Not(params ...TrabajoCientificoHistorialWhereParam) trabajoCientificoHistorialDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:     "NOT",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoCientificoHistorialQuery) Or(params ...TrabajoCientificoHistorialWhereParam) trabajoCientificoHistorialDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:     "OR",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+func (trabajoCientificoHistorialQuery) And(params ...TrabajoCientificoHistorialWhereParam) trabajoCientificoHistorialDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:     "AND",
+			List:     true,
+			WrapList: true,
+			Fields:   fields,
+		},
+	}
+}
+
+// base struct
+type trabajoCientificoHistorialQueryIDHistorialInt struct{}
+
+// Set the required value of IDHistorial
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Set(value int) trabajoCientificoHistorialSetParam {
+
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name:  "id_historial",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDHistorial dynamically
+func (r trabajoCientificoHistorialQueryIDHistorialInt) SetIfPresent(value *Int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDHistorial
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Increment(value int) trabajoCientificoHistorialSetParam {
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) IncrementIfPresent(value *int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDHistorial
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Decrement(value int) trabajoCientificoHistorialSetParam {
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) DecrementIfPresent(value *int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDHistorial
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Multiply(value int) trabajoCientificoHistorialSetParam {
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) MultiplyIfPresent(value *int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDHistorial
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Divide(value int) trabajoCientificoHistorialSetParam {
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) DivideIfPresent(value *int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Equals(value int) trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam {
+
+	return trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) EqualsIfPresent(value *int) trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Order(direction SortOrder) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "id_historial",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Cursor(cursor int) trabajoCientificoHistorialCursorParam {
+	return trabajoCientificoHistorialCursorParam{
+		data: builder.Field{
+			Name:  "id_historial",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) In(value []int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) InIfPresent(value []int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) NotIn(value []int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) NotInIfPresent(value []int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Lt(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) LtIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Lte(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) LteIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Gt(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) GtIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Gte(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) GteIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Not(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) NotIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) LT(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoHistorialQueryIDHistorialInt) LTIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) LTE(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoHistorialQueryIDHistorialInt) LTEIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) GT(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoHistorialQueryIDHistorialInt) GTIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) GTE(value int) trabajoCientificoHistorialParamUnique {
+	return trabajoCientificoHistorialParamUnique{
+		data: builder.Field{
+			Name: "id_historial",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoHistorialQueryIDHistorialInt) GTEIfPresent(value *int) trabajoCientificoHistorialParamUnique {
+	if value == nil {
+		return trabajoCientificoHistorialParamUnique{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDHistorialInt) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldIDHistorial
+}
+
+// base struct
+type trabajoCientificoHistorialQueryIDTrabajoInt struct{}
+
+// Set the required value of IDTrabajo
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Set(value int) trabajoCientificoHistorialSetParam {
+
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of IDTrabajo dynamically
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) SetIfPresent(value *Int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Increment the required value of IDTrabajo
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Increment(value int) trabajoCientificoHistorialSetParam {
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "increment",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) IncrementIfPresent(value *int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+	return r.Increment(*value)
+}
+
+// Decrement the required value of IDTrabajo
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Decrement(value int) trabajoCientificoHistorialSetParam {
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "decrement",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) DecrementIfPresent(value *int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+	return r.Decrement(*value)
+}
+
+// Multiply the required value of IDTrabajo
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Multiply(value int) trabajoCientificoHistorialSetParam {
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "multiply",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) MultiplyIfPresent(value *int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+	return r.Multiply(*value)
+}
+
+// Divide the required value of IDTrabajo
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Divide(value int) trabajoCientificoHistorialSetParam {
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				builder.Field{
+					Name:  "divide",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) DivideIfPresent(value *int) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+	return r.Divide(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Equals(value int) trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam {
+
+	return trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) EqualsIfPresent(value *int) trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Order(direction SortOrder) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Cursor(cursor int) trabajoCientificoHistorialCursorParam {
+	return trabajoCientificoHistorialCursorParam{
+		data: builder.Field{
+			Name:  "id_trabajo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) In(value []int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) InIfPresent(value []int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) NotIn(value []int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) NotInIfPresent(value []int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Lt(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) LtIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Lte(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) LteIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Gt(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) GtIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Gte(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) GteIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Not(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) NotIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) LT(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) LTIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.LT(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) LTE(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) LTEIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.LTE(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) GT(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) GTIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.GT(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) GTE(value int) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "id_trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) GTEIfPresent(value *int) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.GTE(*value)
+}
+
+func (r trabajoCientificoHistorialQueryIDTrabajoInt) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldIDTrabajo
+}
+
+// base struct
+type trabajoCientificoHistorialQueryEstadoAnteriorString struct{}
+
+// Set the required value of EstadoAnterior
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Set(value string) trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam {
+
+	return trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam{
+		data: builder.Field{
+			Name:  "estado_anterior",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of EstadoAnterior dynamically
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) SetIfPresent(value *String) trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Equals(value string) trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam {
+
+	return trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) EqualsIfPresent(value *string) trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Order(direction SortOrder) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "estado_anterior",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Cursor(cursor string) trabajoCientificoHistorialCursorParam {
+	return trabajoCientificoHistorialCursorParam{
+		data: builder.Field{
+			Name:  "estado_anterior",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) In(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) InIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) NotIn(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) NotInIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Lt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) LtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Lte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) LteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Gt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) GtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Gte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) GteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Contains(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) ContainsIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) StartsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) StartsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) EndsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) EndsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Mode(value QueryMode) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) ModeIfPresent(value *QueryMode) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Not(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) NotIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) HasPrefix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) HasPrefixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) HasSuffix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_anterior",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) HasSuffixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoAnteriorString) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldEstadoAnterior
+}
+
+// base struct
+type trabajoCientificoHistorialQueryEstadoNuevoString struct{}
+
+// Set the required value of EstadoNuevo
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Set(value string) trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam {
+
+	return trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam{
+		data: builder.Field{
+			Name:  "estado_nuevo",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of EstadoNuevo dynamically
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) SetIfPresent(value *String) trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Equals(value string) trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam {
+
+	return trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) EqualsIfPresent(value *string) trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Order(direction SortOrder) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "estado_nuevo",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Cursor(cursor string) trabajoCientificoHistorialCursorParam {
+	return trabajoCientificoHistorialCursorParam{
+		data: builder.Field{
+			Name:  "estado_nuevo",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) In(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) InIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) NotIn(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) NotInIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Lt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) LtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Lte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) LteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Gt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) GtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Gte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) GteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Contains(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) ContainsIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) StartsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) StartsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) EndsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) EndsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Mode(value QueryMode) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) ModeIfPresent(value *QueryMode) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Not(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) NotIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) HasPrefix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) HasPrefixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) HasSuffix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "estado_nuevo",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) HasSuffixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoHistorialQueryEstadoNuevoString) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldEstadoNuevo
+}
+
+// base struct
+type trabajoCientificoHistorialQueryTipoCambioString struct{}
+
+// Set the required value of TipoCambio
+func (r trabajoCientificoHistorialQueryTipoCambioString) Set(value string) trabajoCientificoHistorialSetParam {
+
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name:  "tipo_cambio",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of TipoCambio dynamically
+func (r trabajoCientificoHistorialQueryTipoCambioString) SetIfPresent(value *String) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Equals(value string) trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam {
+
+	return trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) EqualsIfPresent(value *string) trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Order(direction SortOrder) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "tipo_cambio",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Cursor(cursor string) trabajoCientificoHistorialCursorParam {
+	return trabajoCientificoHistorialCursorParam{
+		data: builder.Field{
+			Name:  "tipo_cambio",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) In(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) InIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) NotIn(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) NotInIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Lt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) LtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Lte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) LteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Gt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) GtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Gte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) GteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Contains(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) ContainsIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) StartsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) StartsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) EndsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) EndsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Mode(value QueryMode) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) ModeIfPresent(value *QueryMode) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Not(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) NotIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) HasPrefix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryTipoCambioString) HasPrefixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) HasSuffix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "tipo_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryTipoCambioString) HasSuffixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoHistorialQueryTipoCambioString) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldTipoCambio
+}
+
+// base struct
+type trabajoCientificoHistorialQueryNotaString struct{}
+
+// Set the optional value of Nota
+func (r trabajoCientificoHistorialQueryNotaString) Set(value string) trabajoCientificoHistorialSetParam {
+
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name:  "nota",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Nota dynamically
+func (r trabajoCientificoHistorialQueryNotaString) SetIfPresent(value *String) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of Nota dynamically
+func (r trabajoCientificoHistorialQueryNotaString) SetOptional(value *String) trabajoCientificoHistorialSetParam {
+	if value == nil {
+
+		var v *string
+		return trabajoCientificoHistorialSetParam{
+			data: builder.Field{
+				Name:  "nota",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Equals(value string) trabajoCientificoHistorialWithPrismaNotaEqualsParam {
+
+	return trabajoCientificoHistorialWithPrismaNotaEqualsParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) EqualsIfPresent(value *string) trabajoCientificoHistorialWithPrismaNotaEqualsParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaNotaEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) EqualsOptional(value *String) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) IsNull() trabajoCientificoHistorialDefaultParam {
+	var str *string = nil
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Order(direction SortOrder) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "nota",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Cursor(cursor string) trabajoCientificoHistorialCursorParam {
+	return trabajoCientificoHistorialCursorParam{
+		data: builder.Field{
+			Name:  "nota",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) In(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) InIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) NotIn(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) NotInIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Lt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) LtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Lte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) LteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Gt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) GtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Gte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) GteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Contains(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) ContainsIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) StartsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) StartsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) EndsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) EndsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Mode(value QueryMode) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) ModeIfPresent(value *QueryMode) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Not(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) NotIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoHistorialQueryNotaString) HasPrefix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryNotaString) HasPrefixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoHistorialQueryNotaString) HasSuffix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "nota",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryNotaString) HasSuffixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoHistorialQueryNotaString) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldNota
+}
+
+// base struct
+type trabajoCientificoHistorialQueryActorString struct{}
+
+// Set the optional value of Actor
+func (r trabajoCientificoHistorialQueryActorString) Set(value string) trabajoCientificoHistorialSetParam {
+
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name:  "actor",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of Actor dynamically
+func (r trabajoCientificoHistorialQueryActorString) SetIfPresent(value *String) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+// Set the optional value of Actor dynamically
+func (r trabajoCientificoHistorialQueryActorString) SetOptional(value *String) trabajoCientificoHistorialSetParam {
+	if value == nil {
+
+		var v *string
+		return trabajoCientificoHistorialSetParam{
+			data: builder.Field{
+				Name:  "actor",
+				Value: v,
+			},
+		}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Equals(value string) trabajoCientificoHistorialWithPrismaActorEqualsParam {
+
+	return trabajoCientificoHistorialWithPrismaActorEqualsParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) EqualsIfPresent(value *string) trabajoCientificoHistorialWithPrismaActorEqualsParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaActorEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) EqualsOptional(value *String) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) IsNull() trabajoCientificoHistorialDefaultParam {
+	var str *string = nil
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: str,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Order(direction SortOrder) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "actor",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Cursor(cursor string) trabajoCientificoHistorialCursorParam {
+	return trabajoCientificoHistorialCursorParam{
+		data: builder.Field{
+			Name:  "actor",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) In(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) InIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) NotIn(value []string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) NotInIfPresent(value []string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Lt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) LtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Lte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) LteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Gt(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) GtIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Gte(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) GteIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Contains(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "contains",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) ContainsIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Contains(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) StartsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "startsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) StartsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.StartsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) EndsWith(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "endsWith",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) EndsWithIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.EndsWith(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Mode(value QueryMode) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "mode",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) ModeIfPresent(value *QueryMode) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Mode(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Not(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryActorString) NotIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use StartsWith instead.
+
+func (r trabajoCientificoHistorialQueryActorString) HasPrefix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "starts_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use StartsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryActorString) HasPrefixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasPrefix(*value)
+}
+
+// deprecated: Use EndsWith instead.
+
+func (r trabajoCientificoHistorialQueryActorString) HasSuffix(value string) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "actor",
+			Fields: []builder.Field{
+				{
+					Name:  "ends_with",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use EndsWithIfPresent instead.
+func (r trabajoCientificoHistorialQueryActorString) HasSuffixIfPresent(value *string) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.HasSuffix(*value)
+}
+
+func (r trabajoCientificoHistorialQueryActorString) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldActor
+}
+
+// base struct
+type trabajoCientificoHistorialQueryFechaCambioDateTime struct{}
+
+// Set the required value of FechaCambio
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Set(value DateTime) trabajoCientificoHistorialSetParam {
+
+	return trabajoCientificoHistorialSetParam{
+		data: builder.Field{
+			Name:  "fecha_cambio",
+			Value: value,
+		},
+	}
+
+}
+
+// Set the optional value of FechaCambio dynamically
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) SetIfPresent(value *DateTime) trabajoCientificoHistorialSetParam {
+	if value == nil {
+		return trabajoCientificoHistorialSetParam{}
+	}
+
+	return r.Set(*value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Equals(value DateTime) trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam {
+
+	return trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "equals",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) EqualsIfPresent(value *DateTime) trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam {
+	if value == nil {
+		return trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam{}
+	}
+	return r.Equals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Order(direction SortOrder) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name:  "fecha_cambio",
+			Value: direction,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Cursor(cursor DateTime) trabajoCientificoHistorialCursorParam {
+	return trabajoCientificoHistorialCursorParam{
+		data: builder.Field{
+			Name:  "fecha_cambio",
+			Value: cursor,
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) In(value []DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "in",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) InIfPresent(value []DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.In(value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) NotIn(value []DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "notIn",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) NotInIfPresent(value []DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.NotIn(value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Lt(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) LtIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Lte(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) LteIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Lte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Gt(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) GtIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gt(*value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Gte(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) GteIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Gte(*value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Not(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "not",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) NotIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Not(*value)
+}
+
+// deprecated: Use Lt instead.
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Before(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LtIfPresent instead.
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) BeforeIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.Before(*value)
+}
+
+// deprecated: Use Gt instead.
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) After(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gt",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GtIfPresent instead.
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) AfterIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.After(*value)
+}
+
+// deprecated: Use Lte instead.
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) BeforeEquals(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "lte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use LteIfPresent instead.
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) BeforeEqualsIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.BeforeEquals(*value)
+}
+
+// deprecated: Use Gte instead.
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) AfterEquals(value DateTime) trabajoCientificoHistorialDefaultParam {
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "fecha_cambio",
+			Fields: []builder.Field{
+				{
+					Name:  "gte",
+					Value: value,
+				},
+			},
+		},
+	}
+}
+
+// deprecated: Use GteIfPresent instead.
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) AfterEqualsIfPresent(value *DateTime) trabajoCientificoHistorialDefaultParam {
+	if value == nil {
+		return trabajoCientificoHistorialDefaultParam{}
+	}
+	return r.AfterEquals(*value)
+}
+
+func (r trabajoCientificoHistorialQueryFechaCambioDateTime) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldFechaCambio
+}
+
+// base struct
+type trabajoCientificoHistorialQueryTrabajoTrabajoCientifico struct{}
+
+type trabajoCientificoHistorialQueryTrabajoRelations struct{}
+
+// TrabajoCientificoHistorial -> Trabajo
+//
+// @relation
+// @required
+func (trabajoCientificoHistorialQueryTrabajoRelations) Where(
+	params ...TrabajoCientificoWhereParam,
+) trabajoCientificoHistorialDefaultParam {
+	var fields []builder.Field
+
+	for _, q := range params {
+		fields = append(fields, q.field())
+	}
+
+	return trabajoCientificoHistorialDefaultParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:   "is",
+					Fields: fields,
+				},
+			},
+		},
+	}
+}
+
+func (trabajoCientificoHistorialQueryTrabajoRelations) Fetch() trabajoCientificoHistorialToTrabajoFindUnique {
+	var v trabajoCientificoHistorialToTrabajoFindUnique
+
+	v.query.Operation = "query"
+	v.query.Method = "trabajo"
+	v.query.Outputs = trabajoCientificoOutput
+
+	return v
+}
+
+func (r trabajoCientificoHistorialQueryTrabajoRelations) Link(
+	params TrabajoCientificoWhereParam,
+) trabajoCientificoHistorialWithPrismaTrabajoSetParam {
+	var fields []builder.Field
+
+	f := params.field()
+	if f.Fields == nil && f.Value == nil {
+		return trabajoCientificoHistorialWithPrismaTrabajoSetParam{}
+	}
+
+	fields = append(fields, f)
+
+	return trabajoCientificoHistorialWithPrismaTrabajoSetParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:   "connect",
+					Fields: builder.TransformEquals(fields),
+				},
+			},
+		},
+	}
+}
+
+func (r trabajoCientificoHistorialQueryTrabajoRelations) Unlink() trabajoCientificoHistorialWithPrismaTrabajoSetParam {
+	var v trabajoCientificoHistorialWithPrismaTrabajoSetParam
+
+	v = trabajoCientificoHistorialWithPrismaTrabajoSetParam{
+		data: builder.Field{
+			Name: "trabajo",
+			Fields: []builder.Field{
+				{
+					Name:  "disconnect",
+					Value: true,
+				},
+			},
+		},
+	}
+
+	return v
+}
+
+func (r trabajoCientificoHistorialQueryTrabajoTrabajoCientifico) Field() trabajoCientificoHistorialPrismaFields {
+	return trabajoCientificoHistorialFieldTrabajo
 }
 
 // TrabajoCientificoVersion acts as a namespaces to access query methods for the TrabajoCientificoVersion model
@@ -88355,6 +91817,981 @@ func (p trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) evaluacionesFi
 func (trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) unique() {}
 func (trabajoCientificoWithPrismaEvaluacionesEqualsUniqueParam) equals() {}
 
+type TrabajoCientificoWithPrismaHistorialEstadoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoModel()
+	historialEstadoField()
+}
+
+type TrabajoCientificoWithPrismaHistorialEstadoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	historialEstadoField()
+}
+
+type trabajoCientificoWithPrismaHistorialEstadoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoSetParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoSetParam) historialEstadoField() {}
+
+type TrabajoCientificoWithPrismaHistorialEstadoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoModel()
+	historialEstadoField()
+}
+
+type trabajoCientificoWithPrismaHistorialEstadoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoEqualsParam) trabajoCientificoModel() {}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoEqualsParam) historialEstadoField() {}
+
+func (trabajoCientificoWithPrismaHistorialEstadoSetParam) settable()  {}
+func (trabajoCientificoWithPrismaHistorialEstadoEqualsParam) equals() {}
+
+type trabajoCientificoWithPrismaHistorialEstadoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoWithPrismaHistorialEstadoEqualsUniqueParam) trabajoCientificoModel() {}
+func (p trabajoCientificoWithPrismaHistorialEstadoEqualsUniqueParam) historialEstadoField()   {}
+
+func (trabajoCientificoWithPrismaHistorialEstadoEqualsUniqueParam) unique() {}
+func (trabajoCientificoWithPrismaHistorialEstadoEqualsUniqueParam) equals() {}
+
+type trabajoCientificoHistorialActions struct {
+	// client holds the prisma client
+	client *PrismaClient
+}
+
+var trabajoCientificoHistorialOutput = []builder.Output{
+	{Name: "id_historial"},
+	{Name: "id_trabajo"},
+	{Name: "estado_anterior"},
+	{Name: "estado_nuevo"},
+	{Name: "tipo_cambio"},
+	{Name: "nota"},
+	{Name: "actor"},
+	{Name: "fecha_cambio"},
+}
+
+type TrabajoCientificoHistorialRelationWith interface {
+	getQuery() builder.Query
+	with()
+	trabajoCientificoHistorialRelation()
+}
+
+type TrabajoCientificoHistorialWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+}
+
+type trabajoCientificoHistorialDefaultParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialDefaultParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialDefaultParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialDefaultParam) trabajoCientificoHistorialModel() {}
+
+type TrabajoCientificoHistorialOrderByParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+}
+
+type trabajoCientificoHistorialOrderByParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialOrderByParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialOrderByParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialOrderByParam) trabajoCientificoHistorialModel() {}
+
+type TrabajoCientificoHistorialCursorParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	isCursor()
+}
+
+type trabajoCientificoHistorialCursorParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialCursorParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialCursorParam) isCursor() {}
+
+func (p trabajoCientificoHistorialCursorParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialCursorParam) trabajoCientificoHistorialModel() {}
+
+type TrabajoCientificoHistorialParamUnique interface {
+	field() builder.Field
+	getQuery() builder.Query
+	unique()
+	trabajoCientificoHistorialModel()
+}
+
+type trabajoCientificoHistorialParamUnique struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialParamUnique) trabajoCientificoHistorialModel() {}
+
+func (trabajoCientificoHistorialParamUnique) unique() {}
+
+func (p trabajoCientificoHistorialParamUnique) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialParamUnique) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoHistorialEqualsWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+}
+
+type trabajoCientificoHistorialEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialEqualsParam) trabajoCientificoHistorialModel() {}
+
+func (trabajoCientificoHistorialEqualsParam) equals() {}
+
+func (p trabajoCientificoHistorialEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoHistorialEqualsUniqueWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	unique()
+	trabajoCientificoHistorialModel()
+}
+
+type trabajoCientificoHistorialEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialEqualsUniqueParam) trabajoCientificoHistorialModel() {}
+
+func (trabajoCientificoHistorialEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialEqualsUniqueParam) equals() {}
+
+func (p trabajoCientificoHistorialEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+type TrabajoCientificoHistorialSetParam interface {
+	field() builder.Field
+	settable()
+	trabajoCientificoHistorialModel()
+}
+
+type trabajoCientificoHistorialSetParam struct {
+	data builder.Field
+}
+
+func (trabajoCientificoHistorialSetParam) settable() {}
+
+func (p trabajoCientificoHistorialSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialSetParam) trabajoCientificoHistorialModel() {}
+
+type TrabajoCientificoHistorialWithPrismaIDHistorialEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	idHistorialField()
+}
+
+type TrabajoCientificoHistorialWithPrismaIDHistorialSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	idHistorialField()
+}
+
+type trabajoCientificoHistorialWithPrismaIDHistorialSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialSetParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialSetParam) idHistorialField() {}
+
+type TrabajoCientificoHistorialWithPrismaIDHistorialWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	idHistorialField()
+}
+
+type trabajoCientificoHistorialWithPrismaIDHistorialEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialEqualsParam) trabajoCientificoHistorialModel() {
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialEqualsParam) idHistorialField() {}
+
+func (trabajoCientificoHistorialWithPrismaIDHistorialSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaIDHistorialEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam) idHistorialField() {}
+
+func (trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaIDHistorialEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoHistorialWithPrismaIDTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	idTrabajoField()
+}
+
+type TrabajoCientificoHistorialWithPrismaIDTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	idTrabajoField()
+}
+
+type trabajoCientificoHistorialWithPrismaIDTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoSetParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoSetParam) idTrabajoField() {}
+
+type TrabajoCientificoHistorialWithPrismaIDTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	idTrabajoField()
+}
+
+type trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam) idTrabajoField() {}
+
+func (trabajoCientificoHistorialWithPrismaIDTrabajoSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaIDTrabajoEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaIDTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaIDTrabajoEqualsUniqueParam) idTrabajoField() {}
+
+func (trabajoCientificoHistorialWithPrismaIDTrabajoEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaIDTrabajoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	estadoAnteriorField()
+}
+
+type TrabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	estadoAnteriorField()
+}
+
+type trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam) trabajoCientificoHistorialModel() {
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam) estadoAnteriorField() {}
+
+type TrabajoCientificoHistorialWithPrismaEstadoAnteriorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	estadoAnteriorField()
+}
+
+type trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam) trabajoCientificoHistorialModel() {
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam) estadoAnteriorField() {}
+
+func (trabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsUniqueParam) estadoAnteriorField() {}
+
+func (trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaEstadoAnteriorEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoHistorialWithPrismaEstadoNuevoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	estadoNuevoField()
+}
+
+type TrabajoCientificoHistorialWithPrismaEstadoNuevoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	estadoNuevoField()
+}
+
+type trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam) estadoNuevoField() {}
+
+type TrabajoCientificoHistorialWithPrismaEstadoNuevoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	estadoNuevoField()
+}
+
+type trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam) trabajoCientificoHistorialModel() {
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam) estadoNuevoField() {}
+
+func (trabajoCientificoHistorialWithPrismaEstadoNuevoSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsUniqueParam) estadoNuevoField() {}
+
+func (trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaEstadoNuevoEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoHistorialWithPrismaTipoCambioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	tipoCambioField()
+}
+
+type TrabajoCientificoHistorialWithPrismaTipoCambioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	tipoCambioField()
+}
+
+type trabajoCientificoHistorialWithPrismaTipoCambioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioSetParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioSetParam) tipoCambioField() {}
+
+type TrabajoCientificoHistorialWithPrismaTipoCambioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	tipoCambioField()
+}
+
+type trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam) trabajoCientificoHistorialModel() {
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam) tipoCambioField() {}
+
+func (trabajoCientificoHistorialWithPrismaTipoCambioSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaTipoCambioEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaTipoCambioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTipoCambioEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaTipoCambioEqualsUniqueParam) tipoCambioField() {}
+
+func (trabajoCientificoHistorialWithPrismaTipoCambioEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaTipoCambioEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoHistorialWithPrismaNotaEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	notaField()
+}
+
+type TrabajoCientificoHistorialWithPrismaNotaSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	notaField()
+}
+
+type trabajoCientificoHistorialWithPrismaNotaSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaSetParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaNotaSetParam) notaField() {}
+
+type TrabajoCientificoHistorialWithPrismaNotaWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	notaField()
+}
+
+type trabajoCientificoHistorialWithPrismaNotaEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaEqualsParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaNotaEqualsParam) notaField() {}
+
+func (trabajoCientificoHistorialWithPrismaNotaSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaNotaEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaNotaEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaNotaEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaNotaEqualsUniqueParam) notaField() {}
+
+func (trabajoCientificoHistorialWithPrismaNotaEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaNotaEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoHistorialWithPrismaActorEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	actorField()
+}
+
+type TrabajoCientificoHistorialWithPrismaActorSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	actorField()
+}
+
+type trabajoCientificoHistorialWithPrismaActorSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorSetParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaActorSetParam) actorField() {}
+
+type TrabajoCientificoHistorialWithPrismaActorWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	actorField()
+}
+
+type trabajoCientificoHistorialWithPrismaActorEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorEqualsParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaActorEqualsParam) actorField() {}
+
+func (trabajoCientificoHistorialWithPrismaActorSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaActorEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaActorEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaActorEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaActorEqualsUniqueParam) actorField() {}
+
+func (trabajoCientificoHistorialWithPrismaActorEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaActorEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoHistorialWithPrismaFechaCambioEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	fechaCambioField()
+}
+
+type TrabajoCientificoHistorialWithPrismaFechaCambioSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	fechaCambioField()
+}
+
+type trabajoCientificoHistorialWithPrismaFechaCambioSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioSetParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioSetParam) fechaCambioField() {}
+
+type TrabajoCientificoHistorialWithPrismaFechaCambioWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	fechaCambioField()
+}
+
+type trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam) trabajoCientificoHistorialModel() {
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam) fechaCambioField() {}
+
+func (trabajoCientificoHistorialWithPrismaFechaCambioSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaFechaCambioEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaFechaCambioEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaFechaCambioEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaFechaCambioEqualsUniqueParam) fechaCambioField() {}
+
+func (trabajoCientificoHistorialWithPrismaFechaCambioEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaFechaCambioEqualsUniqueParam) equals() {}
+
+type TrabajoCientificoHistorialWithPrismaTrabajoEqualsSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	equals()
+	trabajoCientificoHistorialModel()
+	trabajoField()
+}
+
+type TrabajoCientificoHistorialWithPrismaTrabajoSetParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	trabajoField()
+}
+
+type trabajoCientificoHistorialWithPrismaTrabajoSetParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoSetParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoSetParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoSetParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoSetParam) trabajoField() {}
+
+type TrabajoCientificoHistorialWithPrismaTrabajoWhereParam interface {
+	field() builder.Field
+	getQuery() builder.Query
+	trabajoCientificoHistorialModel()
+	trabajoField()
+}
+
+type trabajoCientificoHistorialWithPrismaTrabajoEqualsParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoEqualsParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoEqualsParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoEqualsParam) trabajoCientificoHistorialModel() {}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoEqualsParam) trabajoField() {}
+
+func (trabajoCientificoHistorialWithPrismaTrabajoSetParam) settable()  {}
+func (trabajoCientificoHistorialWithPrismaTrabajoEqualsParam) equals() {}
+
+type trabajoCientificoHistorialWithPrismaTrabajoEqualsUniqueParam struct {
+	data  builder.Field
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoEqualsUniqueParam) field() builder.Field {
+	return p.data
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoEqualsUniqueParam) getQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialWithPrismaTrabajoEqualsUniqueParam) trabajoCientificoHistorialModel() {
+}
+func (p trabajoCientificoHistorialWithPrismaTrabajoEqualsUniqueParam) trabajoField() {}
+
+func (trabajoCientificoHistorialWithPrismaTrabajoEqualsUniqueParam) unique() {}
+func (trabajoCientificoHistorialWithPrismaTrabajoEqualsUniqueParam) equals() {}
+
 type trabajoCientificoVersionActions struct {
 	// client holds the prisma client
 	client *PrismaClient
@@ -94693,6 +99130,78 @@ func (r trabajoCientificoCreateOne) Exec(ctx context.Context) (*TrabajoCientific
 
 func (r trabajoCientificoCreateOne) Tx() TrabajoCientificoUniqueTxResult {
 	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+// Creates a single trabajoCientificoHistorial.
+func (r trabajoCientificoHistorialActions) CreateOne(
+	_estadoAnterior TrabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam,
+	_estadoNuevo TrabajoCientificoHistorialWithPrismaEstadoNuevoSetParam,
+	_trabajo TrabajoCientificoHistorialWithPrismaTrabajoSetParam,
+
+	optional ...TrabajoCientificoHistorialSetParam,
+) trabajoCientificoHistorialCreateOne {
+	var v trabajoCientificoHistorialCreateOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "createOne"
+	v.query.Model = "TrabajoCientificoHistorial"
+	v.query.Outputs = trabajoCientificoHistorialOutput
+
+	var fields []builder.Field
+
+	fields = append(fields, _estadoAnterior.field())
+	fields = append(fields, _estadoNuevo.field())
+	fields = append(fields, _trabajo.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+func (r trabajoCientificoHistorialCreateOne) With(params ...TrabajoCientificoHistorialRelationWith) trabajoCientificoHistorialCreateOne {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+type trabajoCientificoHistorialCreateOne struct {
+	query builder.Query
+}
+
+func (p trabajoCientificoHistorialCreateOne) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p trabajoCientificoHistorialCreateOne) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialCreateOne) Exec(ctx context.Context) (*TrabajoCientificoHistorialModel, error) {
+	var v TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialCreateOne) Tx() TrabajoCientificoHistorialUniqueTxResult {
+	v := newTrabajoCientificoHistorialUniqueTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -132961,6 +137470,560 @@ func (r trabajoCientificoToEvaluacionesDeleteMany) Tx() TrabajoCientificoManyTxR
 	return v
 }
 
+type trabajoCientificoToHistorialEstadoFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) with()                      {}
+func (r trabajoCientificoToHistorialEstadoFindUnique) trabajoCientificoModel()    {}
+func (r trabajoCientificoToHistorialEstadoFindUnique) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) With(params ...TrabajoCientificoHistorialRelationWith) trabajoCientificoToHistorialEstadoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToHistorialEstadoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToHistorialEstadoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToHistorialEstadoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientifico"
+
+	var v trabajoCientificoToHistorialEstadoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToHistorialEstadoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToHistorialEstadoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToHistorialEstadoUpdateUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToHistorialEstadoUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoUpdateUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToHistorialEstadoFindUnique) Delete() trabajoCientificoToHistorialEstadoDeleteUnique {
+	var v trabajoCientificoToHistorialEstadoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientifico"
+
+	return v
+}
+
+type trabajoCientificoToHistorialEstadoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToHistorialEstadoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToHistorialEstadoDeleteUnique) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToHistorialEstadoDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoModel, error) {
+	var v TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoDeleteUnique) Tx() TrabajoCientificoUniqueTxResult {
+	v := newTrabajoCientificoUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoToHistorialEstadoFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) with()                      {}
+func (r trabajoCientificoToHistorialEstadoFindFirst) trabajoCientificoModel()    {}
+func (r trabajoCientificoToHistorialEstadoFindFirst) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) With(params ...TrabajoCientificoHistorialRelationWith) trabajoCientificoToHistorialEstadoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToHistorialEstadoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToHistorialEstadoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) OrderBy(params ...TrabajoCientificoHistorialOrderByParam) trabajoCientificoToHistorialEstadoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) Skip(count int) trabajoCientificoToHistorialEstadoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) Take(count int) trabajoCientificoToHistorialEstadoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToHistorialEstadoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoModel,
+	error,
+) {
+	var v *TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientifico,
+	error,
+) {
+	var v *InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoToHistorialEstadoFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) with()                      {}
+func (r trabajoCientificoToHistorialEstadoFindMany) trabajoCientificoModel()    {}
+func (r trabajoCientificoToHistorialEstadoFindMany) trabajoCientificoRelation() {}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) With(params ...TrabajoCientificoHistorialRelationWith) trabajoCientificoToHistorialEstadoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) Select(params ...trabajoCientificoPrismaFields) trabajoCientificoToHistorialEstadoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) Omit(params ...trabajoCientificoPrismaFields) trabajoCientificoToHistorialEstadoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) OrderBy(params ...TrabajoCientificoHistorialOrderByParam) trabajoCientificoToHistorialEstadoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) Skip(count int) trabajoCientificoToHistorialEstadoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) Take(count int) trabajoCientificoToHistorialEstadoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) Cursor(cursor TrabajoCientificoCursorParam) trabajoCientificoToHistorialEstadoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoModel,
+	error,
+) {
+	var v []TrabajoCientificoModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientifico,
+	error,
+) {
+	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) Update(params ...TrabajoCientificoSetParam) trabajoCientificoToHistorialEstadoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientifico"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoToHistorialEstadoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoToHistorialEstadoUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToHistorialEstadoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoToHistorialEstadoUpdateMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToHistorialEstadoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoUpdateMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoToHistorialEstadoFindMany) Delete() trabajoCientificoToHistorialEstadoDeleteMany {
+	var v trabajoCientificoToHistorialEstadoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientifico"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoToHistorialEstadoDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoToHistorialEstadoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoToHistorialEstadoDeleteMany) trabajoCientificoModel() {}
+
+func (r trabajoCientificoToHistorialEstadoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoToHistorialEstadoDeleteMany) Tx() TrabajoCientificoManyTxResult {
+	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 type trabajoCientificoFindUnique struct {
 	query builder.Query
 }
@@ -133606,6 +138669,1210 @@ func (r trabajoCientificoDeleteMany) Exec(ctx context.Context) (*BatchResult, er
 
 func (r trabajoCientificoDeleteMany) Tx() TrabajoCientificoManyTxResult {
 	v := newTrabajoCientificoManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoHistorialToTrabajoFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) with()                               {}
+func (r trabajoCientificoHistorialToTrabajoFindUnique) trabajoCientificoHistorialModel()    {}
+func (r trabajoCientificoHistorialToTrabajoFindUnique) trabajoCientificoHistorialRelation() {}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) With(params ...TrabajoCientificoRelationWith) trabajoCientificoHistorialToTrabajoFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) Select(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialToTrabajoFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) Omit(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialToTrabajoFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoHistorialModel,
+	error,
+) {
+	var v *TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientificoHistorial,
+	error,
+) {
+	var v *InnerTrabajoCientificoHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) Update(params ...TrabajoCientificoHistorialSetParam) trabajoCientificoHistorialToTrabajoUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientificoHistorial"
+
+	var v trabajoCientificoHistorialToTrabajoUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoHistorialToTrabajoUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialToTrabajoUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialToTrabajoUpdateUnique) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialToTrabajoUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoHistorialModel, error) {
+	var v TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoUpdateUnique) Tx() TrabajoCientificoHistorialUniqueTxResult {
+	v := newTrabajoCientificoHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindUnique) Delete() trabajoCientificoHistorialToTrabajoDeleteUnique {
+	var v trabajoCientificoHistorialToTrabajoDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientificoHistorial"
+
+	return v
+}
+
+type trabajoCientificoHistorialToTrabajoDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialToTrabajoDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoHistorialToTrabajoDeleteUnique) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialToTrabajoDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoHistorialModel, error) {
+	var v TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoDeleteUnique) Tx() TrabajoCientificoHistorialUniqueTxResult {
+	v := newTrabajoCientificoHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoHistorialToTrabajoFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) with()                               {}
+func (r trabajoCientificoHistorialToTrabajoFindFirst) trabajoCientificoHistorialModel()    {}
+func (r trabajoCientificoHistorialToTrabajoFindFirst) trabajoCientificoHistorialRelation() {}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) With(params ...TrabajoCientificoRelationWith) trabajoCientificoHistorialToTrabajoFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) Select(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialToTrabajoFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) Omit(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialToTrabajoFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoCientificoHistorialToTrabajoFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) Skip(count int) trabajoCientificoHistorialToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) Take(count int) trabajoCientificoHistorialToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) Cursor(cursor TrabajoCientificoHistorialCursorParam) trabajoCientificoHistorialToTrabajoFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoHistorialModel,
+	error,
+) {
+	var v *TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientificoHistorial,
+	error,
+) {
+	var v *InnerTrabajoCientificoHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoHistorialToTrabajoFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) with()                               {}
+func (r trabajoCientificoHistorialToTrabajoFindMany) trabajoCientificoHistorialModel()    {}
+func (r trabajoCientificoHistorialToTrabajoFindMany) trabajoCientificoHistorialRelation() {}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) With(params ...TrabajoCientificoRelationWith) trabajoCientificoHistorialToTrabajoFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) Select(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialToTrabajoFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) Omit(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialToTrabajoFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) OrderBy(params ...TrabajoCientificoOrderByParam) trabajoCientificoHistorialToTrabajoFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) Skip(count int) trabajoCientificoHistorialToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) Take(count int) trabajoCientificoHistorialToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) Cursor(cursor TrabajoCientificoHistorialCursorParam) trabajoCientificoHistorialToTrabajoFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoHistorialModel,
+	error,
+) {
+	var v []TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientificoHistorial,
+	error,
+) {
+	var v []InnerTrabajoCientificoHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) Update(params ...TrabajoCientificoHistorialSetParam) trabajoCientificoHistorialToTrabajoUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientificoHistorial"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoHistorialToTrabajoUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoHistorialToTrabajoUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialToTrabajoUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialToTrabajoUpdateMany) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialToTrabajoUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoUpdateMany) Tx() TrabajoCientificoHistorialManyTxResult {
+	v := newTrabajoCientificoHistorialManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoHistorialToTrabajoFindMany) Delete() trabajoCientificoHistorialToTrabajoDeleteMany {
+	var v trabajoCientificoHistorialToTrabajoDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientificoHistorial"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoHistorialToTrabajoDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialToTrabajoDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoHistorialToTrabajoDeleteMany) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialToTrabajoDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialToTrabajoDeleteMany) Tx() TrabajoCientificoHistorialManyTxResult {
+	v := newTrabajoCientificoHistorialManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoHistorialFindUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialFindUnique) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialFindUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialFindUnique) with()                               {}
+func (r trabajoCientificoHistorialFindUnique) trabajoCientificoHistorialModel()    {}
+func (r trabajoCientificoHistorialFindUnique) trabajoCientificoHistorialRelation() {}
+
+func (r trabajoCientificoHistorialActions) FindUnique(
+	params TrabajoCientificoHistorialEqualsUniqueWhereParam,
+) trabajoCientificoHistorialFindUnique {
+	var v trabajoCientificoHistorialFindUnique
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findUnique"
+
+	v.query.Model = "TrabajoCientificoHistorial"
+	v.query.Outputs = trabajoCientificoHistorialOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoCientificoHistorialFindUnique) With(params ...TrabajoCientificoHistorialRelationWith) trabajoCientificoHistorialFindUnique {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindUnique) Select(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialFindUnique {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindUnique) Omit(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialFindUnique {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindUnique) Exec(ctx context.Context) (
+	*TrabajoCientificoHistorialModel,
+	error,
+) {
+	var v *TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialFindUnique) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientificoHistorial,
+	error,
+) {
+	var v *InnerTrabajoCientificoHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialFindUnique) Update(params ...TrabajoCientificoHistorialSetParam) trabajoCientificoHistorialUpdateUnique {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateOne"
+	r.query.Model = "TrabajoCientificoHistorial"
+
+	var v trabajoCientificoHistorialUpdateUnique
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoHistorialUpdateUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialUpdateUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialUpdateUnique) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialUpdateUnique) Exec(ctx context.Context) (*TrabajoCientificoHistorialModel, error) {
+	var v TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialUpdateUnique) Tx() TrabajoCientificoHistorialUniqueTxResult {
+	v := newTrabajoCientificoHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoHistorialFindUnique) Delete() trabajoCientificoHistorialDeleteUnique {
+	var v trabajoCientificoHistorialDeleteUnique
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteOne"
+	v.query.Model = "TrabajoCientificoHistorial"
+
+	return v
+}
+
+type trabajoCientificoHistorialDeleteUnique struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialDeleteUnique) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoHistorialDeleteUnique) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialDeleteUnique) Exec(ctx context.Context) (*TrabajoCientificoHistorialModel, error) {
+	var v TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialDeleteUnique) Tx() TrabajoCientificoHistorialUniqueTxResult {
+	v := newTrabajoCientificoHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+type trabajoCientificoHistorialFindFirst struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialFindFirst) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialFindFirst) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialFindFirst) with()                               {}
+func (r trabajoCientificoHistorialFindFirst) trabajoCientificoHistorialModel()    {}
+func (r trabajoCientificoHistorialFindFirst) trabajoCientificoHistorialRelation() {}
+
+func (r trabajoCientificoHistorialActions) FindFirst(
+	params ...TrabajoCientificoHistorialWhereParam,
+) trabajoCientificoHistorialFindFirst {
+	var v trabajoCientificoHistorialFindFirst
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findFirst"
+
+	v.query.Model = "TrabajoCientificoHistorial"
+	v.query.Outputs = trabajoCientificoHistorialOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoHistorialFindFirst) With(params ...TrabajoCientificoHistorialRelationWith) trabajoCientificoHistorialFindFirst {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindFirst) Select(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialFindFirst {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindFirst) Omit(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialFindFirst {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindFirst) OrderBy(params ...TrabajoCientificoHistorialOrderByParam) trabajoCientificoHistorialFindFirst {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindFirst) Skip(count int) trabajoCientificoHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialFindFirst) Take(count int) trabajoCientificoHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialFindFirst) Cursor(cursor TrabajoCientificoHistorialCursorParam) trabajoCientificoHistorialFindFirst {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialFindFirst) Exec(ctx context.Context) (
+	*TrabajoCientificoHistorialModel,
+	error,
+) {
+	var v *TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialFindFirst) ExecInner(ctx context.Context) (
+	*InnerTrabajoCientificoHistorial,
+	error,
+) {
+	var v *InnerTrabajoCientificoHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	if v == nil {
+		return nil, ErrNotFound
+	}
+
+	return v, nil
+}
+
+type trabajoCientificoHistorialFindMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialFindMany) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialFindMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialFindMany) with()                               {}
+func (r trabajoCientificoHistorialFindMany) trabajoCientificoHistorialModel()    {}
+func (r trabajoCientificoHistorialFindMany) trabajoCientificoHistorialRelation() {}
+
+func (r trabajoCientificoHistorialActions) FindMany(
+	params ...TrabajoCientificoHistorialWhereParam,
+) trabajoCientificoHistorialFindMany {
+	var v trabajoCientificoHistorialFindMany
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "query"
+
+	v.query.Method = "findMany"
+
+	v.query.Model = "TrabajoCientificoHistorial"
+	v.query.Outputs = trabajoCientificoHistorialOutput
+
+	var where []builder.Field
+	for _, q := range params {
+		if query := q.getQuery(); query.Operation != "" {
+			v.query.Outputs = append(v.query.Outputs, builder.Output{
+				Name:    query.Method,
+				Inputs:  query.Inputs,
+				Outputs: query.Outputs,
+			})
+		} else {
+			where = append(where, q.field())
+		}
+	}
+
+	if len(where) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:   "where",
+			Fields: where,
+		})
+	}
+
+	return v
+}
+
+func (r trabajoCientificoHistorialFindMany) With(params ...TrabajoCientificoHistorialRelationWith) trabajoCientificoHistorialFindMany {
+	for _, q := range params {
+		query := q.getQuery()
+		r.query.Outputs = append(r.query.Outputs, builder.Output{
+			Name:    query.Method,
+			Inputs:  query.Inputs,
+			Outputs: query.Outputs,
+		})
+	}
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindMany) Select(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialFindMany {
+	var outputs []builder.Output
+
+	for _, param := range params {
+		outputs = append(outputs, builder.Output{
+			Name: string(param),
+		})
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindMany) Omit(params ...trabajoCientificoHistorialPrismaFields) trabajoCientificoHistorialFindMany {
+	var outputs []builder.Output
+
+	var raw []string
+	for _, param := range params {
+		raw = append(raw, string(param))
+	}
+
+	for _, output := range trabajoCientificoHistorialOutput {
+		if !slices.Contains(raw, output.Name) {
+			outputs = append(outputs, output)
+		}
+	}
+
+	r.query.Outputs = outputs
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindMany) OrderBy(params ...TrabajoCientificoHistorialOrderByParam) trabajoCientificoHistorialFindMany {
+	var fields []builder.Field
+
+	for _, param := range params {
+		fields = append(fields, builder.Field{
+			Name:   param.field().Name,
+			Value:  param.field().Value,
+			Fields: param.field().Fields,
+		})
+	}
+
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:     "orderBy",
+		Fields:   fields,
+		WrapList: true,
+	})
+
+	return r
+}
+
+func (r trabajoCientificoHistorialFindMany) Skip(count int) trabajoCientificoHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "skip",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialFindMany) Take(count int) trabajoCientificoHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:  "take",
+		Value: count,
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialFindMany) Cursor(cursor TrabajoCientificoHistorialCursorParam) trabajoCientificoHistorialFindMany {
+	r.query.Inputs = append(r.query.Inputs, builder.Input{
+		Name:   "cursor",
+		Fields: []builder.Field{cursor.field()},
+	})
+	return r
+}
+
+func (r trabajoCientificoHistorialFindMany) Exec(ctx context.Context) (
+	[]TrabajoCientificoHistorialModel,
+	error,
+) {
+	var v []TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialFindMany) ExecInner(ctx context.Context) (
+	[]InnerTrabajoCientificoHistorial,
+	error,
+) {
+	var v []InnerTrabajoCientificoHistorial
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialFindMany) Update(params ...TrabajoCientificoHistorialSetParam) trabajoCientificoHistorialUpdateMany {
+	r.query.Operation = "mutation"
+	r.query.Method = "updateMany"
+	r.query.Model = "TrabajoCientificoHistorial"
+
+	r.query.Outputs = countOutput
+
+	var v trabajoCientificoHistorialUpdateMany
+	v.query = r.query
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "data",
+		Fields: fields,
+	})
+	return v
+}
+
+type trabajoCientificoHistorialUpdateMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialUpdateMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialUpdateMany) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialUpdateMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialUpdateMany) Tx() TrabajoCientificoHistorialManyTxResult {
+	v := newTrabajoCientificoHistorialManyTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
+func (r trabajoCientificoHistorialFindMany) Delete() trabajoCientificoHistorialDeleteMany {
+	var v trabajoCientificoHistorialDeleteMany
+	v.query = r.query
+	v.query.Operation = "mutation"
+	v.query.Method = "deleteMany"
+	v.query.Model = "TrabajoCientificoHistorial"
+
+	v.query.Outputs = countOutput
+
+	return v
+}
+
+type trabajoCientificoHistorialDeleteMany struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialDeleteMany) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (p trabajoCientificoHistorialDeleteMany) trabajoCientificoHistorialModel() {}
+
+func (r trabajoCientificoHistorialDeleteMany) Exec(ctx context.Context) (*BatchResult, error) {
+	var v BatchResult
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialDeleteMany) Tx() TrabajoCientificoHistorialManyTxResult {
+	v := newTrabajoCientificoHistorialManyTxResult()
 	v.query = r.query
 	v.query.TxResult = make(chan []byte, 1)
 	return v
@@ -145121,6 +151388,54 @@ func (r TrabajoCientificoManyTxResult) Result() (v *BatchResult) {
 	return v
 }
 
+func newTrabajoCientificoHistorialUniqueTxResult() TrabajoCientificoHistorialUniqueTxResult {
+	return TrabajoCientificoHistorialUniqueTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoCientificoHistorialUniqueTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoCientificoHistorialUniqueTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoCientificoHistorialUniqueTxResult) IsTx() {}
+
+func (r TrabajoCientificoHistorialUniqueTxResult) Result() (v *TrabajoCientificoHistorialModel) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func newTrabajoCientificoHistorialManyTxResult() TrabajoCientificoHistorialManyTxResult {
+	return TrabajoCientificoHistorialManyTxResult{
+		result: &transaction.Result{},
+	}
+}
+
+type TrabajoCientificoHistorialManyTxResult struct {
+	query  builder.Query
+	result *transaction.Result
+}
+
+func (p TrabajoCientificoHistorialManyTxResult) ExtractQuery() builder.Query {
+	return p.query
+}
+
+func (p TrabajoCientificoHistorialManyTxResult) IsTx() {}
+
+func (r TrabajoCientificoHistorialManyTxResult) Result() (v *BatchResult) {
+	if err := r.result.Get(r.query.TxResult, &v); err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func newTrabajoCientificoVersionUniqueTxResult() TrabajoCientificoVersionUniqueTxResult {
 	return TrabajoCientificoVersionUniqueTxResult{
 		result: &transaction.Result{},
@@ -148319,6 +154634,153 @@ func (r trabajoCientificoUpsertOne) Tx() TrabajoCientificoUniqueTxResult {
 	return v
 }
 
+type trabajoCientificoHistorialUpsertOne struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialUpsertOne) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialUpsertOne) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialUpsertOne) with()                               {}
+func (r trabajoCientificoHistorialUpsertOne) trabajoCientificoHistorialModel()    {}
+func (r trabajoCientificoHistorialUpsertOne) trabajoCientificoHistorialRelation() {}
+
+func (r trabajoCientificoHistorialActions) UpsertOne(
+	params TrabajoCientificoHistorialEqualsUniqueWhereParam,
+) trabajoCientificoHistorialUpsertOne {
+	var v trabajoCientificoHistorialUpsertOne
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+
+	v.query.Operation = "mutation"
+	v.query.Method = "upsertOne"
+	v.query.Model = "TrabajoCientificoHistorial"
+	v.query.Outputs = trabajoCientificoHistorialOutput
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "where",
+		Fields: builder.TransformEquals([]builder.Field{params.field()}),
+	})
+
+	return v
+}
+
+func (r trabajoCientificoHistorialUpsertOne) Create(
+
+	_estadoAnterior TrabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam,
+	_estadoNuevo TrabajoCientificoHistorialWithPrismaEstadoNuevoSetParam,
+	_trabajo TrabajoCientificoHistorialWithPrismaTrabajoSetParam,
+
+	optional ...TrabajoCientificoHistorialSetParam,
+) trabajoCientificoHistorialUpsertOne {
+	var v trabajoCientificoHistorialUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _estadoAnterior.field())
+	fields = append(fields, _estadoNuevo.field())
+	fields = append(fields, _trabajo.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoHistorialUpsertOne) Update(
+	params ...TrabajoCientificoHistorialSetParam,
+) trabajoCientificoHistorialUpsertOne {
+	var v trabajoCientificoHistorialUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	for _, q := range params {
+
+		field := q.field()
+
+		_, isJson := field.Value.(types.JSON)
+		if field.Value != nil && !isJson {
+			v := field.Value
+			field.Fields = []builder.Field{
+				{
+					Name:  "set",
+					Value: v,
+				},
+			}
+
+			field.Value = nil
+		}
+
+		fields = append(fields, field)
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoHistorialUpsertOne) CreateOrUpdate(
+
+	_estadoAnterior TrabajoCientificoHistorialWithPrismaEstadoAnteriorSetParam,
+	_estadoNuevo TrabajoCientificoHistorialWithPrismaEstadoNuevoSetParam,
+	_trabajo TrabajoCientificoHistorialWithPrismaTrabajoSetParam,
+
+	optional ...TrabajoCientificoHistorialSetParam,
+) trabajoCientificoHistorialUpsertOne {
+	var v trabajoCientificoHistorialUpsertOne
+	v.query = r.query
+
+	var fields []builder.Field
+	fields = append(fields, _estadoAnterior.field())
+	fields = append(fields, _estadoNuevo.field())
+	fields = append(fields, _trabajo.field())
+
+	for _, q := range optional {
+		fields = append(fields, q.field())
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "create",
+		Fields: fields,
+	})
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:   "update",
+		Fields: fields,
+	})
+
+	return v
+}
+
+func (r trabajoCientificoHistorialUpsertOne) Exec(ctx context.Context) (*TrabajoCientificoHistorialModel, error) {
+	var v TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func (r trabajoCientificoHistorialUpsertOne) Tx() TrabajoCientificoHistorialUniqueTxResult {
+	v := newTrabajoCientificoHistorialUniqueTxResult()
+	v.query = r.query
+	v.query.TxResult = make(chan []byte, 1)
+	return v
+}
+
 type trabajoCientificoVersionUpsertOne struct {
 	query builder.Query
 }
@@ -150807,6 +157269,87 @@ func (r trabajoCientificoAggregateRaw) Exec(ctx context.Context) ([]TrabajoCient
 
 func (r trabajoCientificoAggregateRaw) ExecInner(ctx context.Context) ([]InnerTrabajoCientifico, error) {
 	var v []InnerTrabajoCientifico
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+type trabajoCientificoHistorialAggregateRaw struct {
+	query builder.Query
+}
+
+func (r trabajoCientificoHistorialAggregateRaw) getQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialAggregateRaw) ExtractQuery() builder.Query {
+	return r.query
+}
+
+func (r trabajoCientificoHistorialAggregateRaw) with()                               {}
+func (r trabajoCientificoHistorialAggregateRaw) trabajoCientificoHistorialModel()    {}
+func (r trabajoCientificoHistorialAggregateRaw) trabajoCientificoHistorialRelation() {}
+
+func (r trabajoCientificoHistorialActions) FindRaw(filter interface{}, options ...interface{}) trabajoCientificoHistorialAggregateRaw {
+	var v trabajoCientificoHistorialAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "findRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoCientificoHistorial"
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "filter",
+		Value: fmt.Sprintf("%v", filter),
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoCientificoHistorialActions) AggregateRaw(pipeline []interface{}, options ...interface{}) trabajoCientificoHistorialAggregateRaw {
+	var v trabajoCientificoHistorialAggregateRaw
+	v.query = builder.NewQuery()
+	v.query.Engine = r.client
+	v.query.Method = "aggregateRaw"
+	v.query.Operation = "query"
+	v.query.Model = "TrabajoCientificoHistorial"
+
+	parsedPip := []interface{}{}
+	for _, p := range pipeline {
+		parsedPip = append(parsedPip, fmt.Sprintf("%v", p))
+	}
+
+	v.query.Inputs = append(v.query.Inputs, builder.Input{
+		Name:  "pipeline",
+		Value: parsedPip,
+	})
+
+	if len(options) > 0 {
+		v.query.Inputs = append(v.query.Inputs, builder.Input{
+			Name:  "options",
+			Value: fmt.Sprintf("%v", options[0]),
+		})
+	}
+	return v
+}
+
+func (r trabajoCientificoHistorialAggregateRaw) Exec(ctx context.Context) ([]TrabajoCientificoHistorialModel, error) {
+	var v []TrabajoCientificoHistorialModel
+	if err := r.query.Exec(ctx, &v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+func (r trabajoCientificoHistorialAggregateRaw) ExecInner(ctx context.Context) ([]InnerTrabajoCientificoHistorial, error) {
+	var v []InnerTrabajoCientificoHistorial
 	if err := r.query.Exec(ctx, &v); err != nil {
 		return nil, err
 	}

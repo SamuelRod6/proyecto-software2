@@ -10,15 +10,21 @@ export default defineConfig(({ mode }) => {
         : undefined;
 
     return {
-        plugins: [react()],
-        server: {
-            proxy: {
-                "/api": {
-                    target: apiTarget,
-                    changeOrigin: true,
-                    rewrite,
-                },
-            },
+      plugins: [react()],
+      server: {
+        proxy: {
+          "/api": {
+            target: apiTarget,
+            changeOrigin: true,
+            rewrite,
+          },
+          "/uploads": {
+            target: shouldRewrite
+              ? apiTarget.replace(/\/api\/?$/, "")
+              : apiTarget,
+            changeOrigin: true,
+          },
         },
+      },
     };
 });

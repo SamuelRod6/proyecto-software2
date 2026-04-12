@@ -259,8 +259,24 @@ model TrabajoCientifico {
   versiones           TrabajoCientificoVersion[]
   asignaciones        TrabajoRevisionAsignacion[]
   evaluaciones        TrabajoEvaluacion[]
+  historial_estado    TrabajoCientificoHistorial[]
 
   @@unique([id_evento, titulo_normalizado])
+}
+
+model TrabajoCientificoHistorial {
+  id_historial    Int      @id @default(autoincrement())
+  id_trabajo      Int
+  estado_anterior String
+  estado_nuevo    String
+  tipo_cambio     String   @default("DECISION COMITE")
+  nota            String?
+  actor           String?
+  fecha_cambio    DateTime @default(now())
+
+  trabajo         TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+
+  @@index([id_trabajo, fecha_cambio])
 }
 
 model TrabajoCientificoVersion {

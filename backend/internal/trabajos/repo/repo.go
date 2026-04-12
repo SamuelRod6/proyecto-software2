@@ -15,6 +15,7 @@ package repo
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -25,6 +26,18 @@ import (
 
 type Repository struct {
 	client *db.PrismaClient
+}
+
+// WorkStatusHistoryRow represents one row from the work history table.
+type WorkStatusHistoryRow struct {
+	IDHistorial    int       `json:"id_historial"`
+	IDTrabajo      int       `json:"id_trabajo"`
+	EstadoAnterior string    `json:"estado_anterior"`
+	EstadoNuevo    string    `json:"estado_nuevo"`
+	TipoCambio     string    `json:"tipo_cambio"`
+	Nota           string    `json:"nota"`
+	Actor          string    `json:"actor"`
+	FechaCambio    time.Time `json:"fecha_cambio"`
 }
 
 // New creates a trabajos repository with a Prisma client.
@@ -522,6 +535,59 @@ func (r *Repository) UpdateDecisionComite(ctx context.Context, req dto.DecisionR
 	).Exec(ctx)
 
 	return err
+}
+
+func (r *Repository) InsertTrabajoHistorial(ctx context.Context, trabajoID int, anterior, nuevo, tipoCambio, nota, actor string) error {
+	query := `INSERT INTO "TrabajoCientificoHistorial" ("id_trabajo", "estado_anterior", "estado_nuevo", "tipo_cambio", "nota", "actor", "fecha_cambio")
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), NOW())`
+	_, err := r.client.Prisma.Raw.ExecuteRaw(query, trabajoID, strings.TrimSpace(anterior), strings.TrimSpace(nuevo), strings.TrimSpace(tipoCambio), strings.TrimSpace(nota), strings.TrimSpace(actor)).Exec(ctx)
+	return err
+}
+
+func (r *Repository) ListTrabajoHistorial(ctx context.Context, filters map[string]interface{}) ([]WorkStatusHistoryRow, error) {
+	query := `SELECT "id_historial", "id_trabajo", "estado_anterior", "estado_nuevo", "tipo_cambio", COALESCE("nota", '') AS "nota", COALESCE("actor", '') AS "actor", "fecha_cambio"
+		FROM "TrabajoCientificoHistorial"
+		WHERE 1=1`
+
+	params := make([]interface{}, 0)
+	addCond := func(format string, value interface{}) {
+		params = append(params, value)
+		query += fmt.Sprintf(format, len(params))
+	}
+
+	if value, ok := filters["id_trabajo"].(int); ok && value > 0 {
+		addCond(" AND \"id_trabajo\" = $%d", value)
+	}
+	if value, ok := filters["estado"].(string); ok && strings.TrimSpace(value) != "" {
+		normalized := strings.TrimSpace(value)
+		params = append(params, normalized)
+		idx := len(params)
+		query += fmt.Sprintf(" AND (\"estado_anterior\" = $%d OR \"estado_nuevo\" = $%d)", idx, idx)
+	}
+	if value, ok := filters["tipo_cambio"].(string); ok && strings.TrimSpace(value) != "" {
+		addCond(" AND \"tipo_cambio\" = $%d", strings.TrimSpace(value))
+	}
+	if value, ok := filters["q"].(string); ok && strings.TrimSpace(value) != "" {
+		term := "%" + strings.TrimSpace(value) + "%"
+		params = append(params, term)
+		idx := len(params)
+		query += fmt.Sprintf(" AND (\"estado_anterior\" ILIKE $%d OR \"estado_nuevo\" ILIKE $%d OR COALESCE(\"nota\", '') ILIKE $%d OR COALESCE(\"actor\", '') ILIKE $%d)", idx, idx, idx, idx)
+	}
+	if value, ok := filters["desde"].(time.Time); ok && !value.IsZero() {
+		addCond(" AND \"fecha_cambio\" >= $%d", value)
+	}
+	if value, ok := filters["hasta"].(time.Time); ok && !value.IsZero() {
+		addCond(" AND \"fecha_cambio\" <= $%d", value)
+	}
+
+	query += ` ORDER BY "fecha_cambio" DESC, "id_historial" DESC`
+
+	var rows []WorkStatusHistoryRow
+	if err := r.client.Prisma.Raw.QueryRaw(query, params...).Exec(ctx, &rows); err != nil {
+		return nil, err
+	}
+
+	return rows, nil
 }
 
 // FindUserByID retrieves one user by ID.

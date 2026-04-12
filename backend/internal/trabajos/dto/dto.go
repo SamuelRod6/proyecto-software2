@@ -147,6 +147,18 @@ type EvaluationSummary struct {
 	Evaluaciones         []EvaluationItem `json:"evaluaciones"`
 }
 
+// WorkStatusHistoryItem represents one status change entry for a work.
+type WorkStatusHistoryItem struct {
+	IDHistorial    int    `json:"id_historial"`
+	IDTrabajo      int    `json:"id_trabajo"`
+	EstadoAnterior string `json:"estado_anterior"`
+	EstadoNuevo    string `json:"estado_nuevo"`
+	TipoCambio     string `json:"tipo_cambio"`
+	Nota           string `json:"nota"`
+	Actor          string `json:"actor"`
+	FechaCambio    string `json:"fecha_cambio"`
+}
+
 // DecisionRequest represents payload for committee final decision.
 type DecisionRequest struct {
 	UserID           int    `json:"user_id"`

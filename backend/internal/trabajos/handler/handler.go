@@ -16,7 +16,8 @@ package handler
 import (
 	"context"
 	"encoding/json"
-    "errors"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -28,6 +29,8 @@ import (
 	"project/backend/internal/trabajos/service"
 	"project/backend/internal/trabajos/validation"
 	"project/backend/prisma/db"
+
+	"golang.org/x/text/encoding/charmap"
 )
 
 type Handler struct {
@@ -71,6 +74,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         h.listEvaluacionesByTrabajo(w, r)
     case r.Method == http.MethodPost && path == "comite/decision":
         h.decideTrabajo(w, r)
+    case r.Method == http.MethodGet && path == "historial":
+        h.historialTrabajo(w, r)
+    case r.Method == http.MethodGet && path == "historial/pdf":
+        h.downloadHistorialTrabajoPDF(w, r)
     default:
         http.NotFound(w, r)
     }
@@ -164,6 +171,44 @@ func parsePositiveInt(value string) (int, error) {
         return 0, errors.New("valor inválido")
     }
     return n, nil
+}
+
+func parseWorkHistoryFilters(r *http.Request) (map[string]interface{}, error) {
+    filters := make(map[string]interface{})
+    if value := strings.TrimSpace(r.URL.Query().Get("estado")); value != "" {
+        filters["estado"] = value
+    }
+    if value := strings.TrimSpace(r.URL.Query().Get("tipo_cambio")); value != "" {
+        filters["tipo_cambio"] = value
+    }
+    if value := strings.TrimSpace(r.URL.Query().Get("q")); value != "" {
+        filters["q"] = value
+    }
+    if value := strings.TrimSpace(r.URL.Query().Get("desde")); value != "" {
+        parsed, err := parseHistoryDate(value)
+        if err != nil {
+            return nil, err
+        }
+        filters["desde"] = parsed
+    }
+    if value := strings.TrimSpace(r.URL.Query().Get("hasta")); value != "" {
+        parsed, err := parseHistoryDate(value)
+        if err != nil {
+            return nil, err
+        }
+        filters["hasta"] = parsed
+    }
+    return filters, nil
+}
+
+func parseHistoryDate(value string) (time.Time, error) {
+    layouts := []string{"02/01/2006", "2006-01-02"}
+    for _, layout := range layouts {
+        if parsed, err := time.ParseInLocation(layout, value, time.UTC); err == nil {
+            return parsed, nil
+        }
+    }
+    return time.Time{}, errors.New("fecha inválida")
 }
 
 // writeServiceError maps service errors to HTTP responses.
@@ -534,4 +579,143 @@ func (h *Handler) decideTrabajo(w http.ResponseWriter, r *http.Request) {
     }
 
     w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) historialTrabajo(w http.ResponseWriter, r *http.Request) {
+    trabajoID, err := parsePositiveInt(r.URL.Query().Get("id_trabajo"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "id_trabajo inválido")
+        return
+    }
+    userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+
+    filters, err := parseWorkHistoryFilters(r)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    rows, svcErr := h.svc.HistorialTrabajo(ctx, trabajoID, userID, filters)
+    if svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    _ = json.NewEncoder(w).Encode(rows)
+}
+
+func (h *Handler) downloadHistorialTrabajoPDF(w http.ResponseWriter, r *http.Request) {
+    trabajoID, err := parsePositiveInt(r.URL.Query().Get("id_trabajo"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "id_trabajo inválido")
+        return
+    }
+    userID, err := parsePositiveInt(r.URL.Query().Get("user_id"))
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, "user_id inválido")
+        return
+    }
+
+    filters, err := parseWorkHistoryFilters(r)
+    if err != nil {
+        httperror.WriteJSON(w, http.StatusBadRequest, err.Error())
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+
+    rows, svcErr := h.svc.HistorialTrabajo(ctx, trabajoID, userID, filters)
+    if svcErr != nil {
+        writeServiceError(w, svcErr)
+        return
+    }
+
+    writePDFTrabajoHistorial(w, rows)
+}
+
+func writePDFTrabajoHistorial(w http.ResponseWriter, rows []dto.WorkStatusHistoryItem) {
+    lines := []string{"Historial de cambios de estado de trabajo científico", ""}
+    if len(rows) == 0 {
+        lines = append(lines, "No hay cambios registrados")
+    } else {
+        for _, row := range rows {
+            lines = append(lines,
+                fmt.Sprintf("Fecha: %s", row.FechaCambio),
+                fmt.Sprintf("Cambio: %s -> %s", valueOrDefault(row.EstadoAnterior, "-"), valueOrDefault(row.EstadoNuevo, "-")),
+                fmt.Sprintf("Tipo: %s", valueOrDefault(row.TipoCambio, "-")),
+                fmt.Sprintf("Actor: %s", valueOrDefault(row.Actor, "Sin actor")),
+                fmt.Sprintf("Comentario: %s", valueOrDefault(row.Nota, "Sin comentarios")),
+                "",
+            )
+        }
+    }
+
+    pdf := buildSimplePDF(lines)
+    w.Header().Set("Content-Type", "application/pdf")
+    w.Header().Set("Content-Disposition", "attachment; filename=historial_trabajo_cientifico.pdf")
+    w.WriteHeader(http.StatusOK)
+    _, _ = w.Write(pdf)
+}
+
+func valueOrDefault(value, fallback string) string {
+    if strings.TrimSpace(value) == "" {
+        return fallback
+    }
+    return value
+}
+
+func buildSimplePDF(lines []string) []byte {
+    content := "BT /F1 12 Tf 72 720 Td 16 TL"
+    for _, line := range lines {
+        safe := encodePDFText(line)
+        content += fmt.Sprintf(" (%s) Tj T*", safe)
+    }
+    content += " ET"
+
+    objects := []string{
+        "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+        "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+        "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj",
+        fmt.Sprintf("4 0 obj << /Length %d >> stream\n%s\nendstream endobj", len(content), content),
+        "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj",
+    }
+
+    var xref strings.Builder
+    xref.WriteString("xref\n0 6\n0000000000 65535 f \n")
+
+    var body strings.Builder
+    body.WriteString("%PDF-1.4\n")
+    offsets := []int{0}
+    for _, obj := range objects {
+        offsets = append(offsets, body.Len())
+        body.WriteString(obj + "\n")
+    }
+
+    for i := 1; i < len(offsets); i++ {
+        xref.WriteString(fmt.Sprintf("%010d 00000 n \n", offsets[i]))
+    }
+
+    startXref := body.Len()
+    trailer := fmt.Sprintf("trailer << /Size 6 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF", startXref)
+
+    final := body.String() + xref.String() + trailer
+    return []byte(final)
+}
+
+func encodePDFText(value string) string {
+    encoded, err := charmap.Windows1252.NewEncoder().String(value)
+    if err != nil {
+        encoded = value
+    }
+    replacer := strings.NewReplacer("\\", "\\\\", "(", "\\(", ")", "\\)")
+    return replacer.Replace(encoded)
 }
