@@ -66,7 +66,7 @@ describe("Historial de trabajos cientificos", () => {
     cy.wait("@versions");
     cy.wait("@history");
 
-    cy.contains("th", "Comentario").should("be.visible");
+    cy.contains("th", "Comentario").scrollIntoView().should("be.visible");
     cy.contains("Aprobado por el comite").should("be.visible");
     cy.contains("Comite Central").should("not.exist");
     cy.contains("Comentario / Actor").should("not.exist");

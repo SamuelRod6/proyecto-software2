@@ -100,8 +100,10 @@ describe("Trabajos module", () => {
     cy.wait("@getVersions");
     cy.contains("Historial de versiones").should("exist");
 
-    cy.get("select:visible").eq(0).select("1");
-    cy.get("select:visible").eq(1).select("2");
+    cy.get(".modal-scroll-content").within(() => {
+      cy.get('input[role="combobox"]').eq(0).click().type("1{enter}");
+      cy.get('input[role="combobox"]').eq(1).click().type("2{enter}");
+    });
     cy.contains("button", "Comparar").click();
 
     cy.wait("@compareVersions");
