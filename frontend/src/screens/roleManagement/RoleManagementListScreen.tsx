@@ -16,6 +16,15 @@ import {
   updateUserRoles,
 } from "../../services/roleServices";
 
+/*
+File: RoleManagementListScreen.tsx
+
+Contains:
+UI and workflows for user role assignment, role CRUD, permission mapping,
+and role/permission validation checks.
+*/
+
+// UserRoleRow is the normalized shape consumed by the users table.
 type UserRoleRow = {
   id: number;
   name: string;
@@ -23,12 +32,14 @@ type UserRoleRow = {
   roles: string[];
 };
 
+// RoleRow is the normalized role list item used in role administration.
 type RoleRow = {
   id: number;
   name: string;
   description?: string;
 };
 
+// PermissionRow is the normalized permission row linked to roles.
 type PermissionRow = {
   id: number;
   name: string;
@@ -45,6 +56,7 @@ function toText(value: unknown, fallback = ""): string {
   return fallback;
 }
 
+// toRoles converts API role payload variants into a clean string array.
 function toRoles(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.map(String);
@@ -58,6 +70,7 @@ function toRoles(value: unknown): string[] {
   return [];
 }
 
+// normalizeUsers adapts backend payload shapes to table-friendly rows.
 function normalizeUsers(payload: unknown): UserRoleRow[] {
   const root = (payload as { payload?: unknown })?.payload ?? payload;
   const list = Array.isArray(root)
@@ -81,6 +94,7 @@ function normalizeUsers(payload: unknown): UserRoleRow[] {
   });
 }
 
+// normalizeRoles adapts backend payload shapes to role rows.
 function normalizeRoles(payload: unknown): RoleRow[] {
   const root = (payload as { payload?: unknown })?.payload ?? payload;
   const list = Array.isArray(root)
@@ -100,6 +114,7 @@ function normalizeRoles(payload: unknown): RoleRow[] {
   });
 }
 
+// normalizePermissions adapts backend payload shapes to permission rows.
 function normalizePermissions(payload: unknown): PermissionRow[] {
   const root = (payload as { payload?: unknown })?.payload ?? payload;
   const list = Array.isArray(root)
@@ -119,6 +134,7 @@ function normalizePermissions(payload: unknown): PermissionRow[] {
   });
 }
 
+// extractTotal gets total count from paginated responses with tolerant parsing.
 function extractTotal(payload: unknown): number {
   const root = (payload as { payload?: unknown })?.payload ?? payload;
   const raw = (root as { total?: unknown })?.total ?? 0;
@@ -135,6 +151,7 @@ const arrayEqual = (a: string[], b: string[]) => {
 
 const normalizeRoleName = (value: string): string => value.trim().toUpperCase();
 
+// RoleManagementListScreen renders both user-role assignment and role-permission admin sections.
 export default function RoleManagementListScreen(): JSX.Element {
   const [rows, setRows] = useState<UserRoleRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);

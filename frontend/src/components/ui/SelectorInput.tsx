@@ -1,6 +1,14 @@
 import React, { useState } from "react";
 import Select, { MultiValue, SingleValue, StylesConfig } from "react-select";
 
+/*
+File: SelectorInput.tsx
+
+Contains:
+Reusable react-select wrapper used across forms and modal workflows.
+Supports single/multi selection, optional free-text value, and menu portal rendering.
+*/
+
 export interface OptionType {
     value: string;
     label: string;
@@ -20,6 +28,7 @@ interface SelectInputProps {
   menuPortalTarget?: HTMLElement | null;
 }
 
+// SelectInput normalizes react-select behavior for the project's UI conventions.
 const SelectInput: React.FC<SelectInputProps> = ({
   value,
   onChange,
@@ -188,6 +197,7 @@ const customStyles: StylesConfig<OptionType, boolean> = {
   }),
 };
 
+// getOptionBackground keeps option-state colors readable on dark backgrounds.
 function getOptionBackground(isSelected: boolean, isFocused: boolean): string {
   if (isSelected) return "#facc15";
   if (isFocused) return "#334155";
