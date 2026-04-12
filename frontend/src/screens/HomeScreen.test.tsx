@@ -10,7 +10,7 @@ describe("HomeScreen", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Bienvenido al Home")).toBeInTheDocument();
+    expect(screen.getByText(/Bienvenido al Sistema/i)).toBeInTheDocument();
 
     const eventsLink = screen.getByRole("link", { name: "Ir a eventos" });
     expect(eventsLink).toHaveAttribute("href", "/events");
