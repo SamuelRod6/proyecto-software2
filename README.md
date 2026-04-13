@@ -1,4 +1,33 @@
-# React + Go Workspace
+# SAGEC - Sistema de Administración de Eventos Científicos
+
+## Implicados del Proyecto
+
+### Integrantes del curso de Ingeniería de Software II (CI-4712) (Enero - Marzo 2026):
+
+#### Profesor: Jean Carlos Guzmán
+
+#### Equipo 1 (HexaCode):
+
+* Samuel Rodríguez (Team Lead) | 16-11022@usb.ve
+* Sergio Carrillo | 14-11315@usb.ve
+* Jesús Cuéllar  | 15-10345@usb.ve
+* Abel Zabaleta | 15-11574@usb.ve
+* Blanyer Vielma | 16-11238@usb.ve
+* Mauricio Fragachan | 20-10265@usb.ve
+
+#### Equipo 2 (Arcadian):
+
+* Anya Marcano (Team Lead) | 19-10336@usb.ve
+* Rafael Valera | 16-11202@usb.ve
+* Franco Murillo | 16-10782@usb.ve
+* Laura León | 17-10307@usb.ve
+* David Pereira | 18-10245@usb.ve
+* Carlo Herrera | 18-10451@usb.ve
+* Leonardo Dolande | 19-10181@usb.ve
+
+Universidad Simón Bolívar, Venezuela.
+
+## React + Go Workspace
 
 Este proyecto contiene:
 
