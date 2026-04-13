@@ -112,6 +112,20 @@ export default function Sidebar() {
         >
           Mensajes
         </NavLink>
+        {canManageScientificWorks && (
+          <NavLink
+            to={ROUTES.scientificWorks}
+            className={({ isActive }) =>
+              `rounded-lg px-3 py-2 font-medium transition-colors ${
+                isActive
+                  ? "bg-[#F5E427] text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+              }`
+            }
+          >
+            Trabajos científicos
+          </NavLink>
+        )}
         {canManageEvents && (
           <NavLink
             to={ROUTES.eventsManagement}
@@ -154,6 +168,20 @@ export default function Sidebar() {
             Reportes de inscripciones
           </NavLink>
         )}
+        {canManageScientificWorksManagement && (
+          <NavLink
+            to={ROUTES.scientificWorksManagement}
+            className={({ isActive }) =>
+              `rounded-lg px-3 py-2 font-medium transition-colors ${
+                isActive
+                  ? "bg-[#F5E427] text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+              }`
+            }
+          >
+            Gestión de Trabajos Científicos
+          </NavLink>
+        )}
         {canManageRoles && (
           <NavLink
             to={ROUTES.roleManagement}
@@ -180,34 +208,6 @@ export default function Sidebar() {
             }
           >
             Gestión de permisos y recursos
-          </NavLink>
-        )}
-        {canManageScientificWorks && (
-          <NavLink
-            to={ROUTES.scientificWorks}
-            className={({ isActive }) =>
-              `rounded-lg px-3 py-2 font-medium transition-colors ${
-                isActive
-                  ? "bg-[#F5E427] text-slate-900"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
-              }`
-            }
-          >
-            Trabajos científicos
-          </NavLink>
-        )}
-        {canManageScientificWorksManagement && (
-          <NavLink
-            to={ROUTES.scientificWorksManagement}
-            className={({ isActive }) =>
-              `rounded-lg px-3 py-2 font-medium transition-colors ${
-                isActive
-                  ? "bg-[#F5E427] text-slate-900"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
-              }`
-            }
-          >
-            Gestión de Trabajos Científicos
           </NavLink>
         )}
       </nav>
