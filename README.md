@@ -8,22 +8,22 @@
 
 #### Equipo 1 (HexaCode):
 
-* Samuel Rodríguez (Team Lead) | 16-11022@usb.ve
+* Samuel Rodríguez (Team Lead) | samuel.rodriguez16@hotmail.com
 * Sergio Carrillo | 14-11315@usb.ve
-* Jesús Cuéllar  | 15-10345@usb.ve
-* Abel Zabaleta | 15-11574@usb.ve
-* Blanyer Vielma | 16-11238@usb.ve
-* Mauricio Fragachan | 20-10265@usb.ve
+* Jesús Cuéllar  | jedave.co@gmail.com
+* Abel Zabaleta | abelzavaleta08@gmail.com
+* Blanyer Vielma | vblanyer@gmail.com
+* Mauricio Fragachan | mfragachan11@gmail.com
 
 #### Equipo 2 (Arcadian):
 
-* Anya Marcano (Team Lead) | 19-10336@usb.ve
-* Rafael Valera | 16-11202@usb.ve
-* Franco Murillo | 16-10782@usb.ve
-* Laura León | 17-10307@usb.ve
-* David Pereira | 18-10245@usb.ve
-* Carlo Herrera | 18-10451@usb.ve
-* Leonardo Dolande | 19-10181@usb.ve
+* Anya Marcano (Team Lead) | anyanmf@gmail.com
+* Rafael Valera | rafa.valera98@gmail.com
+* Franco Murillo | murillo.franc@gmail.com
+* Laura León | laura.leon.27121999@gmail.com
+* David Pereira | djpb2000@gmail.com
+* Carlo Herrera | carlomhd2001@gmail.com
+* Leonardo Dolande | leodolande84@gmail.com
 
 Universidad Simón Bolívar, Venezuela.
 
