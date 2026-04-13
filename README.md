@@ -4,7 +4,7 @@
 
 ### Integrantes del curso de Ingeniería de Software II (CI-4712) (Enero - Marzo 2026):
 
-#### Profesor: Jean Carlos Guzmán
+#### Prof. Jean Carlos Guzmán (Agile Coach ) | jeancguzman2050@gmail.com
 
 #### Equipo 1 (HexaCode):
 
