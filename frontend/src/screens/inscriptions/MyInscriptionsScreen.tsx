@@ -28,6 +28,17 @@ interface Evento {
   ubicacion: string;
 }
 
+function parseTypes(tipos: string): string[] {
+  return tipos
+    .split(/[,;|\s]+/)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function serializeTypes(values: string[]): string {
+  return Array.from(new Set(values.map((value) => value.trim().toLowerCase()).filter(Boolean))).join(",");
+}
+
 function getAuthUser() {
   const raw = localStorage.getItem("auth-user");
   if (!raw) return null;
@@ -41,6 +52,165 @@ function getAuthUser() {
   } catch {
     return null;
   }
+}
+
+function parseDate(dateStr: string): Date {
+  const [day, month, year] = dateStr.split("/").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function parseNotificationDate(value?: string): number {
+  if (!value) return 0;
+  if (value.includes("/")) {
+    const [day, month, year] = value.split("/").map(Number);
+    if (!Number.isNaN(day) && !Number.isNaN(month) && !Number.isNaN(year)) {
+      return new Date(year, month - 1, day).getTime();
+    }
+  }
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function EventsSection(props: Readonly<{
+  loading: boolean;
+  eventosInscritos: Evento[];
+  selectedEvento: Evento | null;
+  calendarMonth: Date;
+  onSelectEvento: (evento: Evento) => void;
+  onMonthChange: (month: Date) => void;
+}>): JSX.Element {
+  const {
+    loading,
+    eventosInscritos,
+    selectedEvento,
+    calendarMonth,
+    onSelectEvento,
+    onMonthChange,
+  } = props;
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[200px] bg-slate-800 rounded-xl">
+        <Loader visible={true} />
+      </div>
+    );
+  }
+
+  if (eventosInscritos.length === 0) {
+    return (
+      <div>
+        <EmptyState
+          title="Aún no te has inscrito en ningún evento"
+          description="Cuando te inscribas en algún evento, lo mostraremos aquí."
+          animationData={emptyAnimation}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col md:flex-row gap-8">
+      <div className="flex-[0.7] flex justify-center items-center">
+        <ParticipantEventsCalendar
+          eventRanges={eventosInscritos.map((e) => ({
+            from: parseDate(e.fecha_inicio),
+            to: parseDate(e.fecha_fin),
+            id: e.id_evento,
+          }))}
+          selectedRange={
+            selectedEvento
+              ? {
+                  from: parseDate(selectedEvento.fecha_inicio),
+                  to: parseDate(selectedEvento.fecha_fin),
+                  id: selectedEvento.id_evento,
+                }
+              : undefined
+          }
+          month={calendarMonth}
+          onMonthChange={onMonthChange}
+        />
+      </div>
+      <div className="flex-[2]">
+        <ParticipantEventsList
+          eventos={eventosInscritos}
+          onSelectEvento={onSelectEvento}
+          selectedEvento={selectedEvento}
+        />
+      </div>
+    </div>
+  );
+}
+
+function InscriptionsContent(
+  props: Readonly<{
+    loading: boolean;
+    error: string;
+    grouped: InscriptionItem[];
+    onRetry: () => Promise<void>;
+    onDownload: (id: number) => void;
+    onView: (id: number) => void;
+  }>,
+): JSX.Element | null {
+  const { loading, error, grouped, onRetry, onDownload, onView } = props;
+
+  if (loading) return null;
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Error al cargar"
+        description={error}
+        buttonText="Volver a intentar"
+        onRetry={onRetry}
+      />
+    );
+  }
+
+  if (grouped.length === 0) {
+    return (
+      <EmptyState
+        title="Aún no tienes inscripciones"
+        description="Cuando te inscribas a un evento, aparecerá aquí."
+        animationData={emptyAnimation}
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {grouped.map((item) => (
+        <div
+          key={item.id_inscripcion}
+          className="rounded-lg border border-slate-700 bg-slate-800/80 p-6"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-[#F5E427]">
+                {item.evento_nombre}
+              </h3>
+              <p className="text-sm text-slate-300">
+                Inscrito el {item.fecha_inscripcion}
+              </p>
+            </div>
+            <span className="rounded-full bg-slate-700 px-3 py-1 text-xs text-slate-200">
+              {item.estado}
+            </span>
+          </div>
+          <div className="mt-4 text-sm text-slate-300">
+            Fecha limite de pago: {item.fecha_limite_pago}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button onClick={() => onDownload(item.id_inscripcion)}>
+              Descargar comprobante
+            </Button>
+            <Button variant="ghost" onClick={() => onView(item.id_inscripcion)}>
+              Ver comprobante
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function MyInscriptionsScreen(): JSX.Element {
@@ -64,7 +234,13 @@ export default function MyInscriptionsScreen(): JSX.Element {
     { value: "semanal", label: "Semanal" },
   ];
 
-  const typeOptions = [{ value: "estado", label: "Cambios de estado" }];
+  const typeOptions = [
+    { value: "estado", label: "Todos los cambios de estado" },
+    { value: "rechazado", label: "Rechazado" },
+    { value: "pagado", label: "Pago validado" },
+    { value: "aprobado", label: "Aprobado" },
+    { value: "pendiente", label: "Pendiente"},
+  ];
 
   const authUser = getAuthUser();
 
@@ -86,7 +262,8 @@ export default function MyInscriptionsScreen(): JSX.Element {
       setError("No se pudo cargar tus inscripciones.");
       setItems([]);
     } else {
-      setItems(Array.isArray(insRes.data) ? insRes.data : []);
+      const inscripciones = Array.isArray(insRes.data) ? insRes.data : [];
+      setItems(inscripciones);
     }
 
     if (prefRes.status < 400 && prefRes.data) {
@@ -113,6 +290,7 @@ export default function MyInscriptionsScreen(): JSX.Element {
   }, [canLoad]);
 
   const grouped = useMemo(() => items, [items]);
+  const selectedTypes = useMemo(() => parseTypes(types), [types]);
 
   const mergedNotifications = useMemo(() => {
     const inscriptionNotifications = notifications.map((notif) => ({
@@ -137,23 +315,6 @@ export default function MyInscriptionsScreen(): JSX.Element {
       (a, b) => b.timestamp - a.timestamp,
     );
   }, [notifications, roleNotifications]);
-
-  function parseDate(dateStr: string): Date {
-    const [day, month, year] = dateStr.split("/").map(Number);
-    return new Date(year, month - 1, day);
-  }
-
-  function parseNotificationDate(value?: string): number {
-    if (!value) return 0;
-    if (value.includes("/")) {
-      const [day, month, year] = value.split("/").map(Number);
-      if (!Number.isNaN(day) && !Number.isNaN(month) && !Number.isNaN(year)) {
-        return new Date(year, month - 1, day).getTime();
-      }
-    }
-    const parsed = new Date(value).getTime();
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
 
   const handleSelectEvento = (evento: Evento) => {
     if (selectedEvento?.id_evento === evento.id_evento) {
@@ -210,10 +371,20 @@ export default function MyInscriptionsScreen(): JSX.Element {
 
   const handleSavePreferences = async () => {
     if (!authUser?.id) return;
+    const normalizedTypes = serializeTypes(selectedTypes);
+    if (!normalizedTypes) {
+      showToast({
+        title: "Tipos requeridos",
+        message: "Selecciona al menos un tipo de cambio para recibir notificaciones.",
+        status: "error",
+      });
+      return;
+    }
+
     const { status, data } = await updatePreferences({
       id_usuario: authUser.id,
       frecuencia: frequency.trim(),
-      tipos: types.trim(),
+      tipos: normalizedTypes,
       habilitado: enabled,
     });
 
@@ -238,127 +409,29 @@ export default function MyInscriptionsScreen(): JSX.Element {
     clearNotifications();
   };
 
-  let eventsSection: JSX.Element;
-  if (loading) {
-    eventsSection = (
-      <div className="flex justify-center items-center min-h-[200px] bg-slate-800 rounded-xl">
-        <Loader visible={true} />
-      </div>
-    );
-  } else if (eventosInscritos.length === 0) {
-    eventsSection = (
-      <div>
-        <EmptyState
-          title="Aún no te has inscrito en ningún evento"
-          description="Cuando te inscribas en algún evento, lo mostraremos aquí."
-          animationData={emptyAnimation}
-        />
-      </div>
-    );
-  } else {
-    eventsSection = (
-      <div className="flex flex-col md:flex-row gap-8">
-        <div className="flex-[0.7] flex justify-center items-center">
-          <ParticipantEventsCalendar
-            eventRanges={eventosInscritos.map((e) => ({
-              from: parseDate(e.fecha_inicio),
-              to: parseDate(e.fecha_fin),
-              id: e.id_evento,
-            }))}
-            selectedRange={
-              selectedEvento
-                ? {
-                    from: parseDate(selectedEvento.fecha_inicio),
-                    to: parseDate(selectedEvento.fecha_fin),
-                    id: selectedEvento.id_evento,
-                  }
-                : undefined
-            }
-            month={calendarMonth}
-            onMonthChange={setCalendarMonth}
-          />
-        </div>
-        <div className="flex-[2]">
-          <ParticipantEventsList
-            eventos={eventosInscritos}
-            onSelectEvento={handleSelectEvento}
-            selectedEvento={selectedEvento}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  let inscriptionsContent: JSX.Element | null;
-  if (loading) {
-    inscriptionsContent = null;
-  } else if (error) {
-    inscriptionsContent = (
-      <ErrorState
-        title="Error al cargar"
-        description={error}
-        buttonText="Volver a intentar"
-        onRetry={loadData}
-      />
-    );
-  } else if (grouped.length === 0) {
-    inscriptionsContent = (
-      <EmptyState
-        title="Aún no tienes inscripciones"
-        description="Cuando te inscribas a un evento, aparecerá aquí."
-        animationData={emptyAnimation}
-      />
-    );
-  } else {
-    inscriptionsContent = (
-      <div className="grid gap-4">
-        {grouped.map((item) => (
-          <div
-            key={item.id_inscripcion}
-            className="rounded-lg border border-slate-700 bg-slate-800/80 p-6"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-[#F5E427]">
-                  {item.evento_nombre}
-                </h3>
-                <p className="text-sm text-slate-300">
-                  Inscrito el {item.fecha_inscripcion}
-                </p>
-              </div>
-              <span className="rounded-full bg-slate-700 px-3 py-1 text-xs text-slate-200">
-                {item.estado}
-              </span>
-            </div>
-            <div className="mt-4 text-sm text-slate-300">
-              Fecha limite de pago: {item.fecha_limite_pago}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Button onClick={() => handleDownload(item.id_inscripcion)}>
-                Descargar comprobante
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => handleView(item.id_inscripcion)}
-              >
-                Ver comprobante
-              </Button>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   return (
     <section className="space-y-6 bg-slate-900 min-h-screen px-4 py-8">
-      {eventsSection}
+      <EventsSection
+        loading={loading}
+        eventosInscritos={eventosInscritos}
+        selectedEvento={selectedEvento}
+        calendarMonth={calendarMonth}
+        onSelectEvento={handleSelectEvento}
+        onMonthChange={setCalendarMonth}
+      />
       <div className="rounded-lg border border-slate-700 bg-slate-800/80 p-6">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-[#F5E427]">Comprobantes</h2>
         </div>
         <div className="mt-4 max-h-[430px] overflow-y-auto pr-2">
-          {inscriptionsContent}
+          <InscriptionsContent
+            loading={loading}
+            error={error}
+            grouped={grouped}
+            onRetry={loadData}
+            onDownload={handleDownload}
+            onView={handleView}
+          />
         </div>
       </div>
 
@@ -382,14 +455,15 @@ export default function MyInscriptionsScreen(): JSX.Element {
               allowCustom={false}
             />
             <SelectInput
-              value={types}
+              value={selectedTypes}
               onChange={(value) =>
-                setTypes(Array.isArray(value) ? (value[0] ?? "") : value)
+                setTypes(serializeTypes(Array.isArray(value) ? value : [value]))
               }
               options={typeOptions}
               inputLabel="Tipos de cambios"
               placeholder="Selecciona"
               allowCustom={false}
+              isMulti
             />
             <label className="flex items-center gap-2 text-sm text-slate-200">
               <input

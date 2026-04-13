@@ -8,17 +8,21 @@ import (
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
 	inscripcioneshandler "project/backend/internal/inscripciones/handler"
+	mensajeshandler "project/backend/internal/mensajes/handler"
 	paishandler "project/backend/internal/pais/handler"
 	permissionhandler "project/backend/internal/permissions/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
 	rolehandler "project/backend/internal/roles/handler"
 	roles "project/backend/internal/roles/service"
 	sesioneshandler "project/backend/internal/sesiones/handler"
+	"project/backend/internal/shared/uploadpath"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
 
 	notificationcron "project/backend/internal/notifications/cron"
 	notificationhandler "project/backend/internal/notifications/handler"
+
+	trabajoshandler "project/backend/internal/trabajos/handler"
 
 	"project/backend/prisma/db"
 
@@ -57,9 +61,11 @@ func main() {
 	registrationsHandler := registrationhandler.New(prismaClient)
 	notificationHandler := notificationhandler.New(prismaClient)
 	notificationcron.StartCierreInscripcionesScheduler(prismaClient)
+	mensajesHandler := mensajeshandler.New(prismaClient)
 	sesionesHandler := sesioneshandler.New(prismaClient)
 	rolesHandler := rolehandler.New(prismaClient)
 	permissionsHandler := permissionhandler.New(prismaClient)
+	trabajosHandler := trabajoshandler.New(prismaClient)
 
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 	http.HandleFunc("/api/user/assign-roles", userHandler.UpdateUserRolesHandler)
@@ -97,9 +103,17 @@ func main() {
 	http.Handle("/api/registrations/", registrationsHandler)
 	http.Handle("/api/notifications", notificationHandler)
 	http.Handle("/api/notifications/", notificationHandler)
+	http.Handle("/api/mensajes/conversaciones", mensajesHandler)
+	http.Handle("/api/mensajes/conversaciones/", mensajesHandler)
+	http.HandleFunc("/api/mensajes/usuarios/buscar", mensajesHandler.SearchUsuariosHandler)
+	http.HandleFunc("/api/mensajes/adjuntos", mensajesHandler.UploadAdjuntoHandler)
+	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadpath.UploadsDir()))))
+
 	http.Handle("/api/paises", paisesHandler)
 	http.Handle("/api/sesiones", sesionesHandler)
 	http.Handle("/api/sesiones/", sesionesHandler)
+	http.Handle("/api/trabajos-cientificos", trabajosHandler)
+	http.Handle("/api/trabajos-cientificos/", trabajosHandler)
 
 	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
 		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)

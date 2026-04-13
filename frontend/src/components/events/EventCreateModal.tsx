@@ -1,9 +1,18 @@
+/*
+File: EventCreateModal.tsx
+
+Contains:
+Modal component to create events with date range, location, and close date.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useState, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import DayPickerSingle from "../ui/DayPickerSingle";
 import BackArrow from "../ui/BackArrow";
-// contexts
-import { useLoader } from "../../contexts/Loader/LoaderContext";
 import { useToast } from "../../contexts/Toast/ToastContext";
 // components
 import Modal from "../ui/Modal";
@@ -16,14 +25,17 @@ import { createEvent, fetchFechasOcupadas, RangoFechasApi } from "../../services
 // constants
 import { venezuelaCities } from "../../constants/venezuelaCities";
 
-
+// EventCreateModalProps controls visibility and close behavior.
 interface EventCreateModalProps {
 	open: boolean;
 	onClose: () => void;
 }
 
+// EventCreateModal handles a two-step event creation flow:
+// 1) core event data and range selection
+// 2) registration close date confirmation and submit
 export default function EventCreateModal({ open, onClose }: EventCreateModalProps): JSX.Element {
-	// states
+	// Form state.
 	const [name, setName] = useState("");
 	const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 	const [country, setCountry] = useState("");
@@ -31,22 +43,25 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 	const [page2, setPage2] = useState(false);
 	const [closeDate, setCloseDate] = useState<Date | undefined>(undefined);
 	const [disabledRanges, setDisabledRanges] = useState<{ from: Date; to: Date }[]>([]);
+	const [creatingEvent, setCreatingEvent] = useState(false);
 
-	// contexts
-	const { showLoader, hideLoader } = useLoader();
 	const { showToast } = useToast();
 
-	// effect to fetch occupied date ranges when modal opens
+	// Load occupied ranges when modal opens to prevent overlaps.
 	useEffect(() => {
 		if (open) {
 			fetchFechasOcupadas().then(({ status, data }) => {
 				if (status === 200 && Array.isArray(data)) {
-					setDisabledRanges(
-						data.map((r: RangoFechasApi) => ({
+					const ranges = data
+						.map((r: RangoFechasApi) => ({
 							from: parseDate(r.fecha_inicio),
 							to: parseDate(r.fecha_fin),
 						}))
-					);
+						.filter(
+							(range): range is { from: Date; to: Date } =>
+								Boolean(range.from) && Boolean(range.to)
+						);
+					setDisabledRanges(ranges);
 				} else {
 					setDisabledRanges([]);
 				}
@@ -54,8 +69,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		}
 	}, [open]);
 
-
-	// clean up and close modal
+	// Reset local state and close modal.
 	const handleClose = () => {
 		setName("");
 		setDateRange(undefined);
@@ -66,37 +80,63 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 		onClose();
 	};
 
-	// helper to format date
-	function formatDate(d: Date): string {
-		return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric" });
+	// formatDateWithTime returns API-compatible date string.
+ function formatDateWithTime(d: Date, hour: number, minute: number): string {
+	const date = new Date(d);
+	// Set hora en UTC
+	// date.setUTCHours(hour, minute, 0, 0);
+	// // Formato: DD/MM/AAAA HH:mm:ss (en UTC)
+	// const pad = (n: number) => n.toString().padStart(2, '0');
+	// return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:00`;
+	date.setHours(hour, minute, 0, 0);
+	const pad = (n: number) => n.toString().padStart(2, '0');
+	return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:00`;
+}	
+
+	// parseDate converts API date strings into Date objects for UI controls.
+	function parseDate(dateStr: string): Date | undefined {
+		if (!dateStr) return undefined;
+		// Soporta formato DD/MM/YYYY HH:mm:ss
+		const [datePart, timePart] = dateStr.split(" ");
+		const [day, month, year] = datePart.split("/").map(Number);
+		let hours = 0, minutes = 0, seconds = 0;
+		if (timePart) {
+			const [h, m, s] = timePart.split(":").map(Number);
+			hours = h || 0;
+			minutes = m || 0;
+			seconds = s || 0;
+		}
+		return new Date(year, month - 1, day, hours, minutes, seconds);
 	}
 
-	//function to parse date string from API
-	function parseDate(dateStr: string): Date {
-		const [day, month, year] = dateStr.split("/").map(Number);
-		return new Date(year, month - 1, day);
-	}
-
-	// function to form the payload
+	// getEventPayload composes validated request payload for createEvent API.
 	function getEventPayload() {
 		if (!name || !dateRange || !dateRange.from || !dateRange.to || !country || !city || !closeDate) {
 			return null;
 		}
-		return {
-			nombre: name,
-			fecha_inicio: formatDate(dateRange.from),
-			fecha_fin: formatDate(dateRange.to),
-			ubicacion: `${city}, ${country}`,
-			fecha_cierre_inscripcion: formatDate(closeDate),
-		};
+	   return {
+	     nombre: name,
+	     fecha_inicio: formatDateWithTime(dateRange.from, 0, 0), // 00:00 del primer día
+	     fecha_fin: formatDateWithTime(dateRange.to, 23, 59),    // 23:59 del último día
+	     ubicacion: `${city}, ${country}`,
+	     fecha_cierre_inscripcion: formatDateWithTime(closeDate, 23, 59), // cierre inscripciones a las 23:59
+	   };
 	}
 
-	// submit handler
+	// handleSubmit validates and sends create event request.
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		showLoader();
+		setCreatingEvent(true);
 		try {
 			const payload = getEventPayload();
+			if (!payload) {
+				showToast({
+					title: "Error al crear evento",
+					message: "Faltan datos obligatorios.",
+					status: "error",
+				});
+				return;
+			}
 			const { status, data } = await createEvent(payload);
 			if (status === 200 && data) {
 				showToast({
@@ -126,7 +166,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 				status: "error",
 			});
 		} finally {
-			hideLoader();
+			setCreatingEvent(false);
 		}
 	};
 
@@ -177,7 +217,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 							<div>
 								<SelectInput
 									value={country}
-									onChange={setCountry}
+										onChange={(value) => setCountry(Array.isArray(value) ? value[0] ?? "" : value)}
 									options={[{ value: "Venezuela", label: "Venezuela" }]}
 									inputLabel="País"
 									placeholder="Selecciona el país"
@@ -187,7 +227,7 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 								{country === "Venezuela" && (
 									<SelectInput
 										value={city}
-										onChange={setCity}
+										onChange={(value) => setCity(Array.isArray(value) ? value[0] ?? "" : value)}
 										options={venezuelaCities.map(city => ({ value: city, label: city }))}
 										inputLabel="Ciudad"
 										placeholder="Selecciona o escribe la ciudad"
@@ -250,6 +290,8 @@ export default function EventCreateModal({ open, onClose }: EventCreateModalProp
 									disabled={
 										!closeDate || !name || !dateRange || !dateRange.from || !dateRange.to || !country || !city
 									}
+									loading={creatingEvent}
+									loadingText="Creando..."
 								>
 									Crear evento
 								</Button>

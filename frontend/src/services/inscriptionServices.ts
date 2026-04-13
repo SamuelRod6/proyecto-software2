@@ -55,6 +55,25 @@ export interface NotificacionItem {
     estado: string;
 }
 
+export interface InscriptionHistoryItem {
+    id_historial: number;
+    id_inscripcion: number;
+    estado_anterior: string;
+    estado_nuevo: string;
+    tipo_cambio: string;
+    nota: string;
+    actor: string;
+    fecha_cambio: string;
+}
+
+export interface InscriptionHistoryFilters {
+    estado?: string;
+    tipo_cambio?: string;
+    q?: string;
+    desde?: string;
+    hasta?: string;
+}
+
 export interface ReporteResponse {
     total: number;
     por_estado: Record<string, number>;
@@ -115,15 +134,32 @@ export async function updateInscriptionStatus(payload: UpdateEstadoPayload) {
     }
 }
 
-export async function getInscriptionHistory(id: number) {
+export async function getInscriptionHistory(id: number, filters: InscriptionHistoryFilters = {}) {
     try {
-        const response = await axios.get(`/api/inscripciones/historial?id=${id}`);
+        const response = await axios.get<InscriptionHistoryItem[]>("/api/inscripciones/historial", {
+            params: { id, ...filters },
+        });
         return { status: response.status, data: response.data };
     } catch (error: any) {
         if (error.response) {
             return { status: error.response.status, data: error.response.data };
         }
         return { status: 500, data: { message: "Error de red o desconocido" } };
+    }
+}
+
+export async function downloadInscriptionHistoryPDF(id: number, filters: InscriptionHistoryFilters = {}) {
+    try {
+        const response = await axios.get("/api/inscripciones/historial", {
+            params: { id, ...filters, format: "pdf" },
+            responseType: "blob",
+        });
+        return { status: response.status, data: response.data as Blob };
+    } catch (error: any) {
+        if (error.response) {
+            return { status: error.response.status, data: error.response.data };
+        }
+        return { status: 500, data: new Blob() };
     }
 }
 

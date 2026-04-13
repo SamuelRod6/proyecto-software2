@@ -1,30 +1,55 @@
 import { useEffect, useState } from "react";
+import { useLoader } from "../../contexts/Loader/LoaderContext";
 import { NavLink } from "react-router-dom";
 import { ROUTES } from "../../navigation/routes";
 import { RESOURCE_KEYS } from "../../constants/resources";
-import { hasResourceAccess } from "../../utils/accessControl";
+import { hasResourceAccess, setResourcePermissionMap } from "../../utils/accessControl";
+import { fetchResourcePermissionMap } from "../../services/permissionServices"
 
 export default function Sidebar() {
   const [canManageEvents, setCanManageEvents] = useState(false);
   const [canManageInscriptions, setCanManageInscriptions] = useState(false);
   const [canManageRoles, setCanManageRoles] = useState(false);
   const [canManagePermissions, setCanManagePermissions] = useState(false);
+  const [canManageScientificWorks, setCanManageScientificWorks] = useState(false);
+  const [canManageScientificWorksManagement, setCanManageScientificWorksManagement] = useState(false);
+  const { showLoader, hideLoader } = useLoader();
 
   useEffect(() => {
     let isMounted = true;
     const checkAccess = async () => {
-      const [eventsAccess, inscriptionsAccess, rolesAccess, permissionsAccess] =
-        await Promise.all([
+      showLoader();
+      try {
+        const resourcePermissionMap = await fetchResourcePermissionMap();
+        if (resourcePermissionMap && Object.keys(resourcePermissionMap).length > 0) {
+          setResourcePermissionMap(resourcePermissionMap);
+        }
+
+        const [
+          eventsAccess,
+          inscriptionsAccess,
+          rolesAccess,
+          permissionsAccess,
+          scientificWorkAccess,
+          scientificWorksManagementAccess,
+        ] = await Promise.all([
           hasResourceAccess(RESOURCE_KEYS.EVENTS_MANAGEMENT),
           hasResourceAccess(RESOURCE_KEYS.INSCRIPTIONS_MANAGEMENT),
           hasResourceAccess(RESOURCE_KEYS.ROLE_MANAGEMENT),
           hasResourceAccess(RESOURCE_KEYS.PERMISSION_MANAGEMENT),
+          hasResourceAccess(RESOURCE_KEYS.SCIENTIFIC_WORKS),
+          hasResourceAccess(RESOURCE_KEYS.SCIENTIFIC_WORKS_MANAGEMENT),
         ]);
-      if (isMounted) {
-        setCanManageEvents(eventsAccess);
-        setCanManageInscriptions(inscriptionsAccess);
-        setCanManageRoles(rolesAccess);
-        setCanManagePermissions(permissionsAccess);
+        if (isMounted) {
+          setCanManageEvents(eventsAccess);
+          setCanManageInscriptions(inscriptionsAccess);
+          setCanManageRoles(rolesAccess);
+          setCanManagePermissions(permissionsAccess);
+          setCanManageScientificWorks(scientificWorkAccess);
+          setCanManageScientificWorksManagement(scientificWorksManagementAccess);
+        }
+      } finally {
+        hideLoader();
       }
     };
     void checkAccess();
@@ -74,6 +99,18 @@ export default function Sidebar() {
           }
         >
           Mis inscripciones
+        </NavLink>
+        <NavLink
+          to={ROUTES.mensajes}
+          className={({ isActive }) =>
+            `rounded-lg px-3 py-2 font-medium transition-colors ${
+              isActive
+                ? "bg-[#F5E427] text-slate-900"
+                : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+            }`
+          }
+        >
+          Mensajes
         </NavLink>
         {canManageEvents && (
           <NavLink
@@ -143,6 +180,34 @@ export default function Sidebar() {
             }
           >
             Gestión de permisos y recursos
+          </NavLink>
+        )}
+        {canManageScientificWorks && (
+          <NavLink
+            to={ROUTES.scientificWorks}
+            className={({ isActive }) =>
+              `rounded-lg px-3 py-2 font-medium transition-colors ${
+                isActive
+                  ? "bg-[#F5E427] text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+              }`
+            }
+          >
+            Trabajos científicos
+          </NavLink>
+        )}
+        {canManageScientificWorksManagement && (
+          <NavLink
+            to={ROUTES.scientificWorksManagement}
+            className={({ isActive }) =>
+              `rounded-lg px-3 py-2 font-medium transition-colors ${
+                isActive
+                  ? "bg-[#F5E427] text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700 hover:text-[#F5E427]"
+              }`
+            }
+          >
+            Gestión de Trabajos Científicos
           </NavLink>
         )}
       </nav>

@@ -1,3 +1,16 @@
+/*
+File: handler_test.go
+
+Contains:
+Unit tests for the Evento HTTP handler.
+It validates method routing, request handling, status codes,
+and service interaction behavior using mocks.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package handler
 
 import (
@@ -29,6 +42,7 @@ type mockEventService struct {
 	getFechasOcupadas     func(ctx context.Context) ([]dto.RangoFechas, error)
 }
 
+// EnsureNombreUnico mocks unique-name validation.
 func (m mockEventService) EnsureNombreUnico(ctx context.Context, nombre string) error {
 	if m.ensureNombreUnico == nil {
 		return nil
@@ -36,6 +50,7 @@ func (m mockEventService) EnsureNombreUnico(ctx context.Context, nombre string) 
 	return m.ensureNombreUnico(ctx, nombre)
 }
 
+// EnsureNoSolapamiento mocks overlap validation.
 func (m mockEventService) EnsureNoSolapamiento(ctx context.Context, start, end time.Time) error {
 	if m.ensureNoSolapamiento == nil {
 		return nil
@@ -43,6 +58,7 @@ func (m mockEventService) EnsureNoSolapamiento(ctx context.Context, start, end t
 	return m.ensureNoSolapamiento(ctx, start, end)
 }
 
+// CreateEvento mocks event creation.
 func (m mockEventService) CreateEvento(ctx context.Context, req dto.CreateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error) {
 	if m.createEvento == nil {
 		return nil, errors.New("not implemented")
@@ -50,6 +66,7 @@ func (m mockEventService) CreateEvento(ctx context.Context, req dto.CreateEvento
 	return m.createEvento(ctx, req, start, end, cierre)
 }
 
+// ListEventos mocks event listing.
 func (m mockEventService) ListEventos(ctx context.Context) ([]db.EventoModel, error) {
 	if m.listEventos == nil {
 		return nil, errors.New("not implemented")
@@ -57,6 +74,7 @@ func (m mockEventService) ListEventos(ctx context.Context) ([]db.EventoModel, er
 	return m.listEventos(ctx)
 }
 
+// GetEventoByID mocks event lookup by identifier.
 func (m mockEventService) GetEventoByID(ctx context.Context, id int) (*db.EventoModel, error) {
 	if m.getEventoByID == nil {
 		return nil, errors.New("not implemented")
@@ -64,6 +82,7 @@ func (m mockEventService) GetEventoByID(ctx context.Context, id int) (*db.Evento
 	return m.getEventoByID(ctx, id)
 }
 
+// UpdateEvento mocks event update.
 func (m mockEventService) UpdateEvento(ctx context.Context, req dto.UpdateEventoRequest, start, end, cierre time.Time) (*db.EventoModel, error) {
 	if m.updateEvento == nil {
 		return nil, errors.New("not implemented")
@@ -71,6 +90,7 @@ func (m mockEventService) UpdateEvento(ctx context.Context, req dto.UpdateEvento
 	return m.updateEvento(ctx, req, start, end, cierre)
 }
 
+// DeleteEvento mocks event deletion.
 func (m mockEventService) DeleteEvento(ctx context.Context, id int) error {
 	if m.deleteEvento == nil {
 		return errors.New("not implemented")
@@ -78,6 +98,7 @@ func (m mockEventService) DeleteEvento(ctx context.Context, id int) error {
 	return m.deleteEvento(ctx, id)
 }
 
+// CerrarInscripciones mocks registration closing.
 func (m mockEventService) CerrarInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error) {
 	if m.cerrarInscripciones == nil {
 		return nil, errors.New("not implemented")
@@ -85,6 +106,7 @@ func (m mockEventService) CerrarInscripciones(ctx context.Context, eventoID int)
 	return m.cerrarInscripciones(ctx, eventoID)
 }
 
+// AbrirInscripciones mocks registration opening.
 func (m mockEventService) AbrirInscripciones(ctx context.Context, eventoID int) (*db.EventoModel, error) {
 	if m.abrirInscripciones == nil {
 		return nil, errors.New("not implemented")
@@ -92,6 +114,7 @@ func (m mockEventService) AbrirInscripciones(ctx context.Context, eventoID int) 
 	return m.abrirInscripciones(ctx, eventoID)
 }
 
+// GetFechasOcupadas mocks occupied date range retrieval.
 func (m mockEventService) GetFechasOcupadas(ctx context.Context) ([]dto.RangoFechas, error) {
 	if m.getFechasOcupadas == nil {
 		return nil, errors.New("not implemented")

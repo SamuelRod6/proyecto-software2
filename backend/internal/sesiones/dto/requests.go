@@ -1,3 +1,16 @@
+/*
+File: requests.go
+
+Contains:
+Request DTO definitions for the Sesiones module.
+It centralizes API payload structures used to create/update sessions
+and assign speakers.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package dto
 
 // CreateSesionRequest represents the payload to create a new session.

@@ -17,9 +17,15 @@ model Usuario {
   inscripciones   Inscripcion[]
   notificaciones  Notificacion[] @relation("UsuarioNotificaciones")
   sesionesPonente SesionPonente[]
+  conversaciones  ConversacionParticipante[]
+  mensajesEnviados Mensaje[] @relation("MensajesEnviados")
   UsuarioRoles    UsuarioRoles[]
   preferencias    NotificacionPreferencia?
   recoveryTokens  PasswordRecoveryToken[]
+  trabajosCientificos       TrabajoCientifico[]
+  trabajosAsignadosRevisor  TrabajoRevisionAsignacion[] @relation("AsignacionesRevisor")
+  trabajosAsignadosComite   TrabajoRevisionAsignacion[] @relation("AsignacionesComite")
+  evaluacionesRevisor       TrabajoEvaluacion[]         @relation("EvaluacionesRevisor")
 }
 
 model PasswordRecoveryToken {
@@ -33,6 +39,20 @@ model PasswordRecoveryToken {
 
   @@index([id_usuario])
   @@index([token_hash])
+}
+
+model RegistrationTemporaryKey {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email], map: "registration_temporary_key_email_idx")
+  @@index([tokenHash], map: "registration_temporary_key_token_hash_idx")
+  @@map("RegistrationTemporaryKey")
 }
 
 model Roles {
@@ -82,6 +102,7 @@ model Evento {
   inscripciones                 Inscripcion[]
   notificaciones                Notificacion[] @relation("EventoNotificaciones")
   sesiones                      Sesion[]
+  trabajosCientificos           TrabajoCientifico[]
 }
 
 model Inscripcion {
@@ -191,14 +212,146 @@ model Sesion {
   createdAt      DateTime  @default(now())
   cancelado      Boolean   @default(false)
   ponentes       SesionPonente[]
+  historial      SesionHistorial[]
 }
 
 model SesionPonente {
-  id_sesion_ponente Int    @id @default(autoincrement())
+  id_sesion_ponente Int      @id @default(autoincrement())
   id_sesion         Int
   id_usuario        Int
   sesion            Sesion   @relation(fields: [id_sesion], references: [id_sesion])
   usuario           Usuario  @relation(fields: [id_usuario], references: [id_usuario])
 
   @@unique([id_sesion, id_usuario])
+}
+
+model SesionHistorial {
+  id_historial    Int      @id @default(autoincrement())
+  id_sesion       Int
+  accion          String
+  detalle         String?
+  actor           String?
+  fecha_cambio    DateTime @default(now())
+  valores_antes   String?
+  valores_despues String?
+
+  sesion          Sesion   @relation(fields: [id_sesion], references: [id_sesion])
+}
+
+model TrabajoCientifico {
+  id_trabajo          Int       @id @default(autoincrement())
+  id_evento           Int
+  id_usuario          Int
+  titulo              String
+  titulo_normalizado  String
+  resumen             String
+  version_actual      Int       @default(1)
+  estado              String    @default("RECIBIDO")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  decision_comite     String    @default("PENDIENTE REVISION")
+  comentario_comite   String?
+  fecha_decision      DateTime?
+
+  evento              Evento    @relation(fields: [id_evento], references: [id_evento])
+  usuario             Usuario   @relation(fields: [id_usuario], references: [id_usuario])
+  versiones           TrabajoCientificoVersion[]
+  asignaciones        TrabajoRevisionAsignacion[]
+  evaluaciones        TrabajoEvaluacion[]
+  historial_estado    TrabajoCientificoHistorial[]
+
+  @@unique([id_evento, titulo_normalizado])
+}
+
+model TrabajoCientificoHistorial {
+  id_historial    Int      @id @default(autoincrement())
+  id_trabajo      Int
+  estado_anterior String
+  estado_nuevo    String
+  tipo_cambio     String   @default("DECISION COMITE")
+  nota            String?
+  actor           String?
+  fecha_cambio    DateTime @default(now())
+
+  trabajo         TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+
+  @@index([id_trabajo, fecha_cambio])
+}
+
+model TrabajoCientificoVersion {
+  id_version           Int      @id @default(autoincrement())
+  id_trabajo           Int
+  numero_version       Int
+  nombre_archivo       String
+  ruta_archivo         String
+  tamano_bytes         Int
+  mime_type            String   @default("application/pdf")
+  descripcion_cambios  String?
+  es_actual            Boolean  @default(true)
+  fecha_envio          DateTime @default(now())
+
+  trabajo             TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+
+  @@unique([id_trabajo, numero_version])
+}
+
+model TrabajoRevisionAsignacion {
+  id_asignacion Int               @id @default(autoincrement())
+  id_trabajo    Int
+  id_revisor    Int
+  id_asignador  Int
+  createdAt     DateTime          @default(now())
+
+  trabajo       TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+  revisor       Usuario           @relation("AsignacionesRevisor", fields: [id_revisor], references: [id_usuario])
+  asignador     Usuario           @relation("AsignacionesComite", fields: [id_asignador], references: [id_usuario])
+
+  @@unique([id_trabajo, id_revisor])
+}
+
+model TrabajoEvaluacion {
+  id_evaluacion   Int               @id @default(autoincrement())
+  id_trabajo      Int
+  id_revisor      Int
+  recomendacion   String            @default("PENDIENTE")
+  puntaje         Int?
+  comentarios     String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  trabajo         TrabajoCientifico @relation(fields: [id_trabajo], references: [id_trabajo])
+  revisor         Usuario           @relation("EvaluacionesRevisor", fields: [id_revisor], references: [id_usuario])
+
+  @@unique([id_trabajo, id_revisor])
+}
+model Conversacion {
+  id_conversacion Int       @id @default(autoincrement())
+  asunto          String    @default("")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  mensajes        Mensaje[]
+  participantes   ConversacionParticipante[]
+}
+
+model ConversacionParticipante {
+  id_conversacion Int
+  id_usuario      Int
+  unido_en        DateTime     @default(now())
+  conversacion    Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
+  usuario         Usuario      @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@id([id_conversacion, id_usuario])
+}
+
+model Mensaje {
+  id_mensaje      Int          @id @default(autoincrement())
+  id_conversacion Int
+  id_remitente    Int
+  cuerpo          String
+  adjunto_url     String?
+  adjunto_nombre  String?
+  createdAt       DateTime     @default(now())
+  conversacion    Conversacion @relation(fields: [id_conversacion], references: [id_conversacion])
+  remitente       Usuario      @relation("MensajesEnviados", fields: [id_remitente], references: [id_usuario])
 }

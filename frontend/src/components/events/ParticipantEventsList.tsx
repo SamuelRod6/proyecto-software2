@@ -1,5 +1,17 @@
+/*
+File: ParticipantEventsList.tsx
+
+Contains:
+List component for events where the participant is enrolled.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React from "react";
 
+// Evento represents the minimal event shape required by the participant list.
 interface Evento {
     id_evento: number;
     nombre: string;
@@ -14,6 +26,7 @@ interface Props {
     selectedEvento?: Evento | null;
 }
 
+// ParticipantEventsList renders enrolled events and supports row selection.
 const ParticipantEventsList: React.FC<Props> = ({
     eventos,
     onSelectEvento,

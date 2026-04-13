@@ -1,0 +1,255 @@
+/*
+File: scientificWorkServices.test.ts
+
+Contains:
+Unit tests for scientific work service endpoints across participant, reviewer, and committee flows.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
+import axios from "axios";
+import {
+  assignScientificWorkReviewers,
+  compareScientificWorkVersions,
+  createScientificWork,
+  decideScientificWork,
+  downloadScientificWorkVersion,
+  downloadScientificWorkHistoryPDF,
+  getScientificWorkHistory,
+  listScientificWorkEvaluations,
+  listScientificWorkReviewers,
+  listScientificWorkVersions,
+  listScientificWorks,
+  listScientificWorksForCommittee,
+  listScientificWorksForReviewer,
+  submitScientificWorkEvaluation,
+  uploadScientificWorkVersion,
+} from "./scientificWorkServices";
+
+jest.mock("axios");
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe("scientificWorkServices", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // Verifies endpoint mapping, query param building, and normalized fallback errors.
+  it("should list works by user", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: [{ id_trabajo: 1 }] });
+
+    const result = await listScientificWorks(8);
+
+    expect(result).toEqual({ status: 200, data: [{ id_trabajo: 1 }] });
+    expect(mockedAxios.get).toHaveBeenCalledWith("/api/trabajos-cientificos?user_id=8");
+  });
+
+  it("should create a scientific work with multipart data", async () => {
+    const payload = new FormData();
+    payload.append("id_usuario", "8");
+
+    mockedAxios.post.mockResolvedValueOnce({ status: 201, data: { id_trabajo: 10 } });
+
+    const result = await createScientificWork(payload);
+
+    expect(result).toEqual({ status: 201, data: { id_trabajo: 10 } });
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos",
+      payload,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+  });
+
+  it("should upload a new work version", async () => {
+    const payload = new FormData();
+    payload.append("id_trabajo", "10");
+
+    mockedAxios.post.mockResolvedValueOnce({ status: 200, data: { ok: true } });
+
+    const result = await uploadScientificWorkVersion(payload);
+
+    expect(result).toEqual({ status: 200, data: { ok: true } });
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/versiones",
+      payload,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+  });
+
+  it("should list versions for one work", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: [{ numero_version: 1 }] });
+
+    const result = await listScientificWorkVersions(11, 8);
+
+    expect(result).toEqual({ status: 200, data: [{ numero_version: 1 }] });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/versiones?id_trabajo=11&user_id=8",
+    );
+  });
+
+  it("should compare versions", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: { resumen: ["Cambio 1"] } });
+
+    const result = await compareScientificWorkVersions(11, 8, 1, 2);
+
+    expect(result).toEqual({ status: 200, data: { resumen: ["Cambio 1"] } });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/versiones/comparar?id_trabajo=11&user_id=8&from=1&to=2",
+    );
+  });
+
+  it("should download one version as blob", async () => {
+    const blob = new Blob(["pdf"]);
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: blob });
+
+    const result = await downloadScientificWorkVersion(15, 8);
+
+    expect(result).toEqual({ status: 200, data: blob });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/archivo?id_version=15&user_id=8",
+      { responseType: "blob" },
+    );
+  });
+
+  it("should build committee query params correctly", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: [] });
+
+    await listScientificWorksForCommittee({
+      userId: 9,
+      query: "  IA aplicada  ",
+      autor: "  Laura  ",
+      estado: "  EN_REVISION  ",
+      idEvento: 4,
+    });
+
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/comite?user_id=9&query=IA+aplicada&autor=Laura&estado=EN_REVISION&id_evento=4",
+    );
+  });
+
+  it("should list works assigned to reviewer", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: [{ id_trabajo: 1 }] });
+
+    const result = await listScientificWorksForReviewer(20);
+
+    expect(result).toEqual({ status: 200, data: [{ id_trabajo: 1 }] });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/revisor/asignados?user_id=20",
+    );
+  });
+
+  it("should list available reviewers", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: [{ id_usuario: 2 }] });
+
+    const result = await listScientificWorkReviewers(20);
+
+    expect(result).toEqual({ status: 200, data: [{ id_usuario: 2 }] });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/revisores?user_id=20",
+    );
+  });
+
+  it("should assign reviewers to one work", async () => {
+    const payload = { user_id: 20, id_trabajo: 4, revisores: [2, 3] };
+    mockedAxios.post.mockResolvedValueOnce({ status: 200, data: { ok: true } });
+
+    const result = await assignScientificWorkReviewers(payload);
+
+    expect(result).toEqual({ status: 200, data: { ok: true } });
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/comite/asignar-revisores",
+      payload,
+    );
+  });
+
+  it("should list evaluations summary for a work", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: { cantidad_evaluaciones: 2 } });
+
+    const result = await listScientificWorkEvaluations(20, 4);
+
+    expect(result).toEqual({ status: 200, data: { cantidad_evaluaciones: 2 } });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/comite/evaluaciones?user_id=20&id_trabajo=4",
+    );
+  });
+
+  it("should register committee decision", async () => {
+    const payload = {
+      user_id: 20,
+      id_trabajo: 4,
+      decision_comite: "APROBADO",
+      comentario_comite: "Aprobado con observaciones menores",
+    };
+    mockedAxios.post.mockResolvedValueOnce({ status: 200, data: { ok: true } });
+
+    const result = await decideScientificWork(payload);
+
+    expect(result).toEqual({ status: 200, data: { ok: true } });
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/comite/decision",
+      payload,
+    );
+  });
+
+  it("should list work history with query params", async () => {
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: [{ id_historial: 1 }] });
+
+    const result = await getScientificWorkHistory(4, 20, {
+      estado: "ACTUALIZADO",
+      tipo_cambio: "DECISION_COMITE",
+      q: "comite",
+      desde: "01/04/2026",
+      hasta: "10/04/2026",
+    });
+
+    expect(result).toEqual({ status: 200, data: [{ id_historial: 1 }] });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/historial?id_trabajo=4&user_id=20&estado=ACTUALIZADO&tipo_cambio=DECISION_COMITE&q=comite&desde=01%2F04%2F2026&hasta=10%2F04%2F2026",
+    );
+  });
+
+  it("should download work history as blob", async () => {
+    const blob = new Blob(["pdf"]);
+    mockedAxios.get.mockResolvedValueOnce({ status: 200, data: blob });
+
+    const result = await downloadScientificWorkHistoryPDF(4, 20, { estado: "ACTUALIZADO" });
+
+    expect(result).toEqual({ status: 200, data: blob });
+    expect(mockedAxios.get).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/historial/pdf?id_trabajo=4&user_id=20&estado=ACTUALIZADO",
+      { responseType: "blob" },
+    );
+  });
+
+  it("should submit evaluation as reviewer", async () => {
+    const payload = {
+      user_id: 20,
+      id_trabajo: 4,
+      recomendacion: "ACEPTAR",
+      puntaje: 9,
+      comentarios: "Muy buen trabajo",
+      fortalezas: "Metodologia",
+      debilidades: "Muestra pequena",
+      recomendaciones: "Ampliar muestra",
+    };
+    mockedAxios.post.mockResolvedValueOnce({ status: 200, data: { ok: true } });
+
+    const result = await submitScientificWorkEvaluation(payload);
+
+    expect(result).toEqual({ status: 200, data: { ok: true } });
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "/api/trabajos-cientificos/revisor/evaluar",
+      payload,
+    );
+  });
+
+  it("should normalize unknown errors with message key", async () => {
+    mockedAxios.get.mockRejectedValueOnce(new Error("Network Error"));
+
+    const result = await listScientificWorks(1);
+
+    expect(result).toEqual({ status: 500, data: { message: "Error de red o desconocido" } });
+  });
+});

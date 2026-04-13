@@ -1,5 +1,7 @@
 package main
 
+// main wires dependencies, registers HTTP routes and starts the API server.
+
 import (
 	"log"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	authhandler "project/backend/internal/auth/handler"
 	eventhandler "project/backend/internal/events/handler"
 	inscripcioneshandler "project/backend/internal/inscripciones/handler"
+	mensajeshandler "project/backend/internal/mensajes/handler"
 	paishandler "project/backend/internal/pais/handler"
 	permissionhandler "project/backend/internal/permissions/handler"
 	registrationhandler "project/backend/internal/registrations/handler"
@@ -17,11 +20,14 @@ import (
 	roles "project/backend/internal/roles/service"
 	sesioneshandler "project/backend/internal/sesiones/handler"
 	smtphandler "project/backend/internal/shared/smtp"
+	"project/backend/internal/shared/uploadpath"
 	userhandler "project/backend/internal/users/handler"
 	userrepo "project/backend/internal/users/repo"
 
 	notificationcron "project/backend/internal/notifications/cron"
 	notificationhandler "project/backend/internal/notifications/handler"
+
+	trabajoshandler "project/backend/internal/trabajos/handler"
 
 	"project/backend/prisma/db"
 
@@ -80,10 +86,14 @@ func main() {
 	sesionesHandler := sesioneshandler.New(prismaClient)
 	rolesHandler := rolehandler.New(prismaClient)
 	permissionsHandler := permissionhandler.New(prismaClient)
+	trabajosHandler := trabajoshandler.New(prismaClient)
+	mensajesHandler := mensajeshandler.New(prismaClient)
 
+	// User role assignment endpoints.
 	http.HandleFunc("/api/user/assign-role", userHandler.UpdateUserRoleHandler)
 	http.HandleFunc("/api/user/assign-roles", userHandler.UpdateUserRolesHandler)
 
+	// Authentication and credential recovery endpoints.
 	http.HandleFunc("/api/auth/register", authHandler.RegisterHandler)
 	http.HandleFunc("/api/auth/register/request-key", authHandler.RequestRegisterTemporaryKeyHandler)
 	http.HandleFunc("/api/auth/register/verify-key", authHandler.VerifyRegisterTemporaryKeyHandler)
@@ -96,6 +106,7 @@ func main() {
 	http.HandleFunc("/api/smtp/send", smtphandler.SendEmailHandler)
 	http.HandleFunc("/api/smtp/sandbox", smtphandler.SandboxEmailHandler)
 
+	// User, role and permission management endpoints.
 	http.HandleFunc("/api/hello", userHandler.HelloHandler)
 	http.HandleFunc("/api/users", userHandler.UsersListHandler)
 	http.Handle("/api/roles", rolesHandler)
@@ -105,6 +116,7 @@ func main() {
 	http.Handle("/api/resources", permissionsHandler)
 	http.HandleFunc("/api/users/count", userHandler.UsersCountHandler)
 
+	// Event and registration ecosystem endpoints.
 	http.Handle("/api/eventos", eventsHandler)
 	http.HandleFunc("/api/eventos/fechas-ocupadas", fechasOcupadasHandler)
 	http.Handle("/api/inscripciones", inscriptionsHandler)
@@ -119,13 +131,25 @@ func main() {
 	http.Handle("/api/registrations/", registrationsHandler)
 	http.Handle("/api/notifications", notificationHandler)
 	http.Handle("/api/notifications/", notificationHandler)
+
+	// Geography, sessions and scientific work endpoints.
 	http.Handle("/api/paises", paisesHandler)
 	http.Handle("/api/sesiones", sesionesHandler)
 	http.Handle("/api/sesiones/", sesionesHandler)
+	http.Handle("/api/trabajos-cientificos", trabajosHandler)
+	http.Handle("/api/trabajos-cientificos/", trabajosHandler)
+	http.HandleFunc("/api/permissions/resource-map", permissionsHandler.(*permissionhandler.Handler).ResourcePermissionMapHandler)
 
 	if paisHandler, ok := paisesHandler.(*paishandler.Handler); ok {
 		http.HandleFunc("/api/ciudades", paisHandler.ListCiudadesByPaisHandler)
 	}
+
+	// Messaging and attachment endpoints.
+	http.Handle("/api/mensajes/conversaciones", mensajesHandler)
+	http.Handle("/api/mensajes/conversaciones/", mensajesHandler)
+	http.HandleFunc("/api/mensajes/usuarios/buscar", mensajesHandler.SearchUsuariosHandler)
+	http.HandleFunc("/api/mensajes/adjuntos", mensajesHandler.UploadAdjuntoHandler)
+	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadpath.UploadsDir()))))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -136,6 +160,7 @@ func main() {
 	log.Fatal(http.ListenAndServe(":"+port, withCORS(http.DefaultServeMux)))
 }
 
+// withCORS applies permissive CORS headers used by local frontend and API tooling.
 func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")

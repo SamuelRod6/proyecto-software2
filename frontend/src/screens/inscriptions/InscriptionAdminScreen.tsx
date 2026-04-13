@@ -43,6 +43,9 @@ export default function InscriptionAdminScreen(): JSX.Element {
     const [selected, setSelected] = useState<InscriptionItem | null>(null);
     const [newStatus, setNewStatus] = useState("");
     const [note, setNote] = useState("");
+    const [updating, setUpdating] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [initialLoaded, setInitialLoaded] = useState(false);
     const { showToast } = useToast();
 
     const authUser = getAuthUser();
@@ -57,8 +60,13 @@ export default function InscriptionAdminScreen(): JSX.Element {
         return events.map((ev) => ({ value: String(ev.id_evento), label: ev.nombre }));
     }, [events]);
 
-    const loadData = async () => {
-        setLoading(true);
+    const loadData = async (opts?: { silent?: boolean }) => {
+        const silent = opts?.silent ?? false;
+        if (!silent && !initialLoaded) {
+            setLoading(true);
+        } else {
+            setRefreshing(true);
+        }
         setError("");
 
         const [insRes, evRes] = await Promise.all([
@@ -81,18 +89,29 @@ export default function InscriptionAdminScreen(): JSX.Element {
             setEvents(evRes.data);
         }
 
+        if (!initialLoaded) setInitialLoaded(true);
         setLoading(false);
+        setRefreshing(false);
     };
 
     useEffect(() => {
-        loadData();
-    }, [statusFilter, eventFilter]);
+        void loadData();
+    }, []);
 
     useEffect(() => {
         if (page > totalPages) {
             setPage(totalPages);
         }
     }, [page, totalPages]);
+
+    useEffect(() => {
+        const timeoutId = window.setTimeout(() => {
+            setPage(1);
+            void loadData({ silent: true });
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [statusFilter, eventFilter, query]);
 
     const openModal = (item: InscriptionItem) => {
         setSelected(item);
@@ -108,30 +127,39 @@ export default function InscriptionAdminScreen(): JSX.Element {
 
     const handleUpdate = async () => {
         if (!selected || !newStatus) return;
-        const { status, data } = await updateInscriptionStatus({
-            id_inscripcion: selected.id_inscripcion,
-            estado: newStatus,
-            nota: note,
-            actor: authUser?.email || "admin",
-        });
-
-        if (status >= 400) {
-            showToast({
-                title: "Error",
-                message: data?.message || "No se pudo actualizar el estado.",
-                status: "error",
+        setUpdating(true);
+        try {
+            const { status, data } = await updateInscriptionStatus({
+                id_inscripcion: selected.id_inscripcion,
+                estado: newStatus,
+                nota: note,
+                actor: authUser?.email || "admin",
             });
-            return;
-        }
 
-        showToast({
-            title: "Estado actualizado",
-            message: "Se actualizó el estado de la inscripción.",
-            status: "success",
-        });
-        closeModal();
-        loadData();
+            if (status >= 400) {
+                showToast({
+                    title: "Error",
+                    message: data?.message || "No se pudo actualizar el estado.",
+                    status: "error",
+                });
+                return;
+            }
+
+            showToast({
+                title: "Estado actualizado",
+                message: "Se actualizó el estado de la inscripción.",
+                status: "success",
+            });
+            closeModal();
+            loadData();
+        } finally {
+            setUpdating(false);
+        }
     };
+
+    const hasUpdateChanges =
+        !!selected &&
+        (newStatus !== selected.estado || note.trim().length > 0);
 
     return (
         <section className="space-y-6 bg-slate-900 min-h-screen px-4 py-8">
@@ -140,35 +168,37 @@ export default function InscriptionAdminScreen(): JSX.Element {
                 <p className="text-slate-300">Revisa y actualiza el estado de los usuarios inscritos.</p>
             </header>
 
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_1.1fr_1.4fr]">
                 <SelectInput
+                    className="w-full"
                     value={statusFilter}
-                    onChange={setStatusFilter}
+                    onChange={(value) => setStatusFilter(Array.isArray(value) ? value[0] ?? "" : value)}
                     options={statusOptions}
                     inputLabel="Filtrar por estado"
                     placeholder="Todos"
                     allowCustom={false}
                 />
                 <SelectInput
+                    className="w-full"
                     value={eventFilter}
-                    onChange={setEventFilter}
+                    onChange={(value) => setEventFilter(Array.isArray(value) ? value[0] ?? "" : value)}
                     options={eventOptions}
                     inputLabel="Filtrar por evento"
                     placeholder="Todos"
                     allowCustom={false}
                 />
-                <div>
+                <div className="w-full">
                     <label className="block mb-1 text-slate-300 font-medium">Buscar</label>
                     <Input
+                        className="w-full"
                         placeholder="Nombre, correo o evento"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
                 </div>
-                <Button onClick={loadData}>Aplicar filtros</Button>
             </div>
 
-            {loading ? (
+            {loading && !initialLoaded ? (
                 <div className="flex justify-center items-center min-h-[200px] pt-16">
                     <Loader visible={true} />
                 </div>
@@ -181,6 +211,12 @@ export default function InscriptionAdminScreen(): JSX.Element {
                 />
             ) : (
                 <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800/80">
+                    {refreshing && (
+                        <div className="flex items-center gap-2 px-4 pt-3 text-xs text-slate-400">
+                            <Loader visible={true} width="24" height="24" />
+                            <span>Actualizando filtros...</span>
+                        </div>
+                    )}
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-900 text-slate-200">
                             <tr>
@@ -262,7 +298,7 @@ export default function InscriptionAdminScreen(): JSX.Element {
                         </div>
                         <SelectInput
                             value={newStatus}
-                            onChange={setNewStatus}
+                            onChange={(value) => setNewStatus(Array.isArray(value) ? value[0] ?? "" : value)}
                             options={statusOptions}
                             inputLabel="Nuevo estado"
                             placeholder="Selecciona"
@@ -275,7 +311,7 @@ export default function InscriptionAdminScreen(): JSX.Element {
                             onChange={(e) => setNote(e.target.value)}
                         />
                         <div className="flex gap-3">
-                            <Button className="w-full" onClick={handleUpdate}>
+                            <Button className="w-full" onClick={handleUpdate} disabled={!hasUpdateChanges} loading={updating} loadingText="Guardando...">
                                 Guardar
                             </Button>
                             <Button

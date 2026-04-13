@@ -14,4 +14,8 @@ export const ROUTES = {
   myInscriptions: "/inscriptions/mine",
   inscriptionsAdmin: "/inscriptions/admin",
   inscriptionsReports: "/inscriptions/reports",
+  scientificWorks: "/scientific-works",
+  scientificWorksManagement: "/scientific-works-management",
+  mensajes: "/mensajes",
+  conversacion: (id: string = ":conversacionId"): string => `/mensajes/${id}`,
 };

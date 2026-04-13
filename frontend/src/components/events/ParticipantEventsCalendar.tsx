@@ -1,8 +1,20 @@
+/*
+File: ParticipantEventsCalendar.tsx
+
+Contains:
+Calendar component for participant event ranges and selected event highlight.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
 import { es } from "date-fns/locale/es";
 
+// EventRange defines one inclusive date range mapped to an event id.
 interface EventRange {
     from: Date;
     to: Date;
@@ -16,13 +28,15 @@ interface Props {
     onMonthChange?: (month: Date) => void;
 }
 
+// ParticipantEventsCalendar renders occupied dates and optionally highlights
+// a selected event range.
 const ParticipantEventsCalendar: React.FC<Props> = ({
     eventRanges,
     selectedRange,
     month,
     onMonthChange,
 }) => {
-    // Days that have events cannot be selected
+    // Build all occupied days to paint event activity on the calendar.
     const busyDays: Date[] = [];
     eventRanges.forEach(range => {
         let d = new Date(range.from);
@@ -32,7 +46,7 @@ const ParticipantEventsCalendar: React.FC<Props> = ({
         }
     });
 
-    // Highlight the selected event range
+    // Build the selected event range to visually highlight it.
     let selectedDays: Date[] = [];
     if (selectedRange) {
         let d = new Date(selectedRange.from);

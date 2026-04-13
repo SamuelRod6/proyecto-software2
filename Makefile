@@ -38,8 +38,8 @@ dev:
 	. "$(FRONTEND_ENV_FILE)"; \
 	set +a; \
 	if [ "$(filter local,$(MAKECMDGOALS))" = "local" ]; then \
-		echo "Starting Postgres in Docker..."; \
-		cd "$(ROOT_DIR)" && docker compose up -d db; \
+		echo "Starting Postgres and Mailer API in Docker..."; \
+		cd "$(ROOT_DIR)" && docker compose up -d db mailer-api; \
 	fi; \
 	if [ "$(filter local neon,$(MAKECMDGOALS))" != "" ]; then \
 		echo "Starting backend on :8080..."; \

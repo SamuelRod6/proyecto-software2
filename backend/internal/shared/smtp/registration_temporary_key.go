@@ -12,16 +12,10 @@ func SendRegistrationTemporaryKeyEmail(ctx context.Context, toEmail, temporaryKe
 		temporaryKey,
 	)
 
-	_, err := SendSandboxEmail(ctx, SandboxSendRequest{
+	_, err := SendEmail(ctx, SendEmailRequest{
 		ToEmail: toEmail,
 		Subject: subject,
 		Text:    text,
 	})
-
-	// _, err := SendEmail(ctx, SendEmailRequest{
-	// 	ToEmail: toEmail,
-	// 	Subject: subject,
-	// 	Text:    text,
-	// })
 	return err
 }

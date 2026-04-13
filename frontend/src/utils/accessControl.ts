@@ -4,9 +4,23 @@ const USER_KEY = "auth-user";
 const RESOURCE_PERMISSION_KEY = "resource-permissions";
 
 type StoredUser = {
+  id?: number;
+  name?: string;
+  email?: string;
   role?: string;
   roles?: Array<string | { id?: number; name?: string }>;
 };
+
+export function getStoredAuthUser(): StoredUser | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StoredUser;
+  } catch {
+    return null;
+  }
+}
 
 type RoleRow = {
     id: number;

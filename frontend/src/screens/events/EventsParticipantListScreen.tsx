@@ -1,3 +1,14 @@
+/*
+File: EventsParticipantListScreen.tsx
+
+Contains:
+Participant event listing with filters, pagination, and inscription modal flow.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import React, { useEffect, useMemo, useState } from "react";
 // contexts
 import { useAuth } from "../../contexts/Auth/Authcontext";
@@ -28,6 +39,7 @@ interface Evento {
 
 const AVAILABLE_EVENTS_PAGE_SIZE = 6;
 
+// EventsParticipantListScreen renders enrolled/available events and inscription actions.
 const EventsParticipantListScreen: React.FC = () => {
   // states
   const [loading, setLoading] = useState(true);
@@ -51,6 +63,7 @@ const EventsParticipantListScreen: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
 
+  // fetchDisponiblesFiltrados requests events using current filters and pagination.
   const fetchDisponiblesFiltrados = async () => {
     if (!user?.id) {
       setEventosInscritos([]);
@@ -191,7 +204,7 @@ const EventsParticipantListScreen: React.FC = () => {
     );
   }
 
-  // Handler to open inscription modal for a specific event
+  // handleOpenInscribirModal checks access/authentication before opening the form modal.
   const handleOpenInscribirModal = (evento: Evento) => {
     if (!canInscribir) return;
     if (!user?.id) {

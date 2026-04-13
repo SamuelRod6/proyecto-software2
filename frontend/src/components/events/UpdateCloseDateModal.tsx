@@ -1,3 +1,14 @@
+/*
+File: UpdateCloseDateModal.tsx
+
+Contains:
+Modal component to update event registration close date.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 import { useState, useEffect } from "react";
 //components
 import Modal from "../ui/Modal";
@@ -9,38 +20,49 @@ import { useToast } from "../../contexts/Toast/ToastContext";
 // APIs
 import { Evento } from "../../services/eventsServices";
 
+// UpdateCloseDateModalProps controls modal visibility and target event.
 interface UpdateCloseDateModalProps {
     open: boolean;
     onClose: () => void;
     event: Evento;
 }
 
+// UpdateCloseDateModal handles close-date updates for event inscriptions.
 export default function UpdateCloseDateModal({ open, onClose, event }: UpdateCloseDateModalProps) {
     const { showToast } = useToast();
     const [closeDate, setCloseDate] = useState<Date | undefined>(undefined);
     const [loading, setLoading] = useState(false);
 
-    // Save the original date to compare changes
+    // Keep original close date to detect whether user changed the value.
     const originalDate = parseDate(event.fecha_cierre_inscripcion);
 
-    // Helper for parse date string DD/MM/YYYY
+    // parseDate converts API date strings into Date objects.
     function parseDate(dateStr: string): Date | undefined {
         if (!dateStr) return undefined;
-        const [day, month, year] = dateStr.split("/");
-        return new Date(Number(year), Number(month) - 1, Number(day));
+        // Soporta formato DD/MM/YYYY HH:mm:ss
+        const [datePart, timePart] = dateStr.split(" ");
+        const [day, month, year] = datePart.split("/").map(Number);
+        let hours = 0, minutes = 0, seconds = 0;
+        if (timePart) {
+            const [h, m, s] = timePart.split(":").map(Number);
+            hours = h || 0;
+            minutes = m || 0;
+            seconds = s || 0;
+        }
+        return new Date(year, month - 1, day, hours, minutes, seconds);
     }
 
-    // Helper to format date to DD/MM/YYYY
+    // formatDate converts Date to local short date string for display.
     function formatDate(d: Date): string {
         return d.toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit", year: "numeric" });
     }
 
-    // Initialize current date
+    // Initialize picker value from incoming event when modal opens.
     useEffect(() => {
         if (open) setCloseDate(parseDate(event.fecha_cierre_inscripcion));
     }, [open, event.fecha_cierre_inscripcion]);
 
-    // Handle form submission
+    // handleSubmit validates close date and triggers update flow.
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!closeDate) {
@@ -80,7 +102,7 @@ export default function UpdateCloseDateModal({ open, onClose, event }: UpdateClo
         // }
     };
 
-    // Only enable change if date is different from original
+    // Enable submit only when selected value is different from original.
     const isChangeEnabled = !!closeDate && (!originalDate || closeDate.getTime() !== originalDate.getTime());
 
     return (

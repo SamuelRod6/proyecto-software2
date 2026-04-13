@@ -4,6 +4,8 @@ export const RESOURCE_KEYS = {
   INSCRIPTIONS_MANAGEMENT: "inscriptions.management",
   ROLE_MANAGEMENT: "roles.manage",
   PERMISSION_MANAGEMENT: "permissions.manage",
+  SCIENTIFIC_WORKS: "scientific.works",
+  SCIENTIFIC_WORKS_MANAGEMENT: "scientific.works.management",
 } as const;
 
 export type ResourceDefinition = {
@@ -37,5 +39,15 @@ export const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
     key: RESOURCE_KEYS.PERMISSION_MANAGEMENT,
     label: "Gestión de permisos y recursos",
     description: "Permite administrar permisos y asignarlos a recursos.",
+  },
+  {
+    key: RESOURCE_KEYS.SCIENTIFIC_WORKS,
+    label: "Trabajos cientificos",
+    description: "Permite a los ponentes registrar y actualizar sus trabajos científicos.",
+  },
+  {
+    key: RESOURCE_KEYS.SCIENTIFIC_WORKS_MANAGEMENT,
+    label: "Gestión de Trabajos Científicos",
+    description: "Permite gestionar revisión, asignación de revisores y decisión final de trabajos científicos.",
   },
 ];

@@ -1,3 +1,15 @@
+/*
+File: handler.go
+
+Contains:
+HTTP endpoint layer for the notifications module.
+It handles notification creation, listing, and read-state updates.
+
+Course: CI-4712 Ingeniería de Software II
+Term: Enero - Marzo 2026
+Designed by: Equipo 2 - Arcadian
+*/
+
 package handler
 
 import (
@@ -17,13 +29,14 @@ type Handler struct {
 	svc service.NotificationService
 }
 
+// New creates a notifications handler with repository and service dependencies.
 func New(client *db.PrismaClient) *Handler {
 	repository := repo.NewNotificationRepository(client)
 	svc := service.NewNotificationService(repository)
 	return &Handler{svc: svc}
 }
 
-// ServeHTTP enruta según el método y la URL
+// ServeHTTP routes requests by method and path.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodPost && r.URL.Path == "/api/notifications":
@@ -37,6 +50,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/*
+Endpoint: POST /api/notifications
+Creates a notification and returns the stored record.
+*/
 func (h *Handler) createNotification(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateNotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -53,6 +70,10 @@ func (h *Handler) createNotification(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(notification)
 }
 
+/*
+Endpoint: GET /api/notifications/user/{idUsuario}
+Lists notifications for one user.
+*/
 func (h *Handler) listNotificationsByUser(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 5 {
@@ -96,6 +117,10 @@ func (h *Handler) listNotificationsByUser(w http.ResponseWriter, r *http.Request
 	_ = json.NewEncoder(w).Encode(responses)
 }
 
+/*
+Endpoint: PATCH /api/notifications/{idNotificacion}
+Marks one notification as read or unread.
+*/
 func (h *Handler) markNotificationAsRead(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {

@@ -1,6 +1,8 @@
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/env";
 
+// roleServices centralizes HTTP calls used by role/permission management views.
+
 const apiBaseUrl = getApiBaseUrl();
 
 const api = axios.create({
@@ -9,6 +11,7 @@ const api = axios.create({
 
 const USER_KEY = "auth-user";
 
+// getRoleHeader serializes current user role names into the X-Role header.
 const getRoleHeader = (): string | null => {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem(USER_KEY);
@@ -69,6 +72,7 @@ export interface PermissionRow {
   resource?: string;
 }
 
+// getUsers returns paginated users with their role names.
 export async function getUsers(
   limit: number,
   offset: number,
@@ -86,6 +90,7 @@ export async function getUsers(
   }
 }
 
+// getRoles returns available roles for assignment and administration.
 export async function getRoles(): Promise<{ status: number; data: any }> {
   try {
     const response = await api.get("/api/roles");
@@ -98,6 +103,7 @@ export async function getRoles(): Promise<{ status: number; data: any }> {
   }
 }
 
+// createRole creates a role with optional description.
 export async function createRole(payload: {
   name: string;
   description?: string;
@@ -113,6 +119,7 @@ export async function createRole(payload: {
   }
 }
 
+// updateRole updates role metadata by role ID.
 export async function updateRole(
   roleId: number,
   payload: { name: string; description?: string },
@@ -128,6 +135,7 @@ export async function updateRole(
   }
 }
 
+// deleteRole removes a role by role ID.
 export async function deleteRole(
   roleId: number,
 ): Promise<{ status: number; data: any }> {
@@ -142,6 +150,7 @@ export async function deleteRole(
   }
 }
 
+// updateUserRoles updates the set of roles assigned to a specific user.
 export async function updateUserRoles(
   payload: UpdateUserRolesPayload,
 ): Promise<{ status: number; data: any }> {
@@ -161,6 +170,7 @@ export async function updateUserRoles(
   }
 }
 
+// getPermissions lists permissions used by resource access control.
 export async function getPermissions(): Promise<{ status: number; data: any }> {
   try {
     const response = await api.get("/api/permissions");
@@ -173,6 +183,7 @@ export async function getPermissions(): Promise<{ status: number; data: any }> {
   }
 }
 
+// createPermission creates a new permission-resource tuple.
 export async function createPermission(payload: {
   name: string;
   resource?: string;
@@ -188,6 +199,7 @@ export async function createPermission(payload: {
   }
 }
 
+// updatePermission updates an existing permission by ID.
 export async function updatePermission(
   permissionId: number,
   payload: { name: string; resource?: string },
@@ -203,6 +215,7 @@ export async function updatePermission(
   }
 }
 
+// deletePermission removes a permission by ID.
 export async function deletePermission(
   permissionId: number,
 ): Promise<{ status: number; data: any }> {
@@ -217,6 +230,7 @@ export async function deletePermission(
   }
 }
 
+// getResources lists configured resources that can be linked to permissions.
 export async function getResources(): Promise<{ status: number; data: any }> {
   try {
     const response = await api.get("/api/resources");
@@ -229,6 +243,7 @@ export async function getResources(): Promise<{ status: number; data: any }> {
   }
 }
 
+// getRolePermissions lists permissions currently linked to a role.
 export async function getRolePermissions(
   roleId: number,
 ): Promise<{ status: number; data: any }> {
@@ -243,6 +258,7 @@ export async function getRolePermissions(
   }
 }
 
+// updateRolePermissions replaces permission links for a role.
 export async function updateRolePermissions(
   roleId: number,
   permissionIds: number[],
